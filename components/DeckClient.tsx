@@ -8,7 +8,7 @@ import {
   Upload,
   RefreshCw,
 } from "lucide-react";
-import { formatBytes, type DeckFile } from "@/lib/deck";
+import { formatBytes, type DeckFile } from "@/lib/deck-shared";
 
 interface Props {
   initialFiles: DeckFile[];

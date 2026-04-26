@@ -3,6 +3,7 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { userSlug } from "./skills";
+import { formatBytes, type DeckFile } from "./deck-shared";
 
 /**
  * Per-user persistent file storage. Mounted into chat workspaces at ./deck/
@@ -17,11 +18,7 @@ import { userSlug } from "./skills";
  * .env.production by scripts/provision-server.sh).
  */
 
-export interface DeckFile {
-  name: string;
-  size: number;
-  modified: string; // ISO 8601
-}
+export { formatBytes, type DeckFile };
 
 const DEFAULT_MAX_BYTES = 50 * 1024 * 1024; // 50 MB
 
@@ -153,9 +150,3 @@ export async function deleteDeckFile(
   await fsp.unlink(target);
 }
 
-export function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
-  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
-}
