@@ -182,10 +182,12 @@ export default function Chat({ skills }: Props) {
   const [pinned, setPinned] = useState(true);
   const [activeSelection, setActiveSelection] =
     useState<ActiveSelection | null>(null);
+  const [slashIndex, setSlashIndex] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const stickToBottomRef = useRef(true);
   const prevMessageCountRef = useRef(0);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     const raw =
@@ -245,6 +247,49 @@ export default function Chat({ skills }: Props) {
     () => skills.filter((s) => selected.has(s.slug)),
     [skills, selected],
   );
+
+  // Slash-command picker: when the textarea content is just "/<word>",
+  // surface installed skills whose name/slug matches.
+  const slashQuery = useMemo<string | null>(() => {
+    const m = input.match(/^\s*\/([\w-]*)$/);
+    return m ? m[1] : null;
+  }, [input]);
+
+  const slashMatches = useMemo(() => {
+    if (slashQuery === null) return [];
+    const q = slashQuery.toLowerCase();
+    if (!q) return skills.slice(0, 8);
+    const score = (s: Skill) => {
+      const name = s.name.toLowerCase();
+      if (name === q) return 0;
+      if (name.startsWith(q)) return 1;
+      if (s.slug.toLowerCase().startsWith(q)) return 2;
+      if (name.includes(q)) return 3;
+      return 4;
+    };
+    return skills
+      .map((s) => [score(s), s] as const)
+      .filter(([k]) => k < 4 || skills.length < 5)
+      .sort(([a], [b]) => a - b)
+      .map(([, s]) => s)
+      .slice(0, 8);
+  }, [skills, slashQuery]);
+
+  const slashOpen = slashQuery !== null && slashMatches.length > 0;
+
+  useEffect(() => {
+    setSlashIndex(0);
+  }, [slashQuery, slashMatches.length]);
+
+  const pickSkill = (skill: Skill) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.add(skill.slug);
+      return next;
+    });
+    setInput("");
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
 
   const toggleSkill = (slug: string) => {
     setSelected((prev) => {
@@ -738,6 +783,31 @@ export default function Chat({ skills }: Props) {
   };
 
   const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (slashOpen) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSlashIndex((i) => (i + 1) % slashMatches.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSlashIndex(
+          (i) => (i - 1 + slashMatches.length) % slashMatches.length,
+        );
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        const pick = slashMatches[slashIndex];
+        if (pick) pickSkill(pick);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setInput("");
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send();
@@ -863,8 +933,17 @@ export default function Chat({ skills }: Props) {
               {error}
             </div>
           )}
-          <div className="flex items-end gap-3">
+          <div className="relative flex items-end gap-3">
+            {slashOpen && (
+              <SlashSuggestions
+                matches={slashMatches}
+                activeIndex={slashIndex}
+                onPick={pickSkill}
+                onHover={setSlashIndex}
+              />
+            )}
             <textarea
+              ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKey}
@@ -873,7 +952,7 @@ export default function Chat({ skills }: Props) {
                   ? `Ask with ${selectedSkills.length} skill${
                       selectedSkills.length === 1 ? "" : "s"
                     } active…`
-                  : "Ask anything… (Shift+Enter for newline)"
+                  : "Ask anything… (type / to pick a skill, Shift+Enter for newline)"
               }
               rows={2}
               className="flex-1 resize-none border border-rule bg-paper px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-ink focus:outline-none"
@@ -918,6 +997,65 @@ export default function Chat({ skills }: Props) {
           streaming={streaming}
         />
       )}
+    </div>
+  );
+}
+
+function SlashSuggestions({
+  matches,
+  activeIndex,
+  onPick,
+  onHover,
+}: {
+  matches: Skill[];
+  activeIndex: number;
+  onPick: (s: Skill) => void;
+  onHover: (i: number) => void;
+}) {
+  return (
+    <div className="absolute bottom-full left-0 right-0 mb-2 max-h-64 overflow-y-auto border border-rule bg-paper shadow-md">
+      <div className="border-b border-rule px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-muted">
+        Skills
+      </div>
+      <ul role="listbox">
+        {matches.map((s, i) => {
+          const active = i === activeIndex;
+          return (
+            <li
+              key={s.slug}
+              role="option"
+              aria-selected={active}
+              onMouseEnter={() => onHover(i)}
+              onMouseDown={(e) => {
+                // mousedown so the textarea doesn't lose focus before click fires
+                e.preventDefault();
+                onPick(s);
+              }}
+              className={`flex cursor-pointer items-start gap-3 px-3 py-2 ${
+                active ? "bg-ink/5" : ""
+              }`}
+            >
+              <span className="mt-0.5 font-mono text-xs text-muted">/</span>
+              <span className="flex-1 min-w-0">
+                <span className="block truncate font-mono text-sm text-ink">
+                  {s.name}
+                </span>
+                {s.description && (
+                  <span className="mt-0.5 line-clamp-2 text-xs text-muted">
+                    {s.description}
+                  </span>
+                )}
+              </span>
+              <span className="ml-2 shrink-0 text-[10px] uppercase tracking-wider text-muted">
+                {s.sourceLabel}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="border-t border-rule px-3 py-1.5 text-[10px] text-muted">
+        ↑↓ to move · Enter / Tab to select · Esc to cancel
+      </div>
     </div>
   );
 }
