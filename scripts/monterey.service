@@ -1,0 +1,21 @@
+[Unit]
+Description=Monterey chatbot (Next.js)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/agent-monterey
+EnvironmentFile=/home/ubuntu/agent-monterey/.env.production
+# Claude CLI is a global npm; ensure /usr/bin and user-local are on PATH.
+Environment=PATH=/home/ubuntu/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=NODE_OPTIONS=--max-old-space-size=384
+ExecStart=/usr/bin/npm run start --silent
+Restart=on-failure
+RestartSec=5
+# Limit resource leaks if the CLI subprocess gets stuck.
+TimeoutStopSec=30
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target
