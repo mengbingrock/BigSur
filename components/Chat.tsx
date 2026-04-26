@@ -26,6 +26,7 @@ import {
   formatResult,
   makeId,
   type ActivityItem,
+  type AskUserAnswer,
   type ChatMsg,
   type SessionInfo,
   type SkillSnapshot,
@@ -297,12 +298,8 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
     });
   };
 
-  const send = async () => {
-    const text = input.trim();
-    if (!text || streaming) return;
-    setInput("");
-
-    const snapshot: SkillSnapshot[] = selectedSkills.map((s) => ({
+  const buildSkillSnapshot = (): SkillSnapshot[] =>
+    selectedSkills.map((s) => ({
       slug: s.slug,
       name: s.name,
       description: s.description,
@@ -311,10 +308,30 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
       bodyChars: s.body.length,
     }));
 
+  const onAnswerAskUserQuestion = async (
+    messageId: string,
+    toolUseId: string,
+    answers: AskUserAnswer[],
+  ) => {
+    if (streaming) return;
+    await chatStore.submitAskUserAnswer(
+      messageId,
+      toolUseId,
+      answers,
+      Array.from(selected),
+      buildSkillSnapshot(),
+    );
+  };
+
+  const send = async () => {
+    const text = input.trim();
+    if (!text || streaming) return;
+    setInput("");
+
     await chatStore.send({
       text,
       skillSlugs: Array.from(selected),
-      snapshot,
+      snapshot: buildSkillSnapshot(),
     });
   };
 
@@ -463,6 +480,8 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
                   msg={m}
                   onMouseUp={handleMouseUp}
                   onUndoEdit={undoEdit}
+                  onAnswerAskUserQuestion={onAnswerAskUserQuestion}
+                  streaming={streaming}
                   selected={activeSelection?.messageId === m.id}
                 />
               ))}
@@ -800,11 +819,19 @@ function MessageBubble({
   msg,
   onMouseUp,
   onUndoEdit,
+  onAnswerAskUserQuestion,
+  streaming,
   selected,
 }: {
   msg: ChatMsg;
   onMouseUp: (id: string, content: string) => void;
   onUndoEdit: (id: string) => void;
+  onAnswerAskUserQuestion: (
+    messageId: string,
+    toolUseId: string,
+    answers: AskUserAnswer[],
+  ) => Promise<void>;
+  streaming: boolean;
   selected: boolean;
 }) {
   if (msg.role === "user") {
@@ -820,6 +847,17 @@ function MessageBubble({
 
   const editable = !msg.pending && !msg.errored && Boolean(msg.content);
   const editCount = msg.edits?.length ?? 0;
+
+  // AskUserQuestion tool calls get a prominent interactive card instead of
+  // being buried inside the activity panel.
+  const askUserItems = (msg.activity ?? []).filter(
+    (a): a is Extract<ActivityItem, { kind: "tool" }> =>
+      a.kind === "tool" && a.name === "AskUserQuestion",
+  );
+  const showAsErrored =
+    msg.errored && askUserItems.length === 0; // suppress error UI when we have an interactive card
+  const showThinkingPlaceholder =
+    msg.pending && !msg.content && askUserItems.length === 0;
 
   return (
     <div className="flex flex-col gap-3">
@@ -846,17 +884,17 @@ function MessageBubble({
           loadedSkills={msg.loadedSkills ?? []}
         />
       )}
-      {msg.errored ? (
+      {showAsErrored ? (
         <div className="border border-rule bg-ink/5 p-4 text-sm text-ink">
           <p className="font-medium">Error</p>
           <p className="mt-1 text-muted">{msg.content}</p>
         </div>
-      ) : msg.pending && !msg.content ? (
+      ) : showThinkingPlaceholder ? (
         <div className="flex items-center gap-2 text-sm text-muted">
           <Loader2 size={14} className="animate-spin" />
           Thinking…
         </div>
-      ) : (
+      ) : msg.content ? (
         <div
           onMouseUp={editable ? () => onMouseUp(msg.id, msg.content) : undefined}
           className={
@@ -867,7 +905,18 @@ function MessageBubble({
         >
           <Markdown>{msg.content}</Markdown>
         </div>
-      )}
+      ) : null}
+      {askUserItems.map((tool) => (
+        <AskUserQuestionBlock
+          key={tool.id}
+          tool={tool}
+          existingAnswers={msg.askUserAnswers?.[tool.id]}
+          disabled={streaming}
+          onSubmit={(answers) =>
+            onAnswerAskUserQuestion(msg.id, tool.id, answers)
+          }
+        />
+      ))}
     </div>
   );
 }
@@ -884,10 +933,12 @@ function ActivityPanel({
   loadedSkills: SkillSnapshot[];
 }) {
   const [open, setOpen] = useState(false);
-  const tools = activity.filter((a) => a.kind === "tool") as Extract<
-    ActivityItem,
-    { kind: "tool" }
-  >[];
+  const tools = (
+    activity.filter((a) => a.kind === "tool") as Extract<
+      ActivityItem,
+      { kind: "tool" }
+    >[]
+  ).filter((t) => t.name !== "AskUserQuestion");
   const thoughts = activity.filter((a) => a.kind === "thinking") as Extract<
     ActivityItem,
     { kind: "thinking" }
@@ -1136,6 +1187,219 @@ function ToolBlock({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+interface AskUserOption {
+  label: string;
+  description?: string;
+}
+
+interface AskUserQuestionInput {
+  question: string;
+  header?: string;
+  options: AskUserOption[];
+  multiSelect: boolean;
+}
+
+/**
+ * Best-effort parse of the AskUserQuestion tool's input. The model could
+ * mis-emit, so we tolerate missing fields and return null when the shape
+ * is unrecoverable (caller falls back to the generic ToolBlock view).
+ */
+function parseAskUserInput(input: unknown): AskUserQuestionInput[] | null {
+  if (!input || typeof input !== "object") return null;
+  const obj = input as Record<string, unknown>;
+  const arr = obj.questions;
+  if (!Array.isArray(arr)) return null;
+  const out: AskUserQuestionInput[] = [];
+  for (const q of arr) {
+    if (!q || typeof q !== "object") continue;
+    const r = q as Record<string, unknown>;
+    if (typeof r.question !== "string" || !Array.isArray(r.options)) continue;
+    const options: AskUserOption[] = [];
+    for (const o of r.options) {
+      if (!o || typeof o !== "object") continue;
+      const ro = o as Record<string, unknown>;
+      if (typeof ro.label !== "string") continue;
+      options.push({
+        label: ro.label,
+        description:
+          typeof ro.description === "string" ? ro.description : undefined,
+      });
+    }
+    if (options.length === 0) continue;
+    out.push({
+      question: r.question,
+      header: typeof r.header === "string" ? r.header : undefined,
+      options,
+      multiSelect: Boolean(r.multiSelect),
+    });
+  }
+  return out.length > 0 ? out : null;
+}
+
+function AskUserQuestionBlock({
+  tool,
+  existingAnswers,
+  disabled,
+  onSubmit,
+}: {
+  tool: Extract<ActivityItem, { kind: "tool" }>;
+  existingAnswers: AskUserAnswer[] | undefined;
+  disabled: boolean;
+  onSubmit: (answers: AskUserAnswer[]) => Promise<void>;
+}) {
+  const parsed = useMemo(() => parseAskUserInput(tool.input), [tool.input]);
+  // One state slot per question. Single → string | null; multi → string[].
+  const [picks, setPicks] = useState<(string | string[] | null)[]>(() =>
+    parsed ? parsed.map((q) => (q.multiSelect ? [] : null)) : [],
+  );
+  const [submitting, setSubmitting] = useState(false);
+
+  // Tool input streams in via partial JSON deltas; resync local picks once
+  // the parsed shape stabilizes (questions count changed → reset).
+  useEffect(() => {
+    if (!parsed) return;
+    setPicks((prev) => {
+      if (prev.length === parsed.length) return prev;
+      return parsed.map((q) => (q.multiSelect ? [] : null));
+    });
+  }, [parsed]);
+
+  if (!parsed) {
+    return (
+      <div className="border border-rule p-3 text-xs text-muted">
+        <p className="font-medium text-ink">Question (still streaming…)</p>
+        <pre className="mt-1 overflow-auto whitespace-pre-wrap font-mono text-[11px]">
+          {tool.inputRaw || "(empty)"}
+        </pre>
+      </div>
+    );
+  }
+
+  // Already answered → show the user's picks as a resolved card.
+  if (existingAnswers && existingAnswers.length > 0) {
+    return (
+      <div className="border border-rule bg-ink/[0.02] p-4">
+        <p className="mb-3 inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.18em] text-muted">
+          <CheckCircle2 size={12} />
+          Answered
+        </p>
+        <ul className="flex flex-col gap-2 text-sm">
+          {existingAnswers.map((a, i) => (
+            <li key={i}>
+              <p className="text-muted">{a.question}</p>
+              <p className="mt-0.5 font-mono text-[13px] text-ink">
+                {Array.isArray(a.answer) ? a.answer.join(", ") : a.answer}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  const allAnswered = parsed.every((q, i) => {
+    const pick = picks[i];
+    if (q.multiSelect)
+      return Array.isArray(pick) && pick.length > 0;
+    return typeof pick === "string" && pick.length > 0;
+  });
+
+  async function submit() {
+    if (!parsed) return;
+    setSubmitting(true);
+    try {
+      const answers: AskUserAnswer[] = parsed.map((q, i) => ({
+        question: q.question,
+        answer: q.multiSelect ? ((picks[i] as string[] | null) ?? []) : ((picks[i] as string | null) ?? ""),
+      }));
+      await onSubmit(answers);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4 border border-ink bg-paper p-4">
+      <p className="text-xs uppercase tracking-[0.18em] text-muted">
+        I need a few details
+      </p>
+      {parsed.map((q, qi) => {
+        const pick = picks[qi];
+        return (
+          <div key={qi} className="flex flex-col gap-2">
+            <p className="text-sm font-medium text-ink">{q.question}</p>
+            <ul className="flex flex-col gap-1">
+              {q.options.map((opt) => {
+                const checked = q.multiSelect
+                  ? Array.isArray(pick) && pick.includes(opt.label)
+                  : pick === opt.label;
+                const toggle = () => {
+                  setPicks((prev) => {
+                    const next = [...prev];
+                    if (q.multiSelect) {
+                      const arr = Array.isArray(next[qi]) ? [...(next[qi] as string[])] : [];
+                      const idx = arr.indexOf(opt.label);
+                      if (idx >= 0) arr.splice(idx, 1);
+                      else arr.push(opt.label);
+                      next[qi] = arr;
+                    } else {
+                      next[qi] = opt.label;
+                    }
+                    return next;
+                  });
+                };
+                return (
+                  <li key={opt.label}>
+                    <label
+                      className={`flex cursor-pointer items-start gap-2 rounded-sm border px-3 py-2 transition ${
+                        checked
+                          ? "border-ink bg-ink/5"
+                          : "border-rule hover:border-ink"
+                      } ${disabled || submitting ? "opacity-60" : ""}`}
+                    >
+                      <input
+                        type={q.multiSelect ? "checkbox" : "radio"}
+                        name={`aq-${tool.id}-${qi}`}
+                        checked={checked}
+                        disabled={disabled || submitting}
+                        onChange={toggle}
+                        className="mt-1 h-3.5 w-3.5 accent-ink"
+                      />
+                      <span className="flex-1">
+                        <span className="block text-sm text-ink">
+                          {opt.label}
+                        </span>
+                        {opt.description && (
+                          <span className="mt-0.5 block text-xs text-muted">
+                            {opt.description}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
+      <div className="flex items-center justify-end border-t border-rule pt-3">
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!allAnswered || disabled || submitting}
+          className="inline-flex items-center gap-2 border border-ink bg-ink px-4 py-2 text-sm font-medium text-paper transition hover:bg-paper hover:text-ink disabled:cursor-not-allowed disabled:border-rule disabled:bg-paper disabled:text-muted"
+        >
+          {submitting ? (
+            <Loader2 size={13} className="animate-spin" />
+          ) : null}
+          {submitting ? "Sending…" : "Send answers"}
+        </button>
+      </div>
     </div>
   );
 }

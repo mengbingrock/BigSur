@@ -54,6 +54,13 @@ export interface EditSnapshot {
   instruction: string;
 }
 
+/** One answered question from an AskUserQuestion tool call. */
+export interface AskUserAnswer {
+  question: string;
+  /** string for single-select, string[] for multiSelect. */
+  answer: string | string[];
+}
+
 export interface ChatMsg {
   id: string;
   role: "user" | "assistant";
@@ -64,6 +71,13 @@ export interface ChatMsg {
   stats?: Stats;
   loadedSkills?: SkillSnapshot[];
   edits?: EditSnapshot[];
+  /**
+   * Per-tool-use-id record of the user's picks for AskUserQuestion calls
+   * inside this assistant message. Keyed by tool_use_id so we know which
+   * card has already been answered when the message is re-rendered after
+   * navigation/reload.
+   */
+  askUserAnswers?: Record<string, AskUserAnswer[]>;
 }
 
 export interface SessionInfo {
@@ -146,6 +160,10 @@ function readPersistedMessages(): ChatMsg[] {
           ? (m.loadedSkills as SkillSnapshot[])
           : undefined,
         edits: Array.isArray(m.edits) ? (m.edits as EditSnapshot[]) : undefined,
+        askUserAnswers:
+          m.askUserAnswers && typeof m.askUserAnswers === "object"
+            ? (m.askUserAnswers as Record<string, AskUserAnswer[]>)
+            : undefined,
         // activity intentionally dropped on persist
       }));
   } catch {
@@ -164,6 +182,7 @@ function persistMessages(messages: ChatMsg[]): void {
       stats: m.stats,
       loadedSkills: m.loadedSkills,
       edits: m.edits,
+      askUserAnswers: m.askUserAnswers,
     }));
     window.localStorage.setItem(HISTORY_KEY, JSON.stringify(slim));
   } catch {
@@ -309,6 +328,39 @@ class ChatStore {
     };
     this.notify();
     persistMessages(this.state.messages);
+  };
+
+  /**
+   * Record the user's answers to an AskUserQuestion tool call and send them
+   * as the next chat turn. The answer text is formatted so the model can
+   * pick up where it left off.
+   */
+  submitAskUserAnswer = async (
+    messageId: string,
+    toolUseId: string,
+    answers: AskUserAnswer[],
+    skillSlugs: string[],
+    snapshot: SkillSnapshot[],
+  ): Promise<void> => {
+    if (this.state.streaming) return;
+    this.mutateMessage(messageId, (m) => ({
+      ...m,
+      askUserAnswers: {
+        ...(m.askUserAnswers ?? {}),
+        [toolUseId]: answers,
+      },
+    }));
+    persistMessages(this.state.messages);
+
+    const lines = answers.map((a) => {
+      const ans = Array.isArray(a.answer) ? a.answer.join(", ") : a.answer;
+      return `- ${a.question} → ${ans}`;
+    });
+    const text =
+      `Here are my answers to the questions you just asked:\n${lines.join("\n")}\n\n` +
+      `Please continue from this.`;
+
+    await this.send({ text, skillSlugs, snapshot });
   };
 
   send = async (opts: SendOptions): Promise<void> => {
