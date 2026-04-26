@@ -389,6 +389,63 @@ export function createSkill(input: SkillUpdate, email: string): Skill {
   return created;
 }
 
+/**
+ * Copy a non-user skill (public or plugin) into the caller's own folder so
+ * they can edit it. The whole source directory is duplicated, preserving
+ * helper files (scripts, README, assets). On a name collision in the
+ * caller's folder, the target dir is auto-suffixed with `-copy`,
+ * `-copy-2`, etc.
+ */
+export function importSkill(slug: string, email: string): Skill {
+  const source = getAllSkills(email).find((s) => s.slug === slug);
+  if (!source) {
+    const err = new Error("Source skill not found.");
+    (err as Error & { code: string }).code = "NOT_FOUND";
+    throw err;
+  }
+  if (source.source.kind === "user") {
+    const err = new Error(
+      "This skill is already in your own folder; nothing to import.",
+    );
+    (err as Error & { code: string }).code = "INVALID";
+    throw err;
+  }
+
+  const userRoot = getRoots().find((r) => r.kind === "user");
+  if (!userRoot) {
+    const err = new Error("No user-source skills root is configured.");
+    (err as Error & { code: string }).code = "NO_ROOT";
+    throw err;
+  }
+
+  const ownFolder = scopedRootPath(userRoot, email);
+  fs.mkdirSync(ownFolder, { recursive: true });
+
+  const baseName = path.basename(source.sourcePath);
+  let targetName = baseName;
+  for (let attempt = 1; attempt <= 50; attempt++) {
+    if (!fs.existsSync(path.join(ownFolder, targetName))) break;
+    targetName = attempt === 1 ? `${baseName}-copy` : `${baseName}-copy-${attempt}`;
+    if (attempt === 50) {
+      const err = new Error(
+        `You already have 50+ copies of "${source.name}". Delete one first.`,
+      );
+      (err as Error & { code: string }).code = "CONFLICT";
+      throw err;
+    }
+  }
+
+  const targetDir = path.join(ownFolder, targetName);
+  fs.cpSync(source.sourcePath, targetDir, { recursive: true });
+
+  const realDir = fs.realpathSync(targetDir);
+  const created =
+    getAllSkills(email).find((s) => s.sourcePath === realDir) ??
+    getAllSkills(email).find((s) => s.sourcePath === targetDir);
+  if (!created) throw new Error("Failed to read imported skill.");
+  return created;
+}
+
 export function deleteSkill(slug: string, email: string): void {
   const existing = getSkillBySlug(slug, email);
   if (!existing) {
