@@ -18,6 +18,7 @@ import {
   Pencil,
   X,
   Undo2,
+  Trash2,
 } from "lucide-react";
 import type { Skill } from "@/lib/types";
 import type { DeckFile } from "@/lib/deck-shared";
@@ -437,6 +438,13 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
         <SessionHeader
           session={session}
           selectedSkills={selectedSkills}
+          hasMessages={messages.length > 0}
+          streaming={streaming}
+          onClear={() => {
+            if (streaming) return;
+            if (!confirm("Clear the chat? Your deck files are not affected.")) return;
+            chatStore.clear();
+          }}
         />
 
         <div className="relative flex-1 min-h-0">
@@ -774,9 +782,15 @@ function EditPopover({
 function SessionHeader({
   session,
   selectedSkills,
+  hasMessages,
+  streaming,
+  onClear,
 }: {
   session: SessionInfo | null;
   selectedSkills: Skill[];
+  hasMessages: boolean;
+  streaming: boolean;
+  onClear: () => void;
 }) {
   const skillCount = selectedSkills.length;
   return (
@@ -795,6 +809,18 @@ function SessionHeader({
           <span className="truncate font-mono text-[10px] normal-case tracking-normal">
             sess {session.session_id.slice(0, 8)}
           </span>
+        )}
+        {hasMessages && (
+          <button
+            type="button"
+            onClick={onClear}
+            disabled={streaming}
+            title="Clear the chat history (your deck files are unaffected)"
+            className="ml-auto inline-flex items-center gap-1 normal-case tracking-normal text-muted underline underline-offset-2 transition hover:text-ink disabled:no-underline disabled:opacity-50"
+          >
+            <Trash2 size={11} />
+            Clear chat
+          </button>
         )}
       </div>
       {skillCount > 0 && (
