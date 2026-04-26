@@ -181,6 +181,27 @@ class ChatStore {
   private listeners = new Set<() => void>();
   private abort: AbortController | null = null;
   private hydrated = false;
+  /**
+   * Set to true when the browser is about to unload (refresh, navigation
+   * to a different origin, tab close). Used in the fetch catch block to
+   * distinguish a browser-killed request (TypeError: Failed to fetch) from
+   * a genuine network failure so we don't surface a red error banner that
+   * survives across the reload via localStorage.
+   */
+  private isUnloading = false;
+
+  constructor() {
+    if (typeof window === "undefined") return;
+    const onUnload = () => {
+      this.isUnloading = true;
+      // Abort proactively so the in-flight fetch's catch sees AbortError
+      // synchronously (otherwise the browser kills the network call and the
+      // promise rejects with TypeError after we've already lost control).
+      this.abort?.abort();
+    };
+    window.addEventListener("beforeunload", onUnload);
+    window.addEventListener("pagehide", onUnload);
+  }
 
   /**
    * Hydrate from localStorage on first read in the browser. Lazy so the
@@ -244,6 +265,19 @@ class ChatStore {
 
   setError(error: string | null) {
     this.setState({ error });
+  }
+
+  /**
+   * True if a fetch failure is a cancellation rather than a genuine error.
+   * Covers the explicit cancel() (AbortError) and the page-unload case
+   * where the browser kills the in-flight request — that surfaces as a
+   * TypeError("Failed to fetch") which we shouldn't show to the user
+   * after they refresh.
+   */
+  private wasCancelled(err: unknown): boolean {
+    if (this.isUnloading) return true;
+    if (err instanceof Error && err.name === "AbortError") return true;
+    return false;
   }
 
   cancel = () => {
@@ -315,7 +349,7 @@ class ChatStore {
       }
       await this.consumeStream(res.body, assistantMsg.id);
     } catch (err) {
-      if ((err as Error).name === "AbortError") {
+      if (this.wasCancelled(err)) {
         this.mutateMessage(assistantMsg.id, (m) => ({
           ...m,
           pending: false,
@@ -402,10 +436,10 @@ class ChatStore {
         ],
       }));
     } catch (err) {
-      if ((err as Error).name === "AbortError") {
-        this.mutateMessage(messageId, (m) => ({ ...m, content: fullMessage }));
-      } else {
-        this.mutateMessage(messageId, (m) => ({ ...m, content: fullMessage }));
+      // Either path restores the original message text; only a *real* error
+      // also surfaces a red banner. Refresh-time aborts go silent.
+      this.mutateMessage(messageId, (m) => ({ ...m, content: fullMessage }));
+      if (!this.wasCancelled(err)) {
         this.setError(err instanceof Error ? err.message : "Edit failed.");
       }
     } finally {
