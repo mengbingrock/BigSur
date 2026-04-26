@@ -244,6 +244,66 @@ export function saveSkill(slug: string, update: SkillUpdate): Skill {
   return refreshed;
 }
 
+function dirSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+export function createSkill(input: SkillUpdate): Skill {
+  const trimmedName = input.name.trim();
+  if (!trimmedName) {
+    const err = new Error("name is required.");
+    (err as Error & { code: string }).code = "INVALID";
+    throw err;
+  }
+  const dirName = dirSlug(trimmedName);
+  if (!dirName) {
+    const err = new Error("name must contain at least one alphanumeric character.");
+    (err as Error & { code: string }).code = "INVALID";
+    throw err;
+  }
+
+  const userRoot = getRoots().find((r) => r.kind === "user");
+  if (!userRoot) {
+    const err = new Error(
+      "No user-source skills root is configured. Set SKILLS_ROOTS to include " +
+        "at least one path without 'plugins'/'marketplaces' in the name.",
+    );
+    (err as Error & { code: string }).code = "NO_ROOT";
+    throw err;
+  }
+
+  fs.mkdirSync(userRoot.path, { recursive: true });
+  const targetDir = path.join(userRoot.path, dirName);
+  if (fs.existsSync(targetDir)) {
+    const err = new Error(
+      `A skill directory already exists at ${targetDir}. ` +
+        "Pick a different name or edit the existing skill.",
+    );
+    (err as Error & { code: string }).code = "CONFLICT";
+    throw err;
+  }
+
+  fs.mkdirSync(targetDir);
+  const file = path.join(targetDir, "SKILL.md");
+
+  const data: Record<string, unknown> = {
+    name: trimmedName,
+    description: input.description.trim(),
+  };
+  if (input.allowedTools.length > 0) data["allowed-tools"] = input.allowedTools;
+  if (input.license) data.license = input.license;
+
+  const content = matter.stringify(input.body.replace(/\s*$/, "") + "\n", data);
+  fs.writeFileSync(file, content, "utf8");
+
+  const realDir = fs.realpathSync(targetDir);
+  const created =
+    getAllSkills().find((s) => s.sourcePath === realDir) ??
+    getAllSkills().find((s) => s.sourcePath === targetDir);
+  if (!created) throw new Error("Failed to read newly created skill.");
+  return created;
+}
+
 export function deleteSkill(slug: string): void {
   const existing = getSkillBySlug(slug);
   if (!existing) {

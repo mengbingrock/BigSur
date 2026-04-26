@@ -24,7 +24,7 @@ export default async function SkillDetailPage({ params }: Props) {
   const skill = getSkillBySlug(params.slug);
   if (!skill) notFound();
   const user = await getCurrentUser();
-  const canEdit = Boolean(user?.isAdmin) && skill.source.kind === "user";
+  const canEdit = Boolean(user) && skill.source.kind === "user";
 
   return (
     <article className="mx-auto max-w-3xl px-6 pb-24 pt-12">

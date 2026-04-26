@@ -12,9 +12,11 @@ interface Props {
 export const metadata = { title: "Edit skill — Monterey" };
 
 export default async function SkillEditPage({ params }: Props) {
+  // Middleware enforces login on /skills/:path*. Any signed-in user can edit
+  // user-source skills; plugin-source skills fall through to the read-only
+  // message below.
   const user = await getCurrentUser();
   if (!user) redirect(`/login?next=/skills/${params.slug}/edit`);
-  if (!user.isAdmin) redirect(`/skills/${params.slug}`);
 
   const skill = getSkillBySlug(params.slug);
   if (!skill) notFound();

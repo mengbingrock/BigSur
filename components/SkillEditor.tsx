@@ -3,47 +3,62 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import type { Skill } from "@/lib/types";
 
 interface Props {
-  skill: Skill;
+  /** Existing skill to edit. Omit (along with mode='create') to create a new one. */
+  skill?: Skill;
+  mode?: "edit" | "create";
 }
 
-export default function SkillEditor({ skill }: Props) {
+export default function SkillEditor({ skill, mode = "edit" }: Props) {
+  const isCreate = mode === "create" || !skill;
   const router = useRouter();
-  const [name, setName] = useState(skill.name);
-  const [description, setDescription] = useState(skill.description);
-  const [allowedTools, setAllowedTools] = useState(skill.allowedTools.join(", "));
-  const [body, setBody] = useState(skill.body);
+  const [name, setName] = useState(skill?.name ?? "");
+  const [description, setDescription] = useState(skill?.description ?? "");
+  const [allowedTools, setAllowedTools] = useState(
+    skill?.allowedTools.join(", ") ?? "",
+  );
+  const [body, setBody] = useState(
+    skill?.body ?? "# New skill\n\nDescribe how the agent should use this skill.\n",
+  );
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const cancelHref = skill ? `/skills/${skill.slug}` : "/skills";
 
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSaving(true);
     try {
-      const res = await fetch(`/api/skills/${skill.slug}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          description,
-          allowedTools: allowedTools
-            .split(/[\n,]/)
-            .map((s) => s.trim())
-            .filter(Boolean),
-          license: skill.license,
-          body,
-        }),
-      });
+      const payload = {
+        name,
+        description,
+        allowedTools: allowedTools
+          .split(/[\n,]/)
+          .map((s) => s.trim())
+          .filter(Boolean),
+        license: skill?.license,
+        body,
+      };
+      const res = isCreate
+        ? await fetch(`/api/skills`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+        : await fetch(`/api/skills/${skill!.slug}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
       const data = (await res.json()) as { skill?: Skill; error?: string };
       if (!res.ok || !data.skill) {
         throw new Error(data.error ?? `Save failed (HTTP ${res.status})`);
       }
-      // Slug may have shifted if the user renamed.
       router.push(`/skills/${data.skill.slug}`);
       router.refresh();
     } catch (err) {
@@ -54,6 +69,7 @@ export default function SkillEditor({ skill }: Props) {
   }
 
   async function onDelete() {
+    if (!skill) return;
     if (!confirm(`Delete skill "${skill.name}"? This removes ${skill.sourcePath}.`)) return;
     setError(null);
     setDeleting(true);
@@ -77,29 +93,43 @@ export default function SkillEditor({ skill }: Props) {
     <form onSubmit={onSave} className="mx-auto max-w-3xl px-6 pb-24 pt-12">
       <div className="flex items-center justify-between gap-3">
         <Link
-          href={`/skills/${skill.slug}`}
+          href={cancelHref}
           className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted transition hover:text-ink"
         >
           <ArrowLeft size={14} />
           Back
         </Link>
-        <button
-          type="button"
-          onClick={onDelete}
-          disabled={busy}
-          className="inline-flex items-center gap-2 border border-rule px-3 py-1.5 text-xs font-medium text-muted transition hover:border-ink hover:text-ink disabled:opacity-50"
-        >
-          <Trash2 size={13} />
-          Delete
-        </button>
+        {!isCreate && (
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={busy}
+            className="inline-flex items-center gap-2 border border-rule px-3 py-1.5 text-xs font-medium text-muted transition hover:border-ink hover:text-ink disabled:opacity-50"
+          >
+            <Trash2 size={13} />
+            Delete
+          </button>
+        )}
       </div>
 
       <header className="mt-8 border-b border-rule pb-6">
-        <p className="mb-2 text-xs uppercase tracking-[0.22em] text-muted">Edit skill</p>
+        <p className="mb-2 text-xs uppercase tracking-[0.22em] text-muted">
+          {isCreate ? "Create skill" : "Edit skill"}
+        </p>
         <h1 className="font-serif text-3xl leading-tight tracking-tight text-ink">
-          {skill.name}
+          {isCreate ? (name.trim() || "New skill") : skill!.name}
         </h1>
-        <p className="mt-2 font-mono text-xs text-muted">{skill.sourcePath}/SKILL.md</p>
+        {!isCreate && (
+          <p className="mt-2 font-mono text-xs text-muted">
+            {skill!.sourcePath}/SKILL.md
+          </p>
+        )}
+        {isCreate && (
+          <p className="mt-2 text-xs text-muted">
+            A new directory will be created in your user skills root, derived
+            from the name.
+          </p>
+        )}
       </header>
 
       <div className="mt-8 space-y-6">
@@ -109,6 +139,7 @@ export default function SkillEditor({ skill }: Props) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
+            placeholder={isCreate ? "my-skill" : undefined}
             className="w-full border border-rule bg-paper px-3 py-2 font-mono text-sm text-ink focus:border-ink focus:outline-none"
           />
         </Field>
@@ -158,13 +189,16 @@ export default function SkillEditor({ skill }: Props) {
           disabled={busy}
           className="inline-flex items-center gap-2 border border-ink bg-ink px-4 py-2 text-sm font-medium text-paper transition hover:bg-paper hover:text-ink disabled:opacity-50"
         >
-          <Save size={14} />
-          {saving ? "Saving…" : "Save changes"}
+          {isCreate ? <Plus size={14} /> : <Save size={14} />}
+          {saving
+            ? isCreate
+              ? "Creating…"
+              : "Saving…"
+            : isCreate
+              ? "Create skill"
+              : "Save changes"}
         </button>
-        <Link
-          href={`/skills/${skill.slug}`}
-          className="px-4 py-2 text-sm text-muted transition hover:text-ink"
-        >
+        <Link href={cancelHref} className="px-4 py-2 text-sm text-muted transition hover:text-ink">
           Cancel
         </Link>
       </div>

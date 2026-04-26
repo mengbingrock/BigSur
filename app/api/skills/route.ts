@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { deleteSkill, getSkillBySlug, saveSkill } from "@/lib/skills";
+import { createSkill } from "@/lib/skills";
 
 export const dynamic = "force-dynamic";
 
@@ -12,45 +12,34 @@ interface Body {
 }
 
 function asString(v: unknown, field: string): string {
-  if (typeof v !== "string") {
-    throw new Error(`${field} must be a string.`);
-  }
+  if (typeof v !== "string") throw new Error(`${field} must be a string.`);
   return v;
 }
 
 function asStringArray(v: unknown, field: string): string[] {
   if (v == null) return [];
   if (!Array.isArray(v)) throw new Error(`${field} must be an array.`);
-  return v.map((x, i) => {
-    if (typeof x !== "string") throw new Error(`${field}[${i}] must be a string.`);
-    return x.trim();
-  }).filter(Boolean);
+  return v
+    .map((x, i) => {
+      if (typeof x !== "string") {
+        throw new Error(`${field}[${i}] must be a string.`);
+      }
+      return x.trim();
+    })
+    .filter(Boolean);
 }
 
 function errorResponse(err: unknown): Response {
   const msg = err instanceof Error ? err.message : "Unknown error.";
   const code = (err as { code?: string } | null)?.code;
   let status = 500;
-  if (code === "NOT_FOUND") status = 404;
-  else if (code === "READ_ONLY") status = 400;
-  else if (code === "PATH_ESCAPE") status = 400;
-  else if (code === "INVALID") status = 400;
+  if (code === "INVALID") status = 400;
+  else if (code === "CONFLICT") status = 409;
+  else if (code === "NO_ROOT") status = 500;
   return Response.json({ error: msg }, { status });
 }
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { slug: string } },
-) {
-  const skill = getSkillBySlug(params.slug);
-  if (!skill) return Response.json({ error: "Not found." }, { status: 404 });
-  return Response.json({ skill });
-}
-
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: { slug: string } },
-) {
+export async function POST(req: NextRequest) {
   // Auth (any signed-in user) is enforced by middleware on /api/skills/:path*.
   let body: Body;
   try {
@@ -60,28 +49,14 @@ export async function PUT(
   }
 
   try {
-    const update = {
+    const created = createSkill({
       name: asString(body.name, "name").trim(),
       description: asString(body.description ?? "", "description"),
       allowedTools: asStringArray(body.allowedTools, "allowedTools"),
       license: typeof body.license === "string" ? body.license : undefined,
       body: asString(body.body ?? "", "body"),
-    };
-    const saved = saveSkill(params.slug, update);
-    return Response.json({ skill: saved });
-  } catch (err) {
-    return errorResponse(err);
-  }
-}
-
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { slug: string } },
-) {
-  // Auth (any signed-in user) is enforced by middleware on /api/skills/:path*.
-  try {
-    deleteSkill(params.slug);
-    return Response.json({ ok: true });
+    });
+    return Response.json({ skill: created }, { status: 201 });
   } catch (err) {
     return errorResponse(err);
   }
