@@ -38,6 +38,7 @@ const SYSTEM_PROMPT =
   "Skill scaffolding lives in the hidden `.claude/` folder — leave it alone. " +
   "User-level Anthropic skills (docx, xlsx, pptx, pdf, canvas-design, algorithmic-art, etc.) are available — invoke them via the Skill tool when they match the user's request. " +
   "When the user asks you to produce a file (Word doc, spreadsheet, PDF, chart), DO produce it — don't claim you can't. " +
+  "DO NOT use the AskUserQuestion tool — this UI runs you non-interactively, the tool returns an error here, and the user has no way to answer. If you need clarification, instead make a single reasonable assumption, state it briefly in one sentence ('I'll assume X because …'), proceed with the task, and let the user correct you in their next message. " +
   "Be concise in chat responses. Use markdown when it aids clarity.";
 
 const EDIT_SYSTEM_PROMPT =
