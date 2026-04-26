@@ -78,8 +78,9 @@ export interface ProducedFile {
 }
 
 // Walk a workspace for files the assistant produced. Skip our .claude
-// scaffolding (which contains skill symlinks, not output files). Hidden
-// files (dotfiles) are also skipped.
+// scaffolding (which contains skill symlinks, not output files), the
+// per-user deck mount (persistent — those files surface on /deck), and
+// hidden dotfiles.
 export async function scanProducedFiles(
   dir: string,
   since: number,
@@ -95,6 +96,7 @@ export async function scanProducedFiles(
     }
     for (const e of entries) {
       if (e.name === ".claude") continue;
+      if (relBase === "" && e.name === "deck") continue;
       if (e.name.startsWith(".")) continue;
       const full = path.join(subdir, e.name);
       const rel = relBase ? `${relBase}/${e.name}` : e.name;

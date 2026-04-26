@@ -18,6 +18,9 @@ export default function Nav({ user }: { user: NavUser | null }) {
           <Link href="/skills" className="transition hover:text-ink">
             Skills
           </Link>
+          <Link href="/deck" className="transition hover:text-ink">
+            Deck
+          </Link>
           <Link href="/chat" className="transition hover:text-ink">
             Chat
           </Link>

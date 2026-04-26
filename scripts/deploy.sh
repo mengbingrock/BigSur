@@ -33,6 +33,7 @@ SSH_USER="${SSH_USER:-ubuntu}"
 SSH_KEY="${SSH_KEY:-$HOME/Downloads/lightsail.pem}"
 REMOTE_DIR="${REMOTE_DIR:-/home/ubuntu/agent-monterey}"
 REMOTE_SKILLS_DIR="${REMOTE_SKILLS_DIR:-/home/ubuntu/protocol-skills}"
+REMOTE_DECK_DIR="${REMOTE_DECK_DIR:-/home/ubuntu/monterey-decks}"
 LOCAL_SKILLS_DIR="${LOCAL_SKILLS_DIR:-$HOME/WorkSync/Git/protocol-agent/.claude/skills}"
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -85,10 +86,10 @@ fi
 
 # --- Provision + build ----------------------------------------------------
 bold "==> First-time provisioning (idempotent)"
-$SSH "SKILLS_ROOT=$REMOTE_SKILLS_DIR bash $REMOTE_DIR/scripts/provision-server.sh"
+$SSH "SKILLS_ROOT=$REMOTE_SKILLS_DIR DECK_ROOT=$REMOTE_DECK_DIR bash $REMOTE_DIR/scripts/provision-server.sh"
 
 bold "==> Build + restart service"
-$SSH "SKILLS_ROOT=$REMOTE_SKILLS_DIR bash $REMOTE_DIR/scripts/build-and-restart.sh"
+$SSH "SKILLS_ROOT=$REMOTE_SKILLS_DIR DECK_ROOT=$REMOTE_DECK_DIR bash $REMOTE_DIR/scripts/build-and-restart.sh"
 
 # --- Post-flight ----------------------------------------------------------
 echo

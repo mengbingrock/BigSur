@@ -2,9 +2,11 @@ import { spawn } from "node:child_process";
 import type { ChildProcessByStdio } from "node:child_process";
 import type { Readable } from "node:stream";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import path from "node:path";
 import { getAllSkills } from "@/lib/skills";
 import { getCurrentEmail } from "@/lib/session";
+import { userDeckDir } from "@/lib/deck";
 import type { Skill } from "@/lib/types";
 import {
   createWorkspace,
@@ -38,7 +40,9 @@ const SYSTEM_PROMPT =
   "You are a chat assistant inside the Monterey skills catalog. " +
   "You have access to the full Claude Code toolset (Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch, Skill). " +
   "A clean temporary directory is your working directory — use it freely to run scripts, write output files (.docx, .xlsx, .pdf, images, etc.), and install packages if a skill asks you to. " +
-  "Any file you write to the current working directory (or its subdirectories, excluding .claude) will be collected after your turn and offered to the user as a download. " +
+  "Any file you write to the current working directory (or its subdirectories, excluding .claude and ./deck) will be collected after your turn and offered to the user as a download. " +
+  "There is also a `./deck/` subdirectory that is the user's PERSISTENT file deck — files the user has uploaded for you to read and any output you write there shows up in their /deck page after this turn. " +
+  "Read from ./deck/ when the user references files they uploaded; write outputs there if the user asks for something to be saved permanently or if a skill needs durable storage. " +
   "User-level Anthropic skills (docx, xlsx, pptx, pdf, canvas-design, algorithmic-art, etc.) are available — invoke them via the Skill tool when they match the user's request. " +
   "When the user asks you to produce a file (Word doc, spreadsheet, PDF, chart), DO produce it — don't claim you can't. " +
   "Be concise in chat responses. Use markdown when it aids clarity.";
@@ -86,6 +90,26 @@ function buildUserPrompt(messages: ChatMessage[]): string {
 function sanitizeSkillDirName(name: string): string {
   const cleaned = name.replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
   return cleaned || "skill";
+}
+
+/**
+ * Mount the user's persistent file deck into the chat workspace at ./deck/.
+ * The deck directory is created if missing so the symlink target always
+ * exists and the model can `cd deck && ls` even on first session.
+ */
+async function linkDeck(workspaceDir: string, email: string): Promise<string | null> {
+  const deck = userDeckDir(email);
+  try {
+    await fs.mkdir(deck, { recursive: true });
+    const linkPath = path.join(workspaceDir, "deck");
+    // realpathSync — resolve any symlink target so the model writes through to
+    // the actual deck dir.
+    const real = fsSync.realpathSync(deck);
+    await fs.symlink(real, linkPath, "dir");
+    return real;
+  } catch {
+    return null;
+  }
 }
 
 async function linkSelectedSkills(
@@ -187,6 +211,9 @@ export async function POST(req: Request): Promise<Response> {
 
   const workspace = await createWorkspace();
   const linkedSkillNames = await linkSelectedSkills(workspace.dir, selectedSkills);
+  // Mount the user's persistent deck at <workspace>/deck so skills can read
+  // their uploads and write outputs that survive the session.
+  await linkDeck(workspace.dir, email);
   const streamStartedAt = Date.now();
 
   const args = [

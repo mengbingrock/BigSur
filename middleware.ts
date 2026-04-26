@@ -44,9 +44,11 @@ export const config = {
     "/chat/:path*",
     "/skills/:path*",
     "/admin/:path*",
+    "/deck/:path*",
     "/api/chat",
     "/api/files/:path*",
     "/api/admin/:path*",
     "/api/skills/:path*",
+    "/api/deck/:path*",
   ],
 };

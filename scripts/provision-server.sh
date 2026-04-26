@@ -15,11 +15,13 @@
 #
 # Env vars (set by deploy.sh):
 #   SKILLS_ROOT   absolute path to the symlink-target skills dir on the server
+#   DECK_ROOT     absolute path to the per-user deck root on the server
 
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SKILLS_ROOT="${SKILLS_ROOT:-}"
+DECK_ROOT="${DECK_ROOT:-}"
 
 # ~/.local/bin isn't on PATH for non-interactive SSH sessions on Ubuntu 24.04.
 # The native `claude` installer symlinks here, so make sure we can see it.
@@ -98,9 +100,24 @@ else
     if [ -n "$SKILLS_ROOT" ]; then
       echo "SKILLS_ROOTS=$SKILLS_ROOT"
     fi
+    if [ -n "$DECK_ROOT" ]; then
+      echo "DECK_ROOT=$DECK_ROOT"
+    fi
   } > "$APP_DIR/.env.production"
   chmod 600 "$APP_DIR/.env.production"
   ok "wrote $APP_DIR/.env.production"
+else
+  # Append DECK_ROOT if missing (existing install upgrading to deck feature).
+  if [ -n "$DECK_ROOT" ] && ! grep -q '^DECK_ROOT=' "$APP_DIR/.env.production"; then
+    echo "DECK_ROOT=$DECK_ROOT" >> "$APP_DIR/.env.production"
+    ok "appended DECK_ROOT to existing .env.production"
+  fi
+fi
+
+# Bootstrap the deck dir (separate from skills; not touched by rsync).
+if [ -n "$DECK_ROOT" ]; then
+  mkdir -p "$DECK_ROOT"
+  ok "deck root ready at $DECK_ROOT"
 fi
 
 # --- systemd unit --------------------------------------------------------
