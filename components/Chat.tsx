@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   Send,
   Loader2,
@@ -21,6 +21,16 @@ import {
 } from "lucide-react";
 import type { Skill } from "@/lib/types";
 import type { DeckFile } from "@/lib/deck-shared";
+import {
+  chatStore,
+  formatResult,
+  makeId,
+  type ActivityItem,
+  type ChatMsg,
+  type SessionInfo,
+  type SkillSnapshot,
+  type Stats,
+} from "@/lib/chat-store";
 import Markdown from "./Markdown";
 import ChatDeckPanel, { type ChatDeckPanelHandle } from "./ChatDeckPanel";
 
@@ -28,58 +38,6 @@ interface Props {
   skills: Skill[];
   initialDeckFiles: DeckFile[];
   deckMaxBytes: number;
-}
-
-type ActivityItem =
-  | { kind: "thinking"; text: string; done: boolean }
-  | {
-      kind: "tool";
-      id: string;
-      name: string;
-      input: unknown;
-      inputRaw: string;
-      done: boolean;
-      result?: string;
-      resultError?: boolean;
-    }
-  | { kind: "status"; text: string };
-
-interface Stats {
-  cost_usd?: number;
-  duration_ms?: number;
-  num_turns?: number;
-  usage?: Record<string, unknown>;
-  model_usage?: Record<string, Record<string, unknown>>;
-}
-
-interface SkillSnapshot {
-  slug: string;
-  name: string;
-  description: string;
-  sourceLabel: string;
-  allowedTools: string[];
-  bodyChars: number;
-}
-
-interface EditSnapshot {
-  start: number;
-  end: number;
-  originalText: string;
-  newText: string;
-  instruction: string;
-}
-
-interface ChatMsg {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  pending?: boolean;
-  errored?: boolean;
-  activity?: ActivityItem[];
-  stats?: Stats;
-  loadedSkills?: SkillSnapshot[];
-  /** Edits applied to this message, newest last. Used for undo. */
-  edits?: EditSnapshot[];
 }
 
 interface ActiveSelection {
@@ -91,19 +49,7 @@ interface ActiveSelection {
   rect: { top: number; left: number; bottom: number; right: number };
 }
 
-interface SessionInfo {
-  model?: string;
-  session_id?: string;
-  api_key_source?: string;
-  claude_code_version?: string;
-  permission_mode?: string;
-}
-
 const SELECTED_KEY = "monterey.selectedSkills.v1";
-
-function makeId() {
-  return `m_${Math.random().toString(36).slice(2, 10)}`;
-}
 
 function truncate(s: string, n: number) {
   return s.length > n ? s.slice(0, n) + "…" : s;
@@ -130,30 +76,6 @@ function formatInput(input: unknown): string {
   return String(input);
 }
 
-function formatResult(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((c) => {
-        if (typeof c === "string") return c;
-        if (c && typeof c === "object" && "text" in (c as Record<string, unknown>)) {
-          return String((c as Record<string, unknown>).text);
-        }
-        try {
-          return JSON.stringify(c);
-        } catch {
-          return "";
-        }
-      })
-      .join("\n");
-  }
-  try {
-    return JSON.stringify(content);
-  } catch {
-    return "";
-  }
-}
-
 function formatCost(usd?: number) {
   if (typeof usd !== "number") return null;
   if (usd >= 0.01) return `$${usd.toFixed(2)}`;
@@ -167,22 +89,28 @@ function formatDuration(ms?: number) {
 }
 
 export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) {
+  // Chat session state (messages, streaming, error, session) lives in a
+  // module-scoped store so the live fetch survives navigation away from
+  // /chat. UI-only state (input, selection, scroll) stays local.
+  const sessionState = useSyncExternalStore(
+    chatStore.subscribe,
+    chatStore.getState,
+    chatStore.getServerSnapshot,
+  );
+  const { messages, streaming, error, session } = sessionState;
+
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
-  const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
-  const [streaming, setStreaming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [session, setSession] = useState<SessionInfo | null>(null);
   const [pinned, setPinned] = useState(true);
   const [activeSelection, setActiveSelection] =
     useState<ActiveSelection | null>(null);
   const [slashIndex, setSlashIndex] = useState(0);
-  const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const stickToBottomRef = useRef(true);
   const prevMessageCountRef = useRef(0);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const deckPanelRef = useRef<ChatDeckPanelHandle | null>(null);
+  const setError = (e: string | null) => chatStore.setError(e);
 
   useEffect(() => {
     const raw =
@@ -305,15 +233,7 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
     });
   };
 
-  const cancel = () => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    setStreaming(false);
-  };
-
-  const updateAssistant = (id: string, mutator: (m: ChatMsg) => ChatMsg) => {
-    setMessages((ms) => ms.map((m) => (m.id === id ? mutator(m) : m)));
-  };
+  const cancel = () => chatStore.cancel();
 
   // Capture a text selection inside an assistant message. We resolve the raw
   // offset in the message's markdown via exact indexOf — works when the
@@ -360,147 +280,26 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
     setActiveSelection(null);
   };
 
-  const undoEdit = (messageId: string) => {
-    setMessages((ms) =>
-      ms.map((m) => {
-        if (m.id !== messageId || !m.edits || m.edits.length === 0) return m;
-        const last = m.edits[m.edits.length - 1];
-        const rest = m.edits.slice(0, -1);
-        // Reverse the last edit: the newText currently occupies
-        // [last.start, last.start + last.newText.length) in m.content.
-        const head = m.content.slice(0, last.start);
-        const tail = m.content.slice(last.start + last.newText.length);
-        return {
-          ...m,
-          content: head + last.originalText + tail,
-          edits: rest,
-        };
-      }),
-    );
-  };
+  const undoEdit = (messageId: string) => chatStore.undoEdit(messageId);
 
   const submitEdit = async (sel: ActiveSelection, instruction: string) => {
     const target = messages.find((m) => m.id === sel.messageId);
     if (!target) return;
-    if (target.pending) {
-      setError("Can't edit a message that's still streaming.");
-      return;
-    }
-
-    setError(null);
     setInput("");
     clearSelection();
-    setStreaming(true);
-
-    const originalContent = target.content;
-    const editStart = sel.start;
-    const editEnd = sel.end;
-
-    // Replace the selection immediately with an empty placeholder; deltas
-    // stream into that slot.
-    let newText = "";
-    const applyNewText = () => {
-      updateAssistant(sel.messageId, (m) => ({
-        ...m,
-        content:
-          originalContent.slice(0, editStart) +
-          newText +
-          originalContent.slice(editEnd),
-      }));
-    };
-    applyNewText();
-
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "edit",
-          skillSlugs: [],
-          edit: {
-            fullMessage: originalContent,
-            selection: sel.text,
-            instruction,
-          },
-        }),
-        signal: ctrl.signal,
-      });
-      if (!res.ok || !res.body) {
-        const errJson = await res
-          .json()
-          .catch(() => ({ error: `HTTP ${res.status}` }));
-        throw new Error(errJson.error ?? `HTTP ${res.status}`);
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let sep;
-        while ((sep = buffer.indexOf("\n\n")) !== -1) {
-          const chunk = buffer.slice(0, sep);
-          buffer = buffer.slice(sep + 2);
-          if (!chunk.trim()) continue;
-          const lines = chunk.split("\n");
-          let ev = "message";
-          let dataLine = "";
-          for (const line of lines) {
-            if (line.startsWith("event:")) ev = line.slice(6).trim();
-            else if (line.startsWith("data:")) dataLine = line.slice(5).trim();
-          }
-          if (!dataLine) continue;
-          let payload: Record<string, unknown>;
-          try {
-            payload = JSON.parse(dataLine);
-          } catch {
-            continue;
-          }
-          if (ev === "delta" && typeof payload.text === "string") {
-            newText += payload.text;
-            applyNewText();
-          } else if (ev === "error") {
-            throw new Error(String(payload.message ?? "Stream error."));
-          }
-        }
-      }
-
-      // Record in edit history for undo.
-      updateAssistant(sel.messageId, (m) => ({
-        ...m,
-        edits: [
-          ...(m.edits ?? []),
-          {
-            start: editStart,
-            end: editEnd,
-            originalText: sel.text,
-            newText,
-            instruction,
-          },
-        ],
-      }));
-    } catch (err) {
-      if ((err as Error).name === "AbortError") {
-        updateAssistant(sel.messageId, (m) => ({ ...m, content: originalContent }));
-      } else {
-        updateAssistant(sel.messageId, (m) => ({ ...m, content: originalContent }));
-        setError(err instanceof Error ? err.message : "Edit failed.");
-      }
-    } finally {
-      setStreaming(false);
-      abortRef.current = null;
-    }
+    await chatStore.submitEdit({
+      messageId: sel.messageId,
+      selectionStart: sel.start,
+      selectionEnd: sel.end,
+      selectionText: sel.text,
+      fullMessage: target.content,
+      instruction,
+    });
   };
 
   const send = async () => {
     const text = input.trim();
     if (!text || streaming) return;
-    setError(null);
     setInput("");
 
     const snapshot: SkillSnapshot[] = selectedSkills.map((s) => ({
@@ -512,258 +311,11 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
       bodyChars: s.body.length,
     }));
 
-    const userMsg: ChatMsg = { id: makeId(), role: "user", content: text };
-    const assistantMsg: ChatMsg = {
-      id: makeId(),
-      role: "assistant",
-      content: "",
-      pending: true,
-      activity: [],
-      loadedSkills: snapshot,
-    };
-    setMessages((m) => [...m, userMsg, assistantMsg]);
-    setStreaming(true);
-
-    const history = [...messages, userMsg].map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
-
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: history,
-          skillSlugs: Array.from(selected),
-        }),
-        signal: ctrl.signal,
-      });
-
-      if (!res.ok || !res.body) {
-        const errJson = await res
-          .json()
-          .catch(() => ({ error: `HTTP ${res.status}` }));
-        throw new Error(errJson.error ?? `HTTP ${res.status}`);
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let sep;
-        while ((sep = buffer.indexOf("\n\n")) !== -1) {
-          const chunk = buffer.slice(0, sep);
-          buffer = buffer.slice(sep + 2);
-          if (!chunk.trim()) continue;
-          const lines = chunk.split("\n");
-          let ev = "message";
-          let dataLine = "";
-          for (const line of lines) {
-            if (line.startsWith("event:")) ev = line.slice(6).trim();
-            else if (line.startsWith("data:")) dataLine = line.slice(5).trim();
-          }
-          if (!dataLine) continue;
-          let payload: Record<string, unknown>;
-          try {
-            payload = JSON.parse(dataLine);
-          } catch {
-            continue;
-          }
-          handleSSE(ev, payload, assistantMsg.id);
-        }
-      }
-    } catch (err) {
-      if ((err as Error).name === "AbortError") {
-        updateAssistant(assistantMsg.id, (m) => ({
-          ...m,
-          pending: false,
-          content: m.content || "(cancelled)",
-        }));
-      } else {
-        const reason = err instanceof Error ? err.message : "Request failed.";
-        setError(reason);
-        updateAssistant(assistantMsg.id, (m) => ({
-          ...m,
-          pending: false,
-          errored: true,
-          content: reason,
-        }));
-      }
-    } finally {
-      setStreaming(false);
-      abortRef.current = null;
-    }
-  };
-
-  const handleSSE = (ev: string, payload: Record<string, unknown>, aid: string) => {
-    switch (ev) {
-      case "init":
-        setSession({
-          model: payload.model as string | undefined,
-          session_id: payload.session_id as string | undefined,
-          api_key_source: payload.api_key_source as string | undefined,
-          claude_code_version: payload.claude_code_version as string | undefined,
-          permission_mode: payload.permission_mode as string | undefined,
-        });
-        break;
-      case "status":
-        updateAssistant(aid, (m) => ({
-          ...m,
-          pending: true,
-          activity: [
-            ...(m.activity ?? []).filter((a) => a.kind !== "status"),
-            { kind: "status", text: String(payload.status ?? "") },
-          ],
-        }));
-        break;
-      case "thinking_start":
-        updateAssistant(aid, (m) => ({
-          ...m,
-          activity: [
-            ...(m.activity ?? []),
-            { kind: "thinking", text: "", done: false },
-          ],
-        }));
-        break;
-      case "thinking_delta":
-        updateAssistant(aid, (m) => {
-          const activity = [...(m.activity ?? [])];
-          for (let i = activity.length - 1; i >= 0; i--) {
-            const a = activity[i];
-            if (a.kind === "thinking" && !a.done) {
-              activity[i] = { ...a, text: a.text + String(payload.text ?? "") };
-              break;
-            }
-          }
-          return { ...m, activity };
-        });
-        break;
-      case "thinking_stop":
-        updateAssistant(aid, (m) => {
-          const activity = [...(m.activity ?? [])];
-          for (let i = activity.length - 1; i >= 0; i--) {
-            const a = activity[i];
-            if (a.kind === "thinking" && !a.done) {
-              activity[i] = { ...a, done: true };
-              break;
-            }
-          }
-          return { ...m, activity };
-        });
-        break;
-      case "tool_start":
-        updateAssistant(aid, (m) => ({
-          ...m,
-          activity: [
-            ...(m.activity ?? []),
-            {
-              kind: "tool",
-              id: String(payload.id ?? ""),
-              name: String(payload.name ?? ""),
-              input: null,
-              inputRaw: "",
-              done: false,
-            },
-          ],
-        }));
-        break;
-      case "tool_input_delta":
-        updateAssistant(aid, (m) => {
-          const activity = [...(m.activity ?? [])];
-          for (let i = activity.length - 1; i >= 0; i--) {
-            const a = activity[i];
-            if (a.kind === "tool" && a.id === payload.id && !a.done) {
-              activity[i] = {
-                ...a,
-                inputRaw: a.inputRaw + String(payload.partial_json ?? ""),
-              };
-              break;
-            }
-          }
-          return { ...m, activity };
-        });
-        break;
-      case "tool_stop":
-        updateAssistant(aid, (m) => {
-          const activity = [...(m.activity ?? [])];
-          for (let i = activity.length - 1; i >= 0; i--) {
-            const a = activity[i];
-            if (a.kind === "tool" && a.id === payload.id && !a.done) {
-              activity[i] = {
-                ...a,
-                input: payload.input ?? null,
-                done: true,
-              };
-              break;
-            }
-          }
-          return { ...m, activity };
-        });
-        break;
-      case "tool_result":
-        updateAssistant(aid, (m) => {
-          const activity = [...(m.activity ?? [])];
-          for (let i = activity.length - 1; i >= 0; i--) {
-            const a = activity[i];
-            if (a.kind === "tool" && a.id === payload.tool_use_id) {
-              activity[i] = {
-                ...a,
-                result: formatResult(payload.content),
-                resultError: Boolean(payload.is_error),
-              };
-              break;
-            }
-          }
-          return { ...m, activity };
-        });
-        break;
-      case "delta":
-        updateAssistant(aid, (m) => ({
-          ...m,
-          content: m.content + String(payload.text ?? ""),
-          pending: false,
-        }));
-        break;
-      case "result":
-        updateAssistant(aid, (m) => ({
-          ...m,
-          stats: {
-            cost_usd: payload.total_cost_usd as number | undefined,
-            duration_ms: payload.duration_ms as number | undefined,
-            num_turns: payload.num_turns as number | undefined,
-            usage: payload.usage as Record<string, unknown> | undefined,
-            model_usage: payload.model_usage as
-              | Record<string, Record<string, unknown>>
-              | undefined,
-          },
-        }));
-        break;
-      case "end":
-      case "message_stop":
-        // handled implicitly
-        break;
-      case "error": {
-        const reason = String(payload.message ?? "Stream error.");
-        setError(reason);
-        updateAssistant(aid, (m) => ({
-          ...m,
-          pending: false,
-          errored: true,
-          content: m.content || reason,
-        }));
-        break;
-      }
-      default:
-        break;
-    }
+    await chatStore.send({
+      text,
+      skillSlugs: Array.from(selected),
+      snapshot,
+    });
   };
 
   const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
