@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MessageSquare, Pencil } from "lucide-react";
+import { ArrowLeft, MessageSquare } from "lucide-react";
 import { getSkillBySlug } from "@/lib/skills";
 import { getCurrentUser } from "@/lib/session";
 import Markdown from "@/components/Markdown";
+import EditSkillButton from "@/components/EditSkillButton";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,11 @@ export default async function SkillDetailPage({ params }: Props) {
   const user = await getCurrentUser();
   const skill = getSkillBySlug(params.slug, user?.email);
   if (!skill) notFound();
-  const canEdit = Boolean(user) && skill.source.kind === "user";
+  // EditSkillButton handles per-source-kind logic:
+  //   user → direct link to edit page
+  //   public → background import then redirect to the new copy's edit page
+  //   plugin → renders nothing (uneditable here)
+  const showEdit = Boolean(user) && skill.source.kind !== "plugin";
 
   return (
     <article className="mx-auto max-w-3xl px-6 pb-24 pt-12">
@@ -38,15 +43,7 @@ export default async function SkillDetailPage({ params }: Props) {
           All skills
         </Link>
         <div className="flex items-center gap-2">
-          {canEdit && (
-            <Link
-              href={`/skills/${skill.slug}/edit`}
-              className="inline-flex items-center gap-2 border border-rule px-3 py-1.5 text-xs font-medium text-muted transition hover:border-ink hover:text-ink"
-            >
-              <Pencil size={13} />
-              Edit
-            </Link>
-          )}
+          {showEdit && <EditSkillButton skill={skill} />}
           <Link
             href="/chat"
             className="inline-flex items-center gap-2 border border-ink px-3 py-1.5 text-xs font-medium text-ink transition hover:bg-ink hover:text-paper"
