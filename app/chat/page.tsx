@@ -1,6 +1,7 @@
 import Chat from "@/components/Chat";
 import { getAllSkills } from "@/lib/skills";
 import { getCurrentEmail } from "@/lib/session";
+import { getMaxUploadBytes, listDeck } from "@/lib/deck";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,8 @@ export const metadata = {
 export default async function ChatPage() {
   const email = await getCurrentEmail();
   const skills = getAllSkills(email ?? undefined);
+  const deckFiles = email ? await listDeck(email) : [];
+  const deckMaxBytes = getMaxUploadBytes();
   return (
     <section className="mx-auto max-w-6xl px-6 pb-16 pt-12">
       <header className="mb-10">
@@ -26,7 +29,11 @@ export default async function ChatPage() {
           become the assistant&apos;s system prompt.
         </p>
       </header>
-      <Chat skills={skills} />
+      <Chat
+        skills={skills}
+        initialDeckFiles={deckFiles}
+        deckMaxBytes={deckMaxBytes}
+      />
     </section>
   );
 }

@@ -22,10 +22,14 @@ import {
   FileText,
 } from "lucide-react";
 import type { Skill } from "@/lib/types";
+import type { DeckFile } from "@/lib/deck-shared";
 import Markdown from "./Markdown";
+import ChatDeckPanel, { type ChatDeckPanelHandle } from "./ChatDeckPanel";
 
 interface Props {
   skills: Skill[];
+  initialDeckFiles: DeckFile[];
+  deckMaxBytes: number;
 }
 
 type ActivityItem =
@@ -172,7 +176,7 @@ function formatDuration(ms?: number) {
   return `${(ms / 1000).toFixed(1)} s`;
 }
 
-export default function Chat({ skills }: Props) {
+export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
@@ -188,6 +192,7 @@ export default function Chat({ skills }: Props) {
   const stickToBottomRef = useRef(true);
   const prevMessageCountRef = useRef(0);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const deckPanelRef = useRef<ChatDeckPanelHandle | null>(null);
 
   useEffect(() => {
     const raw =
@@ -209,6 +214,16 @@ export default function Chat({ skills }: Props) {
       JSON.stringify(Array.from(selected)),
     );
   }, [selected]);
+
+  // Refresh the working-directory panel whenever a chat turn ends — the model
+  // may have written new files into ./deck/ during the turn.
+  const wasStreamingRef = useRef(false);
+  useEffect(() => {
+    if (wasStreamingRef.current && !streaming) {
+      deckPanelRef.current?.refresh();
+    }
+    wasStreamingRef.current = streaming;
+  }, [streaming]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -869,6 +884,14 @@ export default function Chat({ skills }: Props) {
               Clear selection
             </button>
           )}
+
+          <hr className="my-5 border-rule" />
+
+          <ChatDeckPanel
+            ref={deckPanelRef}
+            initialFiles={initialDeckFiles}
+            maxBytes={deckMaxBytes}
+          />
         </div>
       </aside>
 
