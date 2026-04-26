@@ -4,6 +4,7 @@ import type { Readable } from "node:stream";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { getAllSkills } from "@/lib/skills";
+import { getCurrentEmail } from "@/lib/session";
 import type { Skill } from "@/lib/types";
 import {
   createWorkspace,
@@ -118,6 +119,13 @@ async function linkSelectedSkills(
 }
 
 export async function POST(req: Request): Promise<Response> {
+  // Middleware enforces login on /api/chat; this fetch tells us *which* user
+  // so we only expose their personal skills to the spawned subprocess.
+  const email = await getCurrentEmail();
+  if (!email) {
+    return Response.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
   let body: ChatRequest;
   try {
     body = (await req.json()) as ChatRequest;
@@ -169,7 +177,7 @@ export async function POST(req: Request): Promise<Response> {
     userPrompt = buildUserPrompt(body.messages);
     systemPrompt = SYSTEM_PROMPT;
 
-    const allSkills = getAllSkills();
+    const allSkills = getAllSkills(email);
     const bySlug = new Map(allSkills.map((s) => [s.slug, s]));
     for (const slug of body.skillSlugs) {
       const skill = bySlug.get(slug);

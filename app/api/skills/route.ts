@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createSkill } from "@/lib/skills";
+import { getCurrentEmail } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,13 @@ function errorResponse(err: unknown): Response {
 }
 
 export async function POST(req: NextRequest) {
-  // Auth (any signed-in user) is enforced by middleware on /api/skills/:path*.
+  // Auth (any signed-in user) is enforced by middleware on /api/skills/:path*;
+  // we re-fetch the email here to scope the write to the caller's own folder.
+  const email = await getCurrentEmail();
+  if (!email) {
+    return Response.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
   let body: Body;
   try {
     body = (await req.json()) as Body;
@@ -49,13 +56,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const created = createSkill({
-      name: asString(body.name, "name").trim(),
-      description: asString(body.description ?? "", "description"),
-      allowedTools: asStringArray(body.allowedTools, "allowedTools"),
-      license: typeof body.license === "string" ? body.license : undefined,
-      body: asString(body.body ?? "", "body"),
-    });
+    const created = createSkill(
+      {
+        name: asString(body.name, "name").trim(),
+        description: asString(body.description ?? "", "description"),
+        allowedTools: asStringArray(body.allowedTools, "allowedTools"),
+        license: typeof body.license === "string" ? body.license : undefined,
+        body: asString(body.body ?? "", "body"),
+      },
+      email,
+    );
     return Response.json({ skill: created }, { status: 201 });
   } catch (err) {
     return errorResponse(err);

@@ -1,13 +1,17 @@
 import Chat from "@/components/Chat";
 import { getAllSkills } from "@/lib/skills";
+import { getCurrentEmail } from "@/lib/session";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Chat — Monterey",
   description: "Chat with Claude, optionally specialized by one or more skills.",
 };
 
-export default function ChatPage() {
-  const skills = getAllSkills();
+export default async function ChatPage() {
+  const email = await getCurrentEmail();
+  const skills = getAllSkills(email ?? undefined);
   return (
     <section className="mx-auto max-w-6xl px-6 pb-16 pt-12">
       <header className="mb-10">

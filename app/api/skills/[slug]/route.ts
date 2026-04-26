@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { deleteSkill, getSkillBySlug, saveSkill } from "@/lib/skills";
+import { getCurrentEmail } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -38,11 +39,20 @@ function errorResponse(err: unknown): Response {
   return Response.json({ error: msg }, { status });
 }
 
+async function requireEmail(): Promise<string | Response> {
+  const email = await getCurrentEmail();
+  if (!email) return Response.json({ error: "Unauthorized." }, { status: 401 });
+  return email;
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: { slug: string } },
 ) {
-  const skill = getSkillBySlug(params.slug);
+  const email = await requireEmail();
+  if (typeof email !== "string") return email;
+
+  const skill = getSkillBySlug(params.slug, email);
   if (!skill) return Response.json({ error: "Not found." }, { status: 404 });
   return Response.json({ skill });
 }
@@ -51,7 +61,9 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: { slug: string } },
 ) {
-  // Auth (any signed-in user) is enforced by middleware on /api/skills/:path*.
+  const email = await requireEmail();
+  if (typeof email !== "string") return email;
+
   let body: Body;
   try {
     body = (await req.json()) as Body;
@@ -67,7 +79,7 @@ export async function PUT(
       license: typeof body.license === "string" ? body.license : undefined,
       body: asString(body.body ?? "", "body"),
     };
-    const saved = saveSkill(params.slug, update);
+    const saved = saveSkill(params.slug, update, email);
     return Response.json({ skill: saved });
   } catch (err) {
     return errorResponse(err);
@@ -78,9 +90,11 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: { slug: string } },
 ) {
-  // Auth (any signed-in user) is enforced by middleware on /api/skills/:path*.
+  const email = await requireEmail();
+  if (typeof email !== "string") return email;
+
   try {
-    deleteSkill(params.slug);
+    deleteSkill(params.slug, email);
     return Response.json({ ok: true });
   } catch (err) {
     return errorResponse(err);

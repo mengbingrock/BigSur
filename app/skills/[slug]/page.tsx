@@ -11,8 +11,9 @@ interface Props {
   params: { slug: string };
 }
 
-export function generateMetadata({ params }: Props) {
-  const skill = getSkillBySlug(params.slug);
+export async function generateMetadata({ params }: Props) {
+  const user = await getCurrentUser();
+  const skill = getSkillBySlug(params.slug, user?.email);
   if (!skill) return { title: "Skill not found — Monterey" };
   return {
     title: `${skill.name} — Monterey`,
@@ -21,9 +22,9 @@ export function generateMetadata({ params }: Props) {
 }
 
 export default async function SkillDetailPage({ params }: Props) {
-  const skill = getSkillBySlug(params.slug);
-  if (!skill) notFound();
   const user = await getCurrentUser();
+  const skill = getSkillBySlug(params.slug, user?.email);
+  if (!skill) notFound();
   const canEdit = Boolean(user) && skill.source.kind === "user";
 
   return (

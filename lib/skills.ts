@@ -30,8 +30,31 @@ function inferKind(p: string): "user" | "plugins" {
   return p.includes("marketplaces") || p.includes("plugins") ? "plugins" : "user";
 }
 
+/**
+ * Convert an email to a stable, readable folder name. Each user gets one
+ * directory under the user-source skills root that holds only their skills.
+ *   menbinwan@gmail.com → menbinwan-at-gmail-com
+ */
+export function userSlug(email: string): string {
+  const lowered = email.toLowerCase();
+  return lowered
+    .replace(/@/g, "-at-")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+/**
+ * Absolute path to the directory holding `email`'s personal skills inside a
+ * user-source root. Plugin roots return their own path unchanged.
+ */
+function scopedRootPath(root: Root, email: string | undefined): string {
+  if (root.kind !== "user") return root.path;
+  if (!email) return ""; // signals "do not scan" for user roots without a user
+  return path.join(root.path, userSlug(email));
+}
+
 function findSkillFiles(root: string): string[] {
-  if (!fs.existsSync(root)) return [];
+  if (!root || !fs.existsSync(root)) return [];
   const out: string[] = [];
   const visited = new Set<string>();
 
@@ -78,10 +101,16 @@ function marketplaceFromPath(filePath: string, rootPath: string): string | null 
   return parts[0] || null;
 }
 
+/** Folder name (under each user root) holding skills visible to everyone. */
+const PUBLIC_FOLDER = "_public";
+
 function slugify(name: string, source: SkillSource): string {
   const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   if (source.kind === "plugin") {
     return `${source.marketplace.toLowerCase().replace(/[^a-z0-9]+/g, "-")}--${base}`;
+  }
+  if (source.kind === "public") {
+    return `public--${base}`;
   }
   return `user--${base}`;
 }
@@ -99,67 +128,98 @@ function normalizeAllowedTools(raw: unknown): string[] {
   return [];
 }
 
-export function getAllSkills(): Skill[] {
+function parseSkillFile(
+  file: string,
+  source: SkillSource,
+  sourceLabel: string,
+): Omit<Skill, "slug"> | null {
+  let parsed: matter.GrayMatterFile<string>;
+  try {
+    const raw = fs.readFileSync(file, "utf8");
+    parsed = matter(raw);
+  } catch {
+    return null;
+  }
+  const data = parsed.data as Record<string, unknown>;
+  const name = typeof data.name === "string" && data.name.trim()
+    ? data.name.trim()
+    : path.basename(path.dirname(file));
+  return {
+    name,
+    description: normalizeDescription(data.description),
+    allowedTools: normalizeAllowedTools(data["allowed-tools"]),
+    license: typeof data.license === "string" ? data.license : undefined,
+    body: parsed.content.trim(),
+    source,
+    sourceLabel,
+    sourcePath: path.dirname(file),
+  };
+}
+
+/**
+ * List skills visible to `email`:
+ *   - user: caller's own folder (`<root>/<emailSlug>/`)
+ *   - public: shared, read-only folder (`<root>/_public/`) seen by everyone
+ *   - plugin: all marketplace skills (read-only)
+ *
+ * Without `email`, user skills are skipped. Public + plugin still load.
+ */
+export function getAllSkills(email?: string): Skill[] {
   const roots = getRoots();
-  const skills: Skill[] = [];
-  const seenSlugs = new Set<string>();
+  const collected: Array<Omit<Skill, "slug">> = [];
 
   for (const root of roots) {
-    const files = findSkillFiles(root.path);
-    for (const file of files) {
-      let parsed: matter.GrayMatterFile<string>;
-      try {
-        const raw = fs.readFileSync(file, "utf8");
-        parsed = matter(raw);
-      } catch {
-        continue;
-      }
-      const data = parsed.data as Record<string, unknown>;
-      const name = typeof data.name === "string" && data.name.trim()
-        ? data.name.trim()
-        : path.basename(path.dirname(file));
-      const description = normalizeDescription(data.description);
-      const allowedTools = normalizeAllowedTools(data["allowed-tools"]);
-      const license = typeof data.license === "string" ? data.license : undefined;
-
-      let source: SkillSource;
-      let sourceLabel: string;
-      if (root.kind === "user") {
-        source = { kind: "user" };
-        sourceLabel = "user";
-      } else {
+    if (root.kind === "plugins") {
+      const files = findSkillFiles(root.path);
+      for (const file of files) {
         const mp = marketplaceFromPath(file, root.path) ?? "plugin";
-        source = { kind: "plugin", marketplace: mp };
-        sourceLabel = mp;
+        const parsed = parseSkillFile(
+          file,
+          { kind: "plugin", marketplace: mp },
+          mp,
+        );
+        if (parsed) collected.push(parsed);
       }
+      continue;
+    }
 
-      let slug = slugify(name, source);
-      let suffix = 2;
-      while (seenSlugs.has(slug)) {
-        slug = `${slugify(name, source)}-${suffix++}`;
+    // user-kind root: scan public subfolder + caller's own subfolder
+    const publicDir = path.join(root.path, PUBLIC_FOLDER);
+    if (fs.existsSync(publicDir)) {
+      for (const file of findSkillFiles(publicDir)) {
+        const parsed = parseSkillFile(file, { kind: "public" }, "public");
+        if (parsed) collected.push(parsed);
       }
-      seenSlugs.add(slug);
-
-      skills.push({
-        slug,
-        name,
-        description,
-        allowedTools,
-        license,
-        body: parsed.content.trim(),
-        source,
-        sourceLabel,
-        sourcePath: path.dirname(file),
-      });
+    }
+    if (email) {
+      const ownDir = path.join(root.path, userSlug(email));
+      if (fs.existsSync(ownDir)) {
+        for (const file of findSkillFiles(ownDir)) {
+          const parsed = parseSkillFile(file, { kind: "user" }, "user");
+          if (parsed) collected.push(parsed);
+        }
+      }
     }
   }
+
+  // Assign unique slugs (collisions get a numeric suffix).
+  const seenSlugs = new Set<string>();
+  const skills: Skill[] = collected.map((s) => {
+    let slug = slugify(s.name, s.source);
+    let suffix = 2;
+    while (seenSlugs.has(slug)) {
+      slug = `${slugify(s.name, s.source)}-${suffix++}`;
+    }
+    seenSlugs.add(slug);
+    return { ...s, slug };
+  });
 
   skills.sort((a, b) => a.name.localeCompare(b.name));
   return skills;
 }
 
-export function getSkillBySlug(slug: string): Skill | undefined {
-  return getAllSkills().find((s) => s.slug === slug);
+export function getSkillBySlug(slug: string, email?: string): Skill | undefined {
+  return getAllSkills(email).find((s) => s.slug === slug);
 }
 
 export function getAllSources(skills: Skill[]): string[] {
@@ -178,31 +238,51 @@ export interface SkillUpdate {
 
 function assertEditable(skill: Skill) {
   if (skill.source.kind !== "user") {
+    const reason =
+      skill.source.kind === "public"
+        ? "shared and read-only via the UI (edit it on disk under <root>/_public/)"
+        : "from a plugin marketplace (edit it in the source repository)";
     const err = new Error(
-      "This skill comes from a plugin marketplace and is read-only. " +
-        "Only user-source skills can be edited.",
+      `This skill is ${reason}. Only your own skills can be edited here.`,
     );
     (err as Error & { code: string }).code = "READ_ONLY";
     throw err;
   }
 }
 
-function isInsideUserRoot(absPath: string): boolean {
-  const real = fs.realpathSync(absPath);
+/**
+ * Confirm `absPath` lives inside `email`'s personal folder of any user root.
+ * Prevents PUT/DELETE from touching another user's directory even if a slug
+ * collides.
+ */
+function isInsideOwnFolder(absPath: string, email: string): boolean {
+  let real: string;
+  try {
+    real = fs.realpathSync(absPath);
+  } catch {
+    return false;
+  }
   return getRoots()
     .filter((r) => r.kind === "user")
     .some((r) => {
+      const owned = scopedRootPath(r, email);
+      if (!owned) return false;
       try {
-        const rRoot = fs.realpathSync(r.path);
-        return real === rRoot || real.startsWith(rRoot + path.sep);
+        if (!fs.existsSync(owned)) return false;
+        const realOwned = fs.realpathSync(owned);
+        return real === realOwned || real.startsWith(realOwned + path.sep);
       } catch {
         return false;
       }
     });
 }
 
-export function saveSkill(slug: string, update: SkillUpdate): Skill {
-  const existing = getSkillBySlug(slug);
+export function saveSkill(
+  slug: string,
+  update: SkillUpdate,
+  email: string,
+): Skill {
+  const existing = getSkillBySlug(slug, email);
   if (!existing) {
     const err = new Error("Skill not found.");
     (err as Error & { code: string }).code = "NOT_FOUND";
@@ -211,8 +291,10 @@ export function saveSkill(slug: string, update: SkillUpdate): Skill {
   assertEditable(existing);
 
   const file = path.join(existing.sourcePath, "SKILL.md");
-  if (!isInsideUserRoot(file)) {
-    const err = new Error("Refusing to write outside the user skills root.");
+  if (!isInsideOwnFolder(file, email)) {
+    const err = new Error(
+      "Refusing to write outside your own skills folder.",
+    );
     (err as Error & { code: string }).code = "PATH_ESCAPE";
     throw err;
   }
@@ -234,10 +316,12 @@ export function saveSkill(slug: string, update: SkillUpdate): Skill {
   const content = matter.stringify(update.body.replace(/\s*$/, "") + "\n", data);
   fs.writeFileSync(file, content, "utf8");
 
-  const refreshed = getSkillBySlug(slug);
+  const refreshed = getSkillBySlug(slug, email);
   if (!refreshed) {
     // Slug derives from name; if the user renamed the skill, the slug shifted.
-    const recomputed = getAllSkills().find((s) => s.sourcePath === existing.sourcePath);
+    const recomputed = getAllSkills(email).find(
+      (s) => s.sourcePath === existing.sourcePath,
+    );
     if (!recomputed) throw new Error("Failed to re-read skill after save.");
     return recomputed;
   }
@@ -248,7 +332,7 @@ function dirSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
-export function createSkill(input: SkillUpdate): Skill {
+export function createSkill(input: SkillUpdate, email: string): Skill {
   const trimmedName = input.name.trim();
   if (!trimmedName) {
     const err = new Error("name is required.");
@@ -272,11 +356,12 @@ export function createSkill(input: SkillUpdate): Skill {
     throw err;
   }
 
-  fs.mkdirSync(userRoot.path, { recursive: true });
-  const targetDir = path.join(userRoot.path, dirName);
+  const ownFolder = scopedRootPath(userRoot, email);
+  fs.mkdirSync(ownFolder, { recursive: true });
+  const targetDir = path.join(ownFolder, dirName);
   if (fs.existsSync(targetDir)) {
     const err = new Error(
-      `A skill directory already exists at ${targetDir}. ` +
+      `You already have a skill named "${trimmedName}". ` +
         "Pick a different name or edit the existing skill.",
     );
     (err as Error & { code: string }).code = "CONFLICT";
@@ -298,22 +383,22 @@ export function createSkill(input: SkillUpdate): Skill {
 
   const realDir = fs.realpathSync(targetDir);
   const created =
-    getAllSkills().find((s) => s.sourcePath === realDir) ??
-    getAllSkills().find((s) => s.sourcePath === targetDir);
+    getAllSkills(email).find((s) => s.sourcePath === realDir) ??
+    getAllSkills(email).find((s) => s.sourcePath === targetDir);
   if (!created) throw new Error("Failed to read newly created skill.");
   return created;
 }
 
-export function deleteSkill(slug: string): void {
-  const existing = getSkillBySlug(slug);
+export function deleteSkill(slug: string, email: string): void {
+  const existing = getSkillBySlug(slug, email);
   if (!existing) {
     const err = new Error("Skill not found.");
     (err as Error & { code: string }).code = "NOT_FOUND";
     throw err;
   }
   assertEditable(existing);
-  if (!isInsideUserRoot(existing.sourcePath)) {
-    const err = new Error("Refusing to delete outside the user skills root.");
+  if (!isInsideOwnFolder(existing.sourcePath, email)) {
+    const err = new Error("Refusing to delete outside your own skills folder.");
     (err as Error & { code: string }).code = "PATH_ESCAPE";
     throw err;
   }

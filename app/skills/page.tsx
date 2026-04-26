@@ -11,9 +11,9 @@ export const metadata = {
 };
 
 export default async function SkillsPage() {
-  const skills = getAllSkills();
-  const sources = getAllSources(skills);
   const user = await getCurrentUser();
+  const skills = getAllSkills(user?.email);
+  const sources = getAllSources(skills);
 
   return (
     <section className="mx-auto max-w-6xl px-6 pb-24 pt-16">

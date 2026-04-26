@@ -1,5 +1,6 @@
 export type SkillSource =
   | { kind: "user" }
+  | { kind: "public" }
   | { kind: "plugin"; marketplace: string };
 
 export interface Skill {
