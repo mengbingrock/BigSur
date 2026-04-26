@@ -167,3 +167,95 @@ export function getAllSources(skills: Skill[]): string[] {
   for (const s of skills) set.add(s.sourceLabel);
   return Array.from(set).sort();
 }
+
+export interface SkillUpdate {
+  name: string;
+  description: string;
+  allowedTools: string[];
+  license?: string;
+  body: string;
+}
+
+function assertEditable(skill: Skill) {
+  if (skill.source.kind !== "user") {
+    const err = new Error(
+      "This skill comes from a plugin marketplace and is read-only. " +
+        "Only user-source skills can be edited.",
+    );
+    (err as Error & { code: string }).code = "READ_ONLY";
+    throw err;
+  }
+}
+
+function isInsideUserRoot(absPath: string): boolean {
+  const real = fs.realpathSync(absPath);
+  return getRoots()
+    .filter((r) => r.kind === "user")
+    .some((r) => {
+      try {
+        const rRoot = fs.realpathSync(r.path);
+        return real === rRoot || real.startsWith(rRoot + path.sep);
+      } catch {
+        return false;
+      }
+    });
+}
+
+export function saveSkill(slug: string, update: SkillUpdate): Skill {
+  const existing = getSkillBySlug(slug);
+  if (!existing) {
+    const err = new Error("Skill not found.");
+    (err as Error & { code: string }).code = "NOT_FOUND";
+    throw err;
+  }
+  assertEditable(existing);
+
+  const file = path.join(existing.sourcePath, "SKILL.md");
+  if (!isInsideUserRoot(file)) {
+    const err = new Error("Refusing to write outside the user skills root.");
+    (err as Error & { code: string }).code = "PATH_ESCAPE";
+    throw err;
+  }
+
+  const trimmedName = update.name.trim();
+  if (!trimmedName) {
+    const err = new Error("name is required.");
+    (err as Error & { code: string }).code = "INVALID";
+    throw err;
+  }
+
+  const data: Record<string, unknown> = {
+    name: trimmedName,
+    description: update.description.trim(),
+  };
+  if (update.allowedTools.length > 0) data["allowed-tools"] = update.allowedTools;
+  if (update.license) data.license = update.license;
+
+  const content = matter.stringify(update.body.replace(/\s*$/, "") + "\n", data);
+  fs.writeFileSync(file, content, "utf8");
+
+  const refreshed = getSkillBySlug(slug);
+  if (!refreshed) {
+    // Slug derives from name; if the user renamed the skill, the slug shifted.
+    const recomputed = getAllSkills().find((s) => s.sourcePath === existing.sourcePath);
+    if (!recomputed) throw new Error("Failed to re-read skill after save.");
+    return recomputed;
+  }
+  return refreshed;
+}
+
+export function deleteSkill(slug: string): void {
+  const existing = getSkillBySlug(slug);
+  if (!existing) {
+    const err = new Error("Skill not found.");
+    (err as Error & { code: string }).code = "NOT_FOUND";
+    throw err;
+  }
+  assertEditable(existing);
+  if (!isInsideUserRoot(existing.sourcePath)) {
+    const err = new Error("Refusing to delete outside the user skills root.");
+    (err as Error & { code: string }).code = "PATH_ESCAPE";
+    throw err;
+  }
+  fs.rmSync(existing.sourcePath, { recursive: true, force: true });
+}

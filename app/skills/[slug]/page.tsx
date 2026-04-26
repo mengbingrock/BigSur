@@ -1,15 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MessageSquare } from "lucide-react";
-import { getAllSkills, getSkillBySlug } from "@/lib/skills";
+import { ArrowLeft, MessageSquare, Pencil } from "lucide-react";
+import { getSkillBySlug } from "@/lib/skills";
+import { getCurrentUser } from "@/lib/session";
 import Markdown from "@/components/Markdown";
+
+export const dynamic = "force-dynamic";
 
 interface Props {
   params: { slug: string };
-}
-
-export function generateStaticParams() {
-  return getAllSkills().map((s) => ({ slug: s.slug }));
 }
 
 export function generateMetadata({ params }: Props) {
@@ -21,9 +20,11 @@ export function generateMetadata({ params }: Props) {
   };
 }
 
-export default function SkillDetailPage({ params }: Props) {
+export default async function SkillDetailPage({ params }: Props) {
   const skill = getSkillBySlug(params.slug);
   if (!skill) notFound();
+  const user = await getCurrentUser();
+  const canEdit = Boolean(user?.isAdmin) && skill.source.kind === "user";
 
   return (
     <article className="mx-auto max-w-3xl px-6 pb-24 pt-12">
@@ -35,13 +36,24 @@ export default function SkillDetailPage({ params }: Props) {
           <ArrowLeft size={14} />
           All skills
         </Link>
-        <Link
-          href="/chat"
-          className="inline-flex items-center gap-2 border border-ink px-3 py-1.5 text-xs font-medium text-ink transition hover:bg-ink hover:text-paper"
-        >
-          <MessageSquare size={13} />
-          Try in chat
-        </Link>
+        <div className="flex items-center gap-2">
+          {canEdit && (
+            <Link
+              href={`/skills/${skill.slug}/edit`}
+              className="inline-flex items-center gap-2 border border-rule px-3 py-1.5 text-xs font-medium text-muted transition hover:border-ink hover:text-ink"
+            >
+              <Pencil size={13} />
+              Edit
+            </Link>
+          )}
+          <Link
+            href="/chat"
+            className="inline-flex items-center gap-2 border border-ink px-3 py-1.5 text-xs font-medium text-ink transition hover:bg-ink hover:text-paper"
+          >
+            <MessageSquare size={13} />
+            Try in chat
+          </Link>
+        </div>
       </div>
 
       <header className="mt-8 border-b border-rule pb-8">

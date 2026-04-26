@@ -1,6 +1,8 @@
 import { getAllSkills, getAllSources } from "@/lib/skills";
 import SkillSearch from "@/components/SkillSearch";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Skills — Monterey",
 };
