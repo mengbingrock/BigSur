@@ -18,8 +18,6 @@ import {
   Pencil,
   X,
   Undo2,
-  Download,
-  FileText,
 } from "lucide-react";
 import type { Skill } from "@/lib/types";
 import type { DeckFile } from "@/lib/deck-shared";
@@ -63,12 +61,6 @@ interface SkillSnapshot {
   bodyChars: number;
 }
 
-interface ProducedFile {
-  workspaceId: string;
-  relPath: string;
-  size: number;
-}
-
 interface EditSnapshot {
   start: number;
   end: number;
@@ -88,8 +80,6 @@ interface ChatMsg {
   loadedSkills?: SkillSnapshot[];
   /** Edits applied to this message, newest last. Used for undo. */
   edits?: EditSnapshot[];
-  /** Files the assistant produced during this turn, downloadable for ~30 min. */
-  files?: ProducedFile[];
 }
 
 interface ActiveSelection {
@@ -756,27 +746,6 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
           },
         }));
         break;
-      case "files_produced": {
-        const workspaceId = String(payload.workspaceId ?? "");
-        const rawFiles = Array.isArray(payload.files) ? payload.files : [];
-        const files: ProducedFile[] = rawFiles
-          .map((f) => f as Record<string, unknown>)
-          .filter(
-            (f) => typeof f.relPath === "string" && typeof f.size === "number",
-          )
-          .map((f) => ({
-            workspaceId,
-            relPath: String(f.relPath),
-            size: Number(f.size),
-          }));
-        if (files.length > 0) {
-          updateAssistant(aid, (m) => ({
-            ...m,
-            files: [...(m.files ?? []), ...files],
-          }));
-        }
-        break;
-      }
       case "end":
       case "message_stop":
         // handled implicitly
@@ -1347,49 +1316,8 @@ function MessageBubble({
           <Markdown>{msg.content}</Markdown>
         </div>
       )}
-      {msg.files && msg.files.length > 0 && <DownloadsBlock files={msg.files} />}
     </div>
   );
-}
-
-function DownloadsBlock({ files }: { files: ProducedFile[] }) {
-  return (
-    <div className="flex flex-col gap-1.5 border border-rule bg-ink/[0.02] p-3">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-muted">
-        Produced files · available for ~30 min
-      </p>
-      <ul className="flex flex-col gap-1">
-        {files.map((f) => (
-          <li key={f.relPath}>
-            <a
-              href={`/api/files/${f.workspaceId}/${f.relPath
-                .split("/")
-                .map(encodeURIComponent)
-                .join("/")}`}
-              download={f.relPath.split("/").pop()}
-              className="group flex items-center gap-2 text-sm text-ink transition hover:text-muted"
-            >
-              <FileText size={14} className="shrink-0 text-muted" />
-              <span className="flex-1 font-mono text-[13px]">{f.relPath}</span>
-              <span className="text-[11px] text-muted">
-                {formatBytes(f.size)}
-              </span>
-              <Download
-                size={13}
-                className="shrink-0 text-muted group-hover:text-ink"
-              />
-            </a>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
 }
 
 function ActivityPanel({

@@ -45,7 +45,6 @@ export const config = {
     "/skills/:path*",
     "/admin/:path*",
     "/api/chat",
-    "/api/files/:path*",
     "/api/admin/:path*",
     "/api/skills/:path*",
     "/api/deck/:path*",

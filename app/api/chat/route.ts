@@ -2,18 +2,11 @@ import { spawn } from "node:child_process";
 import type { ChildProcessByStdio } from "node:child_process";
 import type { Readable } from "node:stream";
 import fs from "node:fs/promises";
-import fsSync from "node:fs";
 import path from "node:path";
 import { getAllSkills } from "@/lib/skills";
 import { getCurrentEmail } from "@/lib/session";
 import { userDeckDir } from "@/lib/deck";
 import type { Skill } from "@/lib/types";
-import {
-  createWorkspace,
-  touchWorkspace,
-  scanProducedFiles,
-  deleteWorkspace,
-} from "@/lib/workspaces";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,10 +32,10 @@ interface ChatRequest {
 const SYSTEM_PROMPT =
   "You are a chat assistant inside the Monterey skills catalog. " +
   "You have access to the full Claude Code toolset (Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch, Skill). " +
-  "A clean temporary directory is your working directory — use it freely to run scripts, write output files (.docx, .xlsx, .pdf, images, etc.), and install packages if a skill asks you to. " +
-  "Any file you write to the current working directory (or its subdirectories, excluding .claude and ./deck) will be collected after your turn and offered to the user as a download. " +
-  "There is also a `./deck/` subdirectory that is the user's PERSISTENT file deck — files the user has uploaded for you to read and any output you write there shows up in their /deck page after this turn. " +
-  "Read from ./deck/ when the user references files they uploaded; write outputs there if the user asks for something to be saved permanently or if a skill needs durable storage. " +
+  "Your current working directory IS the user's persistent file deck. Anything you write here (and in subdirectories) is saved across sessions and shows up in their Working Directory panel. " +
+  "Files the user has uploaded for you live alongside your outputs in this directory — read them by name, no need to navigate into a subfolder. " +
+  "Prefer top-level filenames for outputs the user will care about (the panel only surfaces top-level files); use subdirectories only for transient working state. " +
+  "Skill scaffolding lives in the hidden `.claude/` folder — leave it alone. " +
   "User-level Anthropic skills (docx, xlsx, pptx, pdf, canvas-design, algorithmic-art, etc.) are available — invoke them via the Skill tool when they match the user's request. " +
   "When the user asks you to produce a file (Word doc, spreadsheet, PDF, chart), DO produce it — don't claim you can't. " +
   "Be concise in chat responses. Use markdown when it aids clarity.";
@@ -93,37 +86,23 @@ function sanitizeSkillDirName(name: string): string {
 }
 
 /**
- * Mount the user's persistent file deck into the chat workspace at ./deck/.
- * The deck directory is created if missing so the symlink target always
- * exists and the model can `cd deck && ls` even on first session.
+ * Wire `<deck>/.claude/skills/<name>` symlinks for the skills the user
+ * selected this turn. The `.claude/skills/` directory is wiped and
+ * recreated each call so a previous turn's skills don't leak in.
  */
-async function linkDeck(workspaceDir: string, email: string): Promise<string | null> {
-  const deck = userDeckDir(email);
-  try {
-    await fs.mkdir(deck, { recursive: true });
-    const linkPath = path.join(workspaceDir, "deck");
-    // realpathSync — resolve any symlink target so the model writes through to
-    // the actual deck dir.
-    const real = fsSync.realpathSync(deck);
-    await fs.symlink(real, linkPath, "dir");
-    return real;
-  } catch {
-    return null;
-  }
-}
-
 async function linkSelectedSkills(
-  workspaceDir: string,
+  cwd: string,
   selected: Skill[],
 ): Promise<string[]> {
-  const skillsDir = path.join(workspaceDir, ".claude", "skills");
+  const skillsDir = path.join(cwd, ".claude", "skills");
+  await fs.rm(skillsDir, { recursive: true, force: true });
   await fs.mkdir(skillsDir, { recursive: true });
 
   const linkedNames: string[] = [];
   const used = new Set<string>();
 
   for (const skill of selected) {
-    let baseName = sanitizeSkillDirName(skill.name);
+    const baseName = sanitizeSkillDirName(skill.name);
     let name = baseName;
     let suffix = 2;
     while (used.has(name)) {
@@ -144,7 +123,7 @@ async function linkSelectedSkills(
 
 export async function POST(req: Request): Promise<Response> {
   // Middleware enforces login on /api/chat; this fetch tells us *which* user
-  // so we only expose their personal skills to the spawned subprocess.
+  // so the spawned process runs in their personal deck folder.
   const email = await getCurrentEmail();
   if (!email) {
     return Response.json({ error: "Unauthorized." }, { status: 401 });
@@ -209,12 +188,11 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
-  const workspace = await createWorkspace();
-  const linkedSkillNames = await linkSelectedSkills(workspace.dir, selectedSkills);
-  // Mount the user's persistent deck at <workspace>/deck so skills can read
-  // their uploads and write outputs that survive the session.
-  await linkDeck(workspace.dir, email);
-  const streamStartedAt = Date.now();
+  // Working directory = user's persistent deck. Anything written here lives
+  // on across chat sessions and surfaces in the Working Directory panel.
+  const cwd = userDeckDir(email);
+  await fs.mkdir(cwd, { recursive: true });
+  const linkedSkillNames = await linkSelectedSkills(cwd, selectedSkills);
 
   const args = [
     "-p",
@@ -242,12 +220,11 @@ export async function POST(req: Request): Promise<Response> {
   let proc: ChildProcessByStdio<null, Readable, Readable>;
   try {
     proc = spawn("claude", args, {
-      cwd: workspace.dir,
+      cwd,
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env },
     });
   } catch (err) {
-    await deleteWorkspace(workspace.id);
     const message = err instanceof Error ? err.message : "Failed to spawn claude.";
     return Response.json({ error: message }, { status: 500 });
   }
@@ -277,8 +254,7 @@ export async function POST(req: Request): Promise<Response> {
       // Announce the skills we linked so the UI can display them.
       send("skills_loaded", {
         linkedNames: linkedSkillNames,
-        workspaceId: workspace.id,
-        cwd: workspace.dir,
+        cwd,
       });
 
       const blockTypeByIndex = new Map<number, string>();
@@ -319,37 +295,18 @@ export async function POST(req: Request): Promise<Response> {
         }
       });
 
-      proc.on("error", async (err) => {
+      proc.on("error", (err) => {
         send("error", { message: err.message });
-        await deleteWorkspace(workspace.id);
         close();
       });
 
-      proc.on("close", async (code) => {
+      proc.on("close", (code) => {
         if (code !== 0) {
           const tail = stderrBuf.trim().split("\n").slice(-5).join(" | ");
           send("error", {
             message: `claude CLI exited with code ${code}${tail ? `: ${tail}` : ""}`,
           });
-          // Don't retain workspace on failure — nothing to download.
-          await deleteWorkspace(workspace.id);
         } else {
-          // Successful turn — scan for produced files and keep the workspace
-          // alive so the user can download them.
-          try {
-            const files = await scanProducedFiles(workspace.dir, streamStartedAt);
-            if (files.length > 0) {
-              send("files_produced", {
-                workspaceId: workspace.id,
-                files,
-              });
-              touchWorkspace(workspace.id, workspace.dir);
-            } else {
-              await deleteWorkspace(workspace.id);
-            }
-          } catch {
-            await deleteWorkspace(workspace.id);
-          }
           send("end", {});
         }
         close();
@@ -369,7 +326,6 @@ export async function POST(req: Request): Promise<Response> {
       } catch {
         // already gone
       }
-      void deleteWorkspace(workspace.id);
     },
   });
 
@@ -451,19 +407,16 @@ function handleEvent(
       if (!delta) return;
       const dt = delta.type;
       if (dt === "text_delta" && typeof delta.text === "string") {
-        send("delta", { text: delta.text });
+        send("delta", { index, text: delta.text });
       } else if (dt === "thinking_delta" && typeof delta.thinking === "string") {
-        send("thinking_delta", { text: delta.thinking });
+        send("thinking_delta", { index, text: delta.thinking });
       } else if (
         dt === "input_json_delta" &&
         typeof delta.partial_json === "string"
       ) {
         const prev = blockInputJson.get(index) ?? "";
         blockInputJson.set(index, prev + delta.partial_json);
-        send("tool_input_delta", {
-          id: blockId.get(index),
-          partial_json: delta.partial_json,
-        });
+        send("tool_input_delta", { index, partial_json: delta.partial_json });
       }
       return;
     }
@@ -474,19 +427,16 @@ function handleEvent(
       if (bt === "thinking") {
         send("thinking_stop", { index });
       } else if (bt === "tool_use") {
-        const raw = blockInputJson.get(index) ?? "";
-        let input: unknown = null;
+        const id = blockId.get(index);
+        const name = blockName.get(index);
+        const inputRaw = blockInputJson.get(index) ?? "";
+        let parsedInput: unknown = null;
         try {
-          input = raw ? JSON.parse(raw) : null;
+          parsedInput = inputRaw ? JSON.parse(inputRaw) : {};
         } catch {
-          input = { _raw: raw };
+          parsedInput = inputRaw;
         }
-        send("tool_stop", {
-          index,
-          id: blockId.get(index),
-          name: blockName.get(index),
-          input,
-        });
+        send("tool_stop", { index, id, name, input: parsedInput, inputRaw });
       } else if (bt === "text") {
         send("text_stop", { index });
       }
@@ -494,12 +444,10 @@ function handleEvent(
     }
 
     if (innerType === "message_delta") {
-      const delta = inner.delta as Record<string, unknown> | undefined;
-      const usage = inner.usage;
-      send("message_delta", {
-        stop_reason: delta?.stop_reason,
-        usage,
-      });
+      const usage = (inner as { usage?: unknown }).usage;
+      const stopReason = (inner.delta as Record<string, unknown> | undefined)
+        ?.stop_reason;
+      send("message_delta", { stop_reason: stopReason, usage });
       return;
     }
 
@@ -507,53 +455,41 @@ function handleEvent(
       send("message_stop", {});
       return;
     }
+
     return;
   }
 
   if (type === "user") {
-    const message = (evt as { message?: { content?: unknown[] } }).message;
-    const content = Array.isArray(message?.content) ? message!.content : [];
-    for (const block of content) {
-      if (
-        block &&
-        typeof block === "object" &&
-        (block as Record<string, unknown>).type === "tool_result"
-      ) {
-        const b = block as Record<string, unknown>;
-        send("tool_result", {
-          tool_use_id: b.tool_use_id,
-          is_error: b.is_error ?? false,
-          content: b.content,
-        });
-      }
+    // Tool results sent back to the assistant. The CLI wraps these in a
+    // synthetic user message; surface them so the UI can render expandable
+    // tool-result blocks under their initiating tool_use.
+    const message = evt.message as Record<string, unknown> | undefined;
+    if (!message) return;
+    const content = message.content;
+    if (!Array.isArray(content)) return;
+    for (const item of content as Record<string, unknown>[]) {
+      if (item.type !== "tool_result") continue;
+      send("tool_result", {
+        id: item.tool_use_id,
+        is_error: Boolean(item.is_error),
+        content: item.content,
+      });
     }
-    return;
-  }
-
-  if (type === "rate_limit_event") {
-    send("rate_limit", evt.rate_limit_info);
     return;
   }
 
   if (type === "result") {
     send("result", {
-      is_error: evt.is_error,
+      subtype: evt.subtype,
       duration_ms: evt.duration_ms,
       duration_api_ms: evt.duration_api_ms,
-      num_turns: evt.num_turns,
       total_cost_usd: evt.total_cost_usd,
+      num_turns: evt.num_turns,
       usage: evt.usage,
-      model_usage: evt.modelUsage,
-      stop_reason: evt.stop_reason,
       permission_denials: evt.permission_denials,
+      is_error: evt.is_error,
+      result: evt.result,
     });
-    if (evt.is_error) {
-      const msg =
-        typeof evt.result === "string"
-          ? evt.result
-          : "Claude CLI returned an error.";
-      send("error", { message: msg });
-    }
     return;
   }
 }
