@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MessageSquare } from "lucide-react";
-import { getSkillBySlug } from "@/lib/skills";
+import { getSkillBySlug, listSkillFiles } from "@/lib/skills";
 import { getCurrentUser } from "@/lib/session";
-import Markdown from "@/components/Markdown";
 import EditSkillButton from "@/components/EditSkillButton";
+import SkillFilesTree from "@/components/SkillFilesTree";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +31,8 @@ export default async function SkillDetailPage({ params }: Props) {
   //   public → background import then redirect to the new copy's edit page
   //   plugin → renders nothing (uneditable here)
   const showEdit = Boolean(user) && skill.source.kind !== "plugin";
+  const canEditFiles = skill.source.kind === "user";
+  const files = listSkillFiles(skill);
 
   return (
     <article className="mx-auto max-w-3xl px-6 pb-24 pt-12">
@@ -88,13 +90,19 @@ export default async function SkillDetailPage({ params }: Props) {
         )}
       </header>
 
-      <div className="mt-10">
-        {skill.body ? (
-          <Markdown>{skill.body}</Markdown>
-        ) : (
-          <p className="text-muted">(SKILL.md body is empty.)</p>
-        )}
-      </div>
+      {files.length > 0 && (
+        <section className="mt-10">
+          <p className="mb-4 text-xs uppercase tracking-[0.18em] text-muted">
+            Files ({files.length})
+            {canEditFiles && (
+              <span className="ml-2 normal-case tracking-normal text-muted/70">
+                · click any file to view, then Edit to change it
+              </span>
+            )}
+          </p>
+          <SkillFilesTree slug={skill.slug} files={files} canEdit={canEditFiles} />
+        </section>
+      )}
     </article>
   );
 }

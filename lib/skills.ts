@@ -222,6 +222,120 @@ export function getSkillBySlug(slug: string, email?: string): Skill | undefined 
   return getAllSkills(email).find((s) => s.slug === slug);
 }
 
+export interface SkillFile {
+  /** Path relative to the skill's root directory, using "/" separators. */
+  relPath: string;
+  size: number;
+  /** Decoded text content, present only for small text files. */
+  text?: string;
+  /** True when the file looked binary or exceeded MAX_TEXT_BYTES. */
+  binary: boolean;
+  /** True when the file was elided because it exceeded MAX_TEXT_BYTES. */
+  truncated: boolean;
+}
+
+const MAX_TEXT_BYTES = 256 * 1024;
+const TEXT_EXTENSIONS = new Set([
+  ".md", ".markdown", ".txt", ".json", ".jsonl", ".yaml", ".yml",
+  ".toml", ".ini", ".cfg", ".conf",
+  ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs",
+  ".py", ".rb", ".go", ".rs", ".java", ".kt", ".swift",
+  ".c", ".h", ".cpp", ".hpp", ".cc", ".cs",
+  ".sh", ".bash", ".zsh", ".fish",
+  ".sql", ".html", ".htm", ".xml", ".css", ".scss",
+  ".csv", ".tsv", ".env",
+]);
+
+function looksTextual(buf: Buffer): boolean {
+  // Check the first 8KB for NUL bytes — a strong heuristic for binary content.
+  const sample = buf.subarray(0, Math.min(buf.length, 8192));
+  for (let i = 0; i < sample.length; i++) {
+    if (sample[i] === 0) return false;
+  }
+  return true;
+}
+
+/**
+ * Walk the skill's directory and return every regular file under it (other
+ * than SKILL.md, which the page renders separately). Text files small enough
+ * to inline are returned with their decoded content; everything else gets
+ * size + a binary/truncated flag so the UI can show metadata only.
+ */
+export function listSkillFiles(skill: Skill): SkillFile[] {
+  const root = skill.sourcePath;
+  if (!fs.existsSync(root)) return [];
+  const out: SkillFile[] = [];
+  const visited = new Set<string>();
+
+  const walk = (dir: string, depth = 0) => {
+    if (depth > 6) return;
+    let real: string;
+    try {
+      real = fs.realpathSync(dir);
+    } catch {
+      return;
+    }
+    if (visited.has(real)) return;
+    visited.add(real);
+
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+      const full = path.join(dir, entry.name);
+      let stat: fs.Stats;
+      try {
+        stat = fs.statSync(full);
+      } catch {
+        continue;
+      }
+      if (stat.isDirectory()) {
+        walk(full, depth + 1);
+        continue;
+      }
+      if (!stat.isFile()) continue;
+      const rel = path.relative(root, full).split(path.sep).join("/");
+
+      const ext = path.extname(entry.name).toLowerCase();
+      const probablyText = TEXT_EXTENSIONS.has(ext);
+
+      if (stat.size > MAX_TEXT_BYTES) {
+        out.push({ relPath: rel, size: stat.size, binary: !probablyText, truncated: true });
+        continue;
+      }
+
+      let buf: Buffer;
+      try {
+        buf = fs.readFileSync(full);
+      } catch {
+        out.push({ relPath: rel, size: stat.size, binary: true, truncated: false });
+        continue;
+      }
+
+      const isText = probablyText || looksTextual(buf);
+      if (isText) {
+        out.push({
+          relPath: rel,
+          size: stat.size,
+          text: buf.toString("utf8"),
+          binary: false,
+          truncated: false,
+        });
+      } else {
+        out.push({ relPath: rel, size: stat.size, binary: true, truncated: false });
+      }
+    }
+  };
+
+  walk(root);
+  out.sort((a, b) => a.relPath.localeCompare(b.relPath));
+  return out;
+}
+
 export function getAllSources(skills: Skill[]): string[] {
   const set = new Set<string>();
   for (const s of skills) set.add(s.sourceLabel);
@@ -444,6 +558,61 @@ export function importSkill(slug: string, email: string): Skill {
     getAllSkills(email).find((s) => s.sourcePath === targetDir);
   if (!created) throw new Error("Failed to read imported skill.");
   return created;
+}
+
+/**
+ * Write `content` to a single file inside a user-owned skill directory.
+ * Path is resolved against the skill's root and verified to stay inside it
+ * (no `../` escapes, no symlinks pointing out). Used by the in-page Files
+ * editor to update SKILL.md or any reference file.
+ */
+export function saveSkillFile(
+  slug: string,
+  relPath: string,
+  content: string,
+  email: string,
+): void {
+  const skill = getSkillBySlug(slug, email);
+  if (!skill) {
+    const err = new Error("Skill not found.");
+    (err as Error & { code: string }).code = "NOT_FOUND";
+    throw err;
+  }
+  assertEditable(skill);
+
+  const cleanRel = relPath.replace(/^\/+/, "").replace(/\\/g, "/");
+  if (!cleanRel || cleanRel.split("/").some((seg) => seg === ".." || seg === "")) {
+    const err = new Error("Invalid file path.");
+    (err as Error & { code: string }).code = "INVALID";
+    throw err;
+  }
+
+  const target = path.join(skill.sourcePath, ...cleanRel.split("/"));
+
+  // The file must already exist (this endpoint only updates, doesn't create).
+  if (!fs.existsSync(target)) {
+    const err = new Error("File not found.");
+    (err as Error & { code: string }).code = "NOT_FOUND";
+    throw err;
+  }
+
+  if (!isInsideOwnFolder(target, email)) {
+    const err = new Error("Refusing to write outside your own skills folder.");
+    (err as Error & { code: string }).code = "PATH_ESCAPE";
+    throw err;
+  }
+
+  // Containment check against the skill's own dir as well, in case the user
+  // somehow targets a sibling skill via a symlink chain.
+  const realTarget = fs.realpathSync(target);
+  const realRoot = fs.realpathSync(skill.sourcePath);
+  if (realTarget !== realRoot && !realTarget.startsWith(realRoot + path.sep)) {
+    const err = new Error("Path escapes the skill directory.");
+    (err as Error & { code: string }).code = "PATH_ESCAPE";
+    throw err;
+  }
+
+  fs.writeFileSync(target, content, "utf8");
 }
 
 export function deleteSkill(slug: string, email: string): void {
