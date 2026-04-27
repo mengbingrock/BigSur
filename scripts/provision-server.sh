@@ -86,6 +86,11 @@ fi
 bold "[5/6] Ensuring .env.production"
 if [ -f "$APP_DIR/.env.production" ]; then
   skip ".env.production already exists — leaving as-is"
+  # Append DECK_ROOT if missing (existing install upgrading to deck feature).
+  if [ -n "$DECK_ROOT" ] && ! grep -q '^DECK_ROOT=' "$APP_DIR/.env.production"; then
+    echo "DECK_ROOT=$DECK_ROOT" >> "$APP_DIR/.env.production"
+    ok "appended DECK_ROOT to existing .env.production"
+  fi
 else
   SESSION_PASSWORD="$(openssl rand -base64 48 | tr -d '\n' | tr '/+' '_-' | cut -c1-48)"
   {
@@ -106,12 +111,6 @@ else
   } > "$APP_DIR/.env.production"
   chmod 600 "$APP_DIR/.env.production"
   ok "wrote $APP_DIR/.env.production"
-else
-  # Append DECK_ROOT if missing (existing install upgrading to deck feature).
-  if [ -n "$DECK_ROOT" ] && ! grep -q '^DECK_ROOT=' "$APP_DIR/.env.production"; then
-    echo "DECK_ROOT=$DECK_ROOT" >> "$APP_DIR/.env.production"
-    ok "appended DECK_ROOT to existing .env.production"
-  fi
 fi
 
 # Bootstrap the deck dir (separate from skills; not touched by rsync).
