@@ -20,7 +20,7 @@ you're deploying from your Mac.
 
 | Var | Default |
 |---|---|
-| `SSH_HOST` | `34.211.225.249` |
+| `SSH_HOST` | _(required)_ — e.g. `1.2.3.4` |
 | `SSH_USER` | `ubuntu` |
 | `SSH_KEY` | `~/Downloads/lightsail.pem` |
 | `REMOTE_DIR` | `/home/ubuntu/agent-monterey` |
@@ -67,7 +67,7 @@ claude setup-token
 # copy the printed token
 
 # SSH to the server:
-ssh -i ~/Downloads/lightsail.pem ubuntu@34.211.225.249
+ssh -i ~/Downloads/lightsail.pem ubuntu@<your-server-ip>
 
 # Paste the token into a fresh login flow:
 claude /login
@@ -77,7 +77,7 @@ claude /login
 **Option B — Port-forward the OAuth callback:**
 
 ```bash
-ssh -i ~/Downloads/lightsail.pem -L 8976:localhost:8976 ubuntu@34.211.225.249
+ssh -i ~/Downloads/lightsail.pem -L 8976:localhost:8976 ubuntu@<your-server-ip>
 claude /login
 # Open the printed URL in your Mac browser; the callback comes back through
 # the SSH tunnel.
@@ -100,13 +100,13 @@ Public signup is **disabled** by default (we set `SIGNUP_ENABLED=false`). Create
 yourself via the CLI:
 
 ```bash
-ssh -i ~/Downloads/lightsail.pem ubuntu@34.211.225.249
+ssh -i ~/Downloads/lightsail.pem ubuntu@<your-server-ip>
 cd /home/ubuntu/agent-monterey
 npm run user create you@example.com --admin
 # prompts for password
 ```
 
-Then visit `http://34.211.225.249:3000`, sign in.
+Then visit `http://<your-server-ip>:3000`, sign in.
 
 ## Updating (subsequent deploys)
 
@@ -122,7 +122,7 @@ Your `data/users.json`, `.env.production`, and `claude` auth are never touched.
 ## Managing the running service
 
 ```bash
-ssh -i ~/Downloads/lightsail.pem ubuntu@34.211.225.249
+ssh -i ~/Downloads/lightsail.pem ubuntu@<your-server-ip>
 
 sudo systemctl status monterey          # state + last few log lines
 sudo journalctl -u monterey -f           # tail logs
@@ -133,7 +133,7 @@ sudo systemctl stop monterey             # take offline
 ## Uninstall
 
 ```bash
-ssh -i ~/Downloads/lightsail.pem ubuntu@34.211.225.249
+ssh -i ~/Downloads/lightsail.pem ubuntu@<your-server-ip>
 sudo systemctl disable --now monterey
 sudo rm /etc/systemd/system/monterey.service
 sudo systemctl daemon-reload

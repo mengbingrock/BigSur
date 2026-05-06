@@ -2,11 +2,9 @@
 # Deploy Monterey to a Lightsail / Ubuntu box.
 #
 # Usage:
-#   ./scripts/deploy.sh                  # uses defaults below
-#   SSH_HOST=1.2.3.4 ./scripts/deploy.sh # override host
+#   SSH_HOST=1.2.3.4 ./scripts/deploy.sh # required
 #
-# Defaults target the box we packed for:
-#   SSH_HOST=34.211.225.249
+# Other env vars (with defaults):
 #   SSH_USER=ubuntu
 #   SSH_KEY=$HOME/Downloads/lightsail.pem
 #   REMOTE_DIR=/home/ubuntu/agent-monterey
@@ -28,7 +26,8 @@
 set -euo pipefail
 
 # --- Config ---------------------------------------------------------------
-SSH_HOST="${SSH_HOST:-34.211.225.249}"
+SSH_HOST="${SSH_HOST:-}"
+[ -n "$SSH_HOST" ] || { printf '\033[31mSSH_HOST is required (e.g. SSH_HOST=1.2.3.4 npm run deploy)\033[0m\n' >&2; exit 1; }
 SSH_USER="${SSH_USER:-ubuntu}"
 SSH_KEY="${SSH_KEY:-$HOME/Downloads/lightsail.pem}"
 REMOTE_DIR="${REMOTE_DIR:-/home/ubuntu/agent-monterey}"
