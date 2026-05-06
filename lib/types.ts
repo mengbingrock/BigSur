@@ -3,6 +3,8 @@ export type SkillSource =
   | { kind: "public" }
   | { kind: "plugin"; marketplace: string };
 
+export type ArtifactKind = "skill" | "protocol";
+
 export interface Skill {
   slug: string;
   name: string;
@@ -14,4 +16,9 @@ export interface Skill {
   sourceLabel: string;
   /** Absolute path of the directory containing SKILL.md. */
   sourcePath: string;
+  /**
+   * Whether this artifact is a generic Claude skill or a user-authored
+   * laboratory protocol. Read from frontmatter `kind:`; defaults to "skill".
+   */
+  artifactKind: ArtifactKind;
 }

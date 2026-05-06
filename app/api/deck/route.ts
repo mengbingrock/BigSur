@@ -50,6 +50,12 @@ export async function POST(req: NextRequest) {
   }
 
   const result: UploadResult = { uploaded: [], failed: [] };
+  // Optional `subdir` form field — when present, files land inside that
+  // existing top-level folder instead of the deck root. Used by the
+  // drag-into-folder UI affordance.
+  const subdirRaw = form.get("subdir");
+  const subdir =
+    typeof subdirRaw === "string" && subdirRaw.trim() ? subdirRaw.trim() : undefined;
   // Accept any file field (any name); browsers default to "file" but we don't
   // require it. Skip non-File entries silently.
   for (const [, value] of form.entries()) {
@@ -61,7 +67,7 @@ export async function POST(req: NextRequest) {
     }
     try {
       const buf = Buffer.from(await file.arrayBuffer());
-      const saved = await saveDeckFile(email, file.name, buf);
+      const saved = await saveDeckFile(email, file.name, buf, { subdir });
       result.uploaded.push(saved);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Save failed.";

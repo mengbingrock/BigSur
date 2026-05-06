@@ -15,9 +15,14 @@ export default function SkillCard({ skill }: Props) {
         <h3 className="font-serif text-xl leading-snug tracking-tight text-ink">
           {skill.name}
         </h3>
-        <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted">
-          {skill.sourceLabel}
-        </span>
+        <div className="flex shrink-0 items-center gap-2 font-mono text-[10px] uppercase tracking-wider">
+          {skill.artifactKind === "protocol" && (
+            <span className="border border-ink px-1.5 py-0.5 text-ink">
+              Protocol
+            </span>
+          )}
+          <span className="text-muted">{skill.sourceLabel}</span>
+        </div>
       </div>
 
       <p className="mt-4 line-clamp-4 text-sm leading-relaxed text-muted">

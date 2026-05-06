@@ -90,7 +90,11 @@ function formatDuration(ms?: number) {
   return `${(ms / 1000).toFixed(1)} s`;
 }
 
-export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) {
+export default function Chat({
+  skills,
+  initialDeckFiles,
+  deckMaxBytes,
+}: Props) {
   // Chat session state (messages, streaming, error, session) lives in a
   // module-scoped store so the live fetch survives navigation away from
   // /chat. UI-only state (input, selection, scroll) stays local.
@@ -102,6 +106,9 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
   const { messages, streaming, error, session } = sessionState;
 
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [input, setInput] = useState("");
   const [pinned, setPinned] = useState(true);
   const [activeSelection, setActiveSelection] =
@@ -135,14 +142,24 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
     );
   }, [selected]);
 
-  // Refresh the working-directory panel whenever a chat turn ends — the model
-  // may have written new files into ./deck/ during the turn.
+  // Refresh the working-directory panel as the model writes files. We do
+  // three things:
+  //   1. Poll every 2.5s while streaming so files appear as they're created,
+  //      not just at turn-end.
+  //   2. Do one final refresh the moment streaming flips false, in case the
+  //      last write landed between polls.
+  //   3. Stop polling cleanly when the component unmounts or streaming ends.
   const wasStreamingRef = useRef(false);
   useEffect(() => {
     if (wasStreamingRef.current && !streaming) {
       deckPanelRef.current?.refresh();
     }
     wasStreamingRef.current = streaming;
+    if (!streaming) return;
+    const interval = setInterval(() => {
+      deckPanelRef.current?.refresh();
+    }, 2500);
+    return () => clearInterval(interval);
   }, [streaming]);
 
   useEffect(() => {
@@ -181,6 +198,15 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
   const selectedSkills = useMemo(
     () => skills.filter((s) => selected.has(s.slug)),
     [skills, selected],
+  );
+
+  const skillsOnly = useMemo(
+    () => skills.filter((s) => s.artifactKind !== "protocol"),
+    [skills],
+  );
+  const protocolsOnly = useMemo(
+    () => skills.filter((s) => s.artifactKind === "protocol"),
+    [skills],
   );
 
   // Slash-command picker: when the textarea content is just "/<word>",
@@ -332,6 +358,7 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
     await chatStore.send({
       text,
       skillSlugs: Array.from(selected),
+      contextFiles: Array.from(selectedFiles),
       snapshot: buildSkillSnapshot(),
     });
   };
@@ -372,47 +399,54 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-[18rem,1fr]">
       <aside className="order-2 lg:order-1">
         <div className="sticky top-6 border border-rule p-5">
-          <p className="mb-3 text-xs uppercase tracking-[0.18em] text-muted">
-            Active skills
-          </p>
-          <p className="mb-4 text-xs leading-relaxed text-muted">
-            Selected skills are symlinked into the spawned{" "}
-            <code className="font-mono">claude</code> process. Claude Code&apos;s
-            user-level skills (docx, xlsx, pptx, pdf, canvas-design, …) also
-            load by default.
-          </p>
-          <div className="flex flex-col gap-1">
-            {skills.length === 0 && (
-              <p className="text-sm text-muted">(No skills indexed.)</p>
-            )}
-            {skills.map((s) => {
-              const on = selected.has(s.slug);
-              return (
-                <button
-                  type="button"
-                  key={s.slug}
-                  onClick={() => toggleSkill(s.slug)}
-                  className={`group flex items-start gap-2 rounded-sm px-2 py-2 text-left transition ${
-                    on ? "bg-ink/5" : "hover:bg-ink/5"
-                  }`}
-                >
-                  <span className="mt-0.5 text-ink">
-                    {on ? <SquareCheck size={16} /> : <Square size={16} />}
-                  </span>
-                  <span className="flex-1">
-                    <span className="block font-serif text-sm leading-tight text-ink">
-                      {s.name}
-                    </span>
-                    {s.description && (
-                      <span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-muted">
-                        {s.description}
-                      </span>
-                    )}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <ChatDeckPanel
+            ref={deckPanelRef}
+            initialFiles={initialDeckFiles}
+            maxBytes={deckMaxBytes}
+            selectedFiles={selectedFiles}
+            onToggleFile={(qualifiedPath) =>
+              setSelectedFiles((cur) => {
+                const next = new Set(cur);
+                if (next.has(qualifiedPath)) next.delete(qualifiedPath);
+                else next.add(qualifiedPath);
+                return next;
+              })
+            }
+          />
+
+          <hr className="my-5 border-rule" />
+
+          <ArtifactToggleSection
+            label="Active skills"
+            description={
+              <>
+                Selected skills are symlinked into the spawned{" "}
+                <code className="font-mono">claude</code> process. Claude Code&apos;s
+                user-level skills (docx, xlsx, pptx, pdf, canvas-design, …) also load by default.
+              </>
+            }
+            emptyText="(No skills indexed.)"
+            artifacts={skillsOnly}
+            selected={selected}
+            onToggle={toggleSkill}
+          />
+
+          <hr className="my-5 border-rule" />
+
+          <ArtifactToggleSection
+            label="Active protocols"
+            description={
+              <>
+                Protocols are reference text — their full body is injected into the
+                system prompt as authoritative procedure for this session, not
+                wired in as a callable skill.
+              </>
+            }
+            emptyText="(No protocols yet. Create one on the Artifacts page.)"
+            artifacts={protocolsOnly}
+            selected={selected}
+            onToggle={toggleSkill}
+          />
 
           {selectedSkills.length > 0 && (
             <button
@@ -423,21 +457,14 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
               Clear selection
             </button>
           )}
-
-          <hr className="my-5 border-rule" />
-
-          <ChatDeckPanel
-            ref={deckPanelRef}
-            initialFiles={initialDeckFiles}
-            maxBytes={deckMaxBytes}
-          />
         </div>
       </aside>
 
-      <section className="order-1 flex min-h-[60vh] flex-col border border-rule lg:order-2">
+      <section className="order-1 flex h-[calc(100vh-12rem)] min-h-[60vh] flex-col border border-rule lg:order-2">
         <SessionHeader
           session={session}
           selectedSkills={selectedSkills}
+          selectedFileCount={selectedFiles.size}
           hasMessages={messages.length > 0}
           streaming={streaming}
           onClear={() => {
@@ -461,8 +488,7 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
         <div
           ref={scrollRef}
           onScroll={onScrollList}
-          className="h-full overflow-y-auto px-6 py-8"
-          style={{ maxHeight: "70vh" }}
+          className="absolute inset-0 overflow-y-auto px-6 py-8"
         >
           {messages.length === 0 ? (
             <div className="mx-auto max-w-xl text-center">
@@ -470,18 +496,40 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
                 Chat
               </p>
               <p className="font-serif text-2xl leading-snug text-ink">
-                Ask the selected skills a question.
+                Ask the selected artifacts a question.
               </p>
               <p className="mt-4 text-sm text-muted">
-                {selectedSkills.length === 0
-                  ? "No skill active — you'll get a plain Claude response. Pick a skill on the left to specialize the assistant."
-                  : `${selectedSkills.length} skill${
-                      selectedSkills.length === 1 ? "" : "s"
-                    } active: ${selectedSkills.map((s) => s.name).join(", ")}`}
+                {(() => {
+                  const skillsActive = selectedSkills.filter(
+                    (s) => s.artifactKind !== "protocol",
+                  );
+                  const protocolsActive = selectedSkills.filter(
+                    (s) => s.artifactKind === "protocol",
+                  );
+                  if (selectedSkills.length === 0) {
+                    return "Nothing active — you'll get a plain Claude response. Pick a skill or protocol on the left to specialize the assistant.";
+                  }
+                  const parts: string[] = [];
+                  if (skillsActive.length > 0) {
+                    parts.push(
+                      `${skillsActive.length} skill${skillsActive.length === 1 ? "" : "s"}: ${skillsActive
+                        .map((s) => s.name)
+                        .join(", ")}`,
+                    );
+                  }
+                  if (protocolsActive.length > 0) {
+                    parts.push(
+                      `${protocolsActive.length} protocol${protocolsActive.length === 1 ? "" : "s"}: ${protocolsActive
+                        .map((s) => s.name)
+                        .join(", ")}`,
+                    );
+                  }
+                  return parts.join(" • ");
+                })()}
               </p>
             </div>
           ) : (
-            <div className="mx-auto flex max-w-3xl flex-col gap-10">
+            <div className="mx-auto flex w-full max-w-4xl flex-col gap-10">
               {messages.map((m) => (
                 <MessageBubble
                   key={m.id}
@@ -499,6 +547,7 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
         </div>
 
         <div className="border-t border-rule px-4 py-3 sm:px-6 sm:py-4">
+          <div className="mx-auto w-full max-w-4xl">
           {error && (
             <div className="mb-3 border border-rule bg-ink/5 px-3 py-2 text-xs text-ink">
               {error}
@@ -520,7 +569,7 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
               onKeyDown={onKey}
               placeholder={
                 selectedSkills.length > 0
-                  ? `Ask with ${selectedSkills.length} skill${
+                  ? `Ask with ${selectedSkills.length} artifact${
                       selectedSkills.length === 1 ? "" : "s"
                     } active…`
                   : "Ask anything… (type / to pick a skill, Shift+Enter for newline)"
@@ -557,6 +606,7 @@ export default function Chat({ skills, initialDeckFiles, deckMaxBytes }: Props) 
             (docx, xlsx, pdf, …). Files the assistant writes appear below the
             message as downloads.
           </p>
+          </div>
         </div>
       </section>
 
@@ -782,16 +832,24 @@ function EditPopover({
 function SessionHeader({
   session,
   selectedSkills,
+  selectedFileCount,
   hasMessages,
   streaming,
   onClear,
 }: {
   session: SessionInfo | null;
   selectedSkills: Skill[];
+  selectedFileCount: number;
   hasMessages: boolean;
   streaming: boolean;
   onClear: () => void;
 }) {
+  const skillsActive = selectedSkills.filter(
+    (s) => s.artifactKind !== "protocol",
+  );
+  const protocolsActive = selectedSkills.filter(
+    (s) => s.artifactKind === "protocol",
+  );
   const skillCount = selectedSkills.length;
   return (
     <div className="border-b border-rule px-6 py-3 text-[11px] text-muted">
@@ -801,7 +859,14 @@ function SessionHeader({
           {session?.model ?? "claude-opus (pending)"}
         </span>
         <span>
-          {skillCount} skill{skillCount === 1 ? "" : "s"} loaded
+          {skillsActive.length} skill{skillsActive.length === 1 ? "" : "s"}
+          {protocolsActive.length > 0
+            ? ` + ${protocolsActive.length} protocol${protocolsActive.length === 1 ? "" : "s"}`
+            : ""}
+          {selectedFileCount > 0
+            ? ` + ${selectedFileCount} file${selectedFileCount === 1 ? "" : "s"}`
+            : ""}{" "}
+          loaded
         </span>
         <span>WebSearch + WebFetch</span>
         {session?.api_key_source && <span>auth: {session.api_key_source}</span>}
@@ -825,16 +890,25 @@ function SessionHeader({
       </div>
       {skillCount > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {selectedSkills.map((s) => (
-            <span
-              key={s.slug}
-              title={s.description}
-              className="inline-flex items-center gap-1 border border-rule bg-paper px-2 py-0.5 font-mono text-[10px] normal-case tracking-normal text-ink"
-            >
-              <span className="text-muted">{s.sourceLabel}/</span>
-              {s.name}
-            </span>
-          ))}
+          {selectedSkills.map((s) => {
+            const isProtocol = s.artifactKind === "protocol";
+            return (
+              <span
+                key={s.slug}
+                title={s.description}
+                className={`inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[10px] normal-case tracking-normal ${
+                  isProtocol
+                    ? "border-ink bg-ink text-paper"
+                    : "border-rule bg-paper text-ink"
+                }`}
+              >
+                <span className={isProtocol ? "opacity-70" : "text-muted"}>
+                  {isProtocol ? "protocol" : s.sourceLabel}/
+                </span>
+                {s.name}
+              </span>
+            );
+          })}
         </div>
       )}
     </div>
@@ -1486,3 +1560,63 @@ function StatsBlock({ stats }: { stats: Stats }) {
     </div>
   );
 }
+
+interface ArtifactToggleSectionProps {
+  label: string;
+  description: React.ReactNode;
+  emptyText: string;
+  artifacts: Skill[];
+  selected: Set<string>;
+  onToggle: (slug: string) => void;
+}
+
+function ArtifactToggleSection({
+  label,
+  description,
+  emptyText,
+  artifacts,
+  selected,
+  onToggle,
+}: ArtifactToggleSectionProps) {
+  return (
+    <div>
+      <p className="mb-3 text-xs uppercase tracking-[0.18em] text-muted">
+        {label}
+      </p>
+      <p className="mb-4 text-xs leading-relaxed text-muted">{description}</p>
+      <div className="flex flex-col gap-1">
+        {artifacts.length === 0 && (
+          <p className="text-sm text-muted">{emptyText}</p>
+        )}
+        {artifacts.map((s) => {
+          const on = selected.has(s.slug);
+          return (
+            <button
+              type="button"
+              key={s.slug}
+              onClick={() => onToggle(s.slug)}
+              className={`group flex items-start gap-2 rounded-sm px-2 py-2 text-left transition ${
+                on ? "bg-ink/5" : "hover:bg-ink/5"
+              }`}
+            >
+              <span className="mt-0.5 text-ink">
+                {on ? <SquareCheck size={16} /> : <Square size={16} />}
+              </span>
+              <span className="flex-1">
+                <span className="block font-serif text-sm leading-tight text-ink">
+                  {s.name}
+                </span>
+                {s.description && (
+                  <span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-muted">
+                    {s.description}
+                  </span>
+                )}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+

@@ -42,7 +42,7 @@ export default async function SkillDetailPage({ params }: Props) {
           className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted transition hover:text-ink"
         >
           <ArrowLeft size={14} />
-          All skills
+          All artifacts
         </Link>
         <div className="flex items-center gap-2">
           {showEdit && <EditSkillButton skill={skill} />}

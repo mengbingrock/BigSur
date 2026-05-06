@@ -9,17 +9,17 @@ interface NavUser {
 export default function Nav({ user }: { user: NavUser | null }) {
   return (
     <header className="border-b border-rule">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-5">
+      <div className="flex w-full items-center justify-between gap-4 px-6 py-5 sm:px-8 lg:px-12">
         <Link href="/" className="flex items-center gap-2 text-ink">
           <span className="inline-block h-2 w-2 rounded-full bg-ink" aria-hidden />
           <span className="font-serif text-lg tracking-tight">Monterey</span>
         </Link>
         <nav className="flex items-center gap-6 text-sm text-muted">
           <Link href="/skills" className="transition hover:text-ink">
-            Skills
+            Artifacts
           </Link>
           <Link href="/chat" className="transition hover:text-ink">
-            Chat
+            Project
           </Link>
           {user?.isAdmin && (
             <Link href="/admin/users" className="transition hover:text-ink">

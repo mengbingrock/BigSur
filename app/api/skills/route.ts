@@ -10,6 +10,12 @@ interface Body {
   allowedTools?: unknown;
   license?: unknown;
   body?: unknown;
+  kind?: unknown;
+}
+
+function asKind(v: unknown): "skill" | "protocol" | undefined {
+  if (v === "skill" || v === "protocol") return v;
+  return undefined;
 }
 
 function asString(v: unknown, field: string): string {
@@ -63,6 +69,7 @@ export async function POST(req: NextRequest) {
         allowedTools: asStringArray(body.allowedTools, "allowedTools"),
         license: typeof body.license === "string" ? body.license : undefined,
         body: asString(body.body ?? "", "body"),
+        kind: asKind(body.kind),
       },
       email,
     );

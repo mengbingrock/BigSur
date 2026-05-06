@@ -4,7 +4,7 @@ import SkillEditor from "@/components/SkillEditor";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "New skill — Monterey" };
+export const metadata = { title: "New artifact — Monterey" };
 
 export default async function NewSkillPage() {
   // Middleware enforces login on /skills/:path*; this fallback handles the

@@ -3,8 +3,12 @@
 // place, but client components must import from here to avoid pulling
 // node:fs into the browser bundle.
 
+export type DeckEntryKind = "file" | "dir";
+
 export interface DeckFile {
   name: string;
+  /** "file" (default) or "dir" — directories report size: 0. */
+  kind: DeckEntryKind;
   size: number;
   modified: string; // ISO 8601
 }

@@ -6,8 +6,9 @@ import { getMaxUploadBytes, listDeck } from "@/lib/deck";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Chat — Monterey",
-  description: "Chat with Claude, optionally specialized by one or more skills.",
+  title: "Project — Monterey",
+  description:
+    "Your project workspace. Working directory + artifacts on the left, chat on the right.",
 };
 
 export default async function ChatPage() {
@@ -16,17 +17,17 @@ export default async function ChatPage() {
   const deckFiles = email ? await listDeck(email) : [];
   const deckMaxBytes = getMaxUploadBytes();
   return (
-    <section className="mx-auto max-w-6xl px-6 pb-16 pt-12">
+    <section className="w-full px-6 pb-16 pt-12 sm:px-8 lg:px-12">
       <header className="mb-10">
         <p className="mb-3 text-xs uppercase tracking-[0.22em] text-muted">
-          Chat
+          Project
         </p>
         <h1 className="font-serif text-4xl leading-tight tracking-tight text-ink sm:text-5xl">
-          Talk to the skills
+          Your project workspace
         </h1>
         <p className="mt-4 max-w-xl text-muted">
-          Pick one or more skills on the left. Their full SKILL.md instructions
-          become the assistant&apos;s system prompt.
+          Working directory and active artifacts on the left. Chat fills the
+          rest of the page.
         </p>
       </header>
       <Chat

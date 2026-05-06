@@ -21,7 +21,7 @@ export default async function RootLayout({
         <Nav user={user} />
         <main>{children}</main>
         <footer className="mt-24 border-t border-rule">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6 text-xs text-muted">
+          <div className="flex w-full items-center justify-between px-6 py-6 text-xs text-muted sm:px-8 lg:px-12">
             <span>Monterey · local skills catalog</span>
             <span className="font-mono">v0.1</span>
           </div>

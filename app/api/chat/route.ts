@@ -5,7 +5,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { getAllSkills } from "@/lib/skills";
 import { getCurrentEmail } from "@/lib/session";
-import { userDeckDir } from "@/lib/deck";
+import { readDeckFile, userDeckDir } from "@/lib/deck";
 import type { Skill } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -26,7 +26,129 @@ interface ChatRequest {
   mode?: "chat" | "edit";
   messages?: ChatMessage[];
   skillSlugs: string[];
+  /** Qualified deck paths whose contents should be injected into the system prompt. */
+  contextFiles?: string[];
   edit?: EditPayload;
+}
+
+const CONTEXT_FILE_MAX_BYTES = 200 * 1024; // 200 KB per file
+const CONTEXT_TOTAL_MAX_BYTES = 1_000_000; // 1 MB across all files
+const TEXT_CONTEXT_EXTENSIONS = new Set([
+  ".txt",
+  ".text",
+  ".md",
+  ".markdown",
+  ".json",
+  ".csv",
+  ".tsv",
+  ".yaml",
+  ".yml",
+  ".xml",
+  ".html",
+  ".htm",
+  ".log",
+  ".toml",
+  ".ini",
+  ".conf",
+  ".sh",
+  ".bash",
+  ".zsh",
+  ".py",
+  ".js",
+  ".jsx",
+  ".ts",
+  ".tsx",
+  ".sql",
+  ".r",
+  ".go",
+  ".rs",
+  ".rb",
+  ".java",
+  ".kt",
+  ".swift",
+  ".c",
+  ".cpp",
+  ".h",
+  ".hpp",
+  ".css",
+]);
+
+interface LoadedContextFile {
+  name: string;
+  text: string;
+}
+interface ContextLoadReport {
+  loaded: LoadedContextFile[];
+  skipped: { name: string; reason: string }[];
+}
+
+async function loadContextFiles(
+  email: string,
+  paths: string[],
+): Promise<ContextLoadReport> {
+  const loaded: LoadedContextFile[] = [];
+  const skipped: { name: string; reason: string }[] = [];
+  let total = 0;
+  for (const raw of paths) {
+    const name = typeof raw === "string" ? raw.trim() : "";
+    if (!name) continue;
+    const ext = path.extname(name).toLowerCase();
+    if (!TEXT_CONTEXT_EXTENSIONS.has(ext)) {
+      skipped.push({
+        name,
+        reason: `${ext || "(no extension)"} is not a recognised text format for context injection.`,
+      });
+      continue;
+    }
+    try {
+      const { data, size } = await readDeckFile(email, name);
+      if (size > CONTEXT_FILE_MAX_BYTES) {
+        skipped.push({
+          name,
+          reason: `File is ${(size / 1024).toFixed(1)} KB — exceeds per-file ${CONTEXT_FILE_MAX_BYTES / 1024} KB limit.`,
+        });
+        continue;
+      }
+      if (total + size > CONTEXT_TOTAL_MAX_BYTES) {
+        skipped.push({
+          name,
+          reason: `Adding this file would exceed the ${CONTEXT_TOTAL_MAX_BYTES / 1024} KB total context budget.`,
+        });
+        continue;
+      }
+      total += size;
+      loaded.push({ name, text: data.toString("utf8") });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Read failed.";
+      skipped.push({ name, reason: msg });
+    }
+  }
+  return { loaded, skipped };
+}
+
+function buildContextAddendum(report: ContextLoadReport): string {
+  if (report.loaded.length === 0 && report.skipped.length === 0) return "";
+  const blocks = report.loaded.map(
+    (f) =>
+      `===CONTEXT FILE: ${f.name}===\n${f.text.replace(/\s+$/, "")}\n===END CONTEXT FILE: ${f.name}===`,
+  );
+  let intro = "";
+  if (report.loaded.length > 0) {
+    intro =
+      "\n\nThe user attached the following file" +
+      (report.loaded.length === 1 ? "" : "s") +
+      " from their working directory as additional context for this turn. " +
+      "Treat them as authoritative reference for the user's data — read them carefully when they bear on the question. " +
+      "Each file is delimited by ===CONTEXT FILE=== markers.\n\n";
+  }
+  let trail = "";
+  if (report.skipped.length > 0) {
+    const lines = report.skipped.map((s) => `- ${s.name}: ${s.reason}`);
+    trail =
+      "\n\nThe following selected files could not be loaded as context — surface this to the user if it matters:\n" +
+      lines.join("\n");
+  }
+  return intro + blocks.join("\n\n") + trail;
 }
 
 const SYSTEM_PROMPT =
@@ -46,6 +168,28 @@ const EDIT_SYSTEM_PROMPT =
   "Return ONLY the rewritten passage. No preamble, no explanation, no quotation marks, no markdown fences. " +
   "Preserve the original passage's markdown style (bold, lists, links, tables, code blocks). " +
   "Do not return anything outside the rewritten passage. Do not repeat the surrounding context.";
+
+/**
+ * Build a system-prompt addendum from the user's active protocols. Protocols
+ * are treated as authoritative reference text the model should follow, NOT as
+ * Claude Code skills (those get symlinked into `.claude/skills/` instead).
+ */
+function buildProtocolAddendum(protocols: Skill[]): string {
+  if (protocols.length === 0) return "";
+  const blocks = protocols.map((p) => {
+    const header = `===PROTOCOL: ${p.name}===`;
+    const desc = p.description ? `Description: ${p.description}\n\n` : "";
+    return `${header}\n${desc}${p.body.trim()}\n===END PROTOCOL: ${p.name}===`;
+  });
+  const intro =
+    "\n\nThe user has activated the following laboratory protocol" +
+    (protocols.length === 1 ? "" : "s") +
+    " for this session. " +
+    "Treat the text inside the ===PROTOCOL=== markers as authoritative reference for the user's procedure. " +
+    "When answering, cite specific sections of the protocol when relevant, follow its steps and quantities exactly, " +
+    "and flag any deviation the user is asking about. Do NOT treat protocols as Claude Code skills — they are reference documents, not callable tools.\n\n";
+  return intro + blocks.join("\n\n");
+}
 
 function buildEditPrompt(edit: EditPayload): string {
   return [
@@ -149,6 +293,7 @@ export async function POST(req: Request): Promise<Response> {
   let userPrompt: string;
   let systemPrompt: string;
   let selectedSkills: Skill[] = [];
+  let selectedProtocols: Skill[] = [];
 
   if (mode === "edit") {
     if (
@@ -179,14 +324,31 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
     userPrompt = buildUserPrompt(body.messages);
-    systemPrompt = SYSTEM_PROMPT;
 
     const allSkills = getAllSkills(email);
     const bySlug = new Map(allSkills.map((s) => [s.slug, s]));
     for (const slug of body.skillSlugs) {
-      const skill = bySlug.get(slug);
-      if (skill) selectedSkills.push(skill);
+      const artifact = bySlug.get(slug);
+      if (!artifact) continue;
+      if (artifact.artifactKind === "protocol") {
+        selectedProtocols.push(artifact);
+      } else {
+        selectedSkills.push(artifact);
+      }
     }
+
+    // Working-directory files explicitly checked in the panel.
+    const contextReport = await loadContextFiles(
+      email,
+      Array.isArray(body.contextFiles) ? body.contextFiles : [],
+    );
+
+    // Skills are wired in via `.claude/skills/` symlinks below.
+    // Protocols and checked context files ride along inside the system prompt.
+    systemPrompt =
+      SYSTEM_PROMPT +
+      buildProtocolAddendum(selectedProtocols) +
+      buildContextAddendum(contextReport);
   }
 
   // Working directory = user's persistent deck. Anything written here lives

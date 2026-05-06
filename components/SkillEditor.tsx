@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
-import type { Skill } from "@/lib/types";
+import { useRef, useState } from "react";
+import { ArrowLeft, Plus, Save, Trash2, Upload, Loader2 } from "lucide-react";
+import type { ArtifactKind, Skill } from "@/lib/types";
 
 interface Props {
   /** Existing skill to edit. Omit (along with mode='create') to create a new one. */
@@ -20,14 +20,59 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
   const [allowedTools, setAllowedTools] = useState(
     skill?.allowedTools.join(", ") ?? "",
   );
+  const [kind, setKind] = useState<ArtifactKind>(skill?.artifactKind ?? "skill");
   const [body, setBody] = useState(
-    skill?.body ?? "# New skill\n\nDescribe how the agent should use this skill.\n",
+    skill?.body ?? "# New artifact\n\nDescribe how the agent should use this artifact.\n",
   );
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importedFrom, setImportedFrom] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const cancelHref = skill ? `/skills/${skill.slug}` : "/skills";
+
+  function nameFromFilename(filename: string): string {
+    const base = filename.replace(/\.[^./\\]+$/, "");
+    return base
+      .replace(/[_\-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  async function onImportFile(file: File) {
+    setImportError(null);
+    setImporting(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/artifacts/extract-text", {
+        method: "POST",
+        body: fd,
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        text?: string;
+        filename?: string;
+        error?: string;
+      };
+      if (!res.ok || typeof data.text !== "string") {
+        throw new Error(data.error ?? `Import failed (HTTP ${res.status})`);
+      }
+      setBody(data.text || "");
+      setImportedFrom(file.name);
+      if (!name.trim()) {
+        const suggested = nameFromFilename(file.name);
+        if (suggested) setName(suggested);
+      }
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "Import failed.");
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
 
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
@@ -43,6 +88,7 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
           .filter(Boolean),
         license: skill?.license,
         body,
+        kind,
       };
       const res = isCreate
         ? await fetch(`/api/skills`, {
@@ -114,10 +160,15 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
 
       <header className="mt-8 border-b border-rule pb-6">
         <p className="mb-2 text-xs uppercase tracking-[0.22em] text-muted">
-          {isCreate ? "Create skill" : "Edit skill"}
+          {isCreate
+            ? `Create ${kind === "protocol" ? "protocol" : "skill"}`
+            : `Edit ${skill!.artifactKind === "protocol" ? "protocol" : "skill"}`}
         </p>
         <h1 className="font-serif text-3xl leading-tight tracking-tight text-ink">
-          {isCreate ? (name.trim() || "New skill") : skill!.name}
+          {isCreate
+            ? name.trim() ||
+              (kind === "protocol" ? "New protocol" : "New skill")
+            : skill!.name}
         </h1>
         {!isCreate && (
           <p className="mt-2 font-mono text-xs text-muted">
@@ -144,13 +195,38 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
           />
         </Field>
 
-        <Field label="Description" hint="One-line summary of when to use this skill.">
+        <Field label="Description" hint="One-line summary of when to use this artifact.">
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             className="w-full resize-y border border-rule bg-paper px-3 py-2 text-sm leading-relaxed text-ink focus:border-ink focus:outline-none"
           />
+        </Field>
+
+        <Field
+          label="Kind"
+          hint="Skill = a generic Claude Code capability. Protocol = a laboratory procedure you author."
+        >
+          <div className="flex items-center gap-2">
+            {(["skill", "protocol"] as ArtifactKind[]).map((k) => {
+              const on = kind === k;
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setKind(k)}
+                  className={`border px-3 py-1.5 text-xs transition ${
+                    on
+                      ? "border-ink bg-ink text-paper"
+                      : "border-rule text-muted hover:border-ink hover:text-ink"
+                  }`}
+                >
+                  {k === "skill" ? "Skill" : "Protocol"}
+                </button>
+              );
+            })}
+          </div>
         </Field>
 
         <Field
@@ -165,6 +241,55 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
             className="w-full border border-rule bg-paper px-3 py-2 font-mono text-sm text-ink focus:border-ink focus:outline-none"
           />
         </Field>
+
+        {isCreate && kind === "protocol" && (
+          <Field
+            label="Import from file"
+            hint=".md, .txt, .pdf, .docx work everywhere. .doc, .odt, .rtf need LibreOffice on the server. Text is extracted and dropped into the body below for review."
+          >
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".md,.markdown,.txt,.text,.pdf,.docx,.doc,.odt,.rtf"
+                disabled={importing}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onImportFile(f);
+                }}
+                className="hidden"
+                id="protocol-import-file"
+              />
+              <label
+                htmlFor="protocol-import-file"
+                className={`inline-flex cursor-pointer items-center gap-2 border border-rule px-3 py-1.5 text-xs transition ${
+                  importing
+                    ? "opacity-50"
+                    : "hover:border-ink hover:text-ink"
+                }`}
+              >
+                {importing ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" /> Importing…
+                  </>
+                ) : (
+                  <>
+                    <Upload size={13} /> Choose file
+                  </>
+                )}
+              </label>
+              {importedFrom && !importing && (
+                <span className="font-mono text-xs text-muted">
+                  Imported from <span className="text-ink">{importedFrom}</span>
+                  . Review the body below.
+                </span>
+              )}
+            </div>
+            {importError && (
+              <p className="mt-2 text-xs text-red-600">{importError}</p>
+            )}
+          </Field>
+        )}
 
         <Field label="Body (markdown)" hint="Everything below the YAML frontmatter.">
           <textarea

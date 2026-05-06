@@ -1,6 +1,11 @@
 import { NextRequest } from "next/server";
 import { getCurrentEmail } from "@/lib/session";
-import { deleteDeckFile, readDeckFile } from "@/lib/deck";
+import {
+  deleteDeckEntry,
+  moveDeckEntryToDir,
+  readDeckFile,
+  renameDeckEntry,
+} from "@/lib/deck";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,7 +43,14 @@ function rfc5987Encode(s: string): string {
 function statusFor(err: unknown): number {
   const code = (err as { code?: string } | null)?.code;
   if (code === "NOT_FOUND") return 404;
-  if (code === "BAD_NAME" || code === "PATH_ESCAPE") return 400;
+  if (
+    code === "BAD_NAME" ||
+    code === "PATH_ESCAPE" ||
+    code === "BAD_KIND" ||
+    code === "BAD_TARGET"
+  )
+    return 400;
+  if (code === "EXISTS") return 409;
   return 500;
 }
 
@@ -88,18 +100,77 @@ export async function DELETE(
     return Response.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  let filename: string;
+  let name: string;
   try {
-    filename = decodeURIComponent(params.file);
+    name = decodeURIComponent(params.file);
   } catch {
-    return Response.json({ error: "Invalid filename." }, { status: 400 });
+    return Response.json({ error: "Invalid name." }, { status: 400 });
   }
 
   try {
-    await deleteDeckFile(email, filename);
+    await deleteDeckEntry(email, name);
     return Response.json({ ok: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Delete failed.";
+    return Response.json({ error: msg }, { status: statusFor(err) });
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { file: string } },
+) {
+  const email = await getCurrentEmail();
+  if (!email) {
+    return Response.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  let oldName: string;
+  try {
+    oldName = decodeURIComponent(params.file);
+  } catch {
+    return Response.json({ error: "Invalid name." }, { status: 400 });
+  }
+
+  let body: { newName?: string; intoDir?: string };
+  try {
+    body = (await req.json()) as { newName?: string; intoDir?: string };
+  } catch {
+    return Response.json({ error: "Invalid JSON." }, { status: 400 });
+  }
+  const newName = (body?.newName ?? "").trim();
+  // intoDir presence (not truthiness) selects move-mode — "" means root.
+  const moveMode = typeof body?.intoDir === "string";
+  const intoDir = (body?.intoDir ?? "").trim();
+
+  if (moveMode) {
+    try {
+      const entry = await moveDeckEntryToDir(email, oldName, intoDir);
+      return Response.json({ entry });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Move failed.";
+      return Response.json({ error: msg }, { status: statusFor(err) });
+    }
+  }
+
+  if (!newName) {
+    return Response.json(
+      { error: "Provide newName (rename) or intoDir (move)." },
+      { status: 400 },
+    );
+  }
+  if (newName === oldName) {
+    return Response.json(
+      { error: "newName must differ from current name." },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const entry = await renameDeckEntry(email, oldName, newName);
+    return Response.json({ entry });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Rename failed.";
     return Response.json({ error: msg }, { status: statusFor(err) });
   }
 }

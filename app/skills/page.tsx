@@ -7,7 +7,7 @@ import SkillSearch from "@/components/SkillSearch";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Skills — Monterey",
+  title: "Artifacts — Monterey",
 };
 
 export default async function SkillsPage() {
@@ -23,11 +23,12 @@ export default async function SkillsPage() {
             Catalog
           </p>
           <h1 className="font-serif text-4xl leading-tight tracking-tight text-ink sm:text-5xl">
-            Research Skills
+            Artifacts
           </h1>
           <p className="mt-4 max-w-xl text-muted">
-            Every SKILL.md discovered on this machine. Filter by source, search
-            by name, description, or tool.
+            Skills (Claude Code capabilities) and protocols (user-authored
+            laboratory procedures), all in one catalog. Filter by kind or
+            source, search by name, description, or tool.
           </p>
         </div>
         {user && (
@@ -36,17 +37,19 @@ export default async function SkillsPage() {
             className="inline-flex shrink-0 items-center gap-2 border border-ink bg-ink px-4 py-2 text-sm font-medium text-paper transition hover:bg-paper hover:text-ink"
           >
             <Plus size={14} />
-            New skill
+            New artifact
           </Link>
         )}
       </header>
 
       {skills.length === 0 ? (
         <div className="border border-dashed border-rule p-10 text-center text-sm text-muted">
-          <p>No skills were indexed.</p>
+          <p>No artifacts were indexed.</p>
           <p className="mt-2">
             Put SKILL.md files under <code>~/.claude/skills/</code> or set{" "}
-            <code>SKILLS_ROOTS</code> to a list of directories.
+            <code>SKILLS_ROOTS</code> to a list of directories. Add{" "}
+            <code>kind: protocol</code> to the frontmatter to mark a file as a
+            protocol.
           </p>
         </div>
       ) : (

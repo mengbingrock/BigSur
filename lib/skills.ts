@@ -144,6 +144,8 @@ function parseSkillFile(
   const name = typeof data.name === "string" && data.name.trim()
     ? data.name.trim()
     : path.basename(path.dirname(file));
+  const rawKind = typeof data.kind === "string" ? data.kind.toLowerCase() : "";
+  const artifactKind = rawKind === "protocol" ? "protocol" : "skill";
   return {
     name,
     description: normalizeDescription(data.description),
@@ -153,6 +155,7 @@ function parseSkillFile(
     source,
     sourceLabel,
     sourcePath: path.dirname(file),
+    artifactKind,
   };
 }
 
@@ -348,6 +351,8 @@ export interface SkillUpdate {
   allowedTools: string[];
   license?: string;
   body: string;
+  /** Optional artifact kind. When omitted on save, the existing kind is preserved. */
+  kind?: "skill" | "protocol";
 }
 
 function assertEditable(skill: Skill) {
@@ -426,6 +431,9 @@ export function saveSkill(
   };
   if (update.allowedTools.length > 0) data["allowed-tools"] = update.allowedTools;
   if (update.license) data.license = update.license;
+  // Preserve / set artifact kind. Default to existing kind when not provided.
+  const nextKind = update.kind ?? existing.artifactKind;
+  if (nextKind === "protocol") data.kind = "protocol";
 
   const content = matter.stringify(update.body.replace(/\s*$/, "") + "\n", data);
   fs.writeFileSync(file, content, "utf8");
@@ -491,6 +499,7 @@ export function createSkill(input: SkillUpdate, email: string): Skill {
   };
   if (input.allowedTools.length > 0) data["allowed-tools"] = input.allowedTools;
   if (input.license) data.license = input.license;
+  if (input.kind === "protocol") data.kind = "protocol";
 
   const content = matter.stringify(input.body.replace(/\s*$/, "") + "\n", data);
   fs.writeFileSync(file, content, "utf8");

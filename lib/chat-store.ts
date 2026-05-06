@@ -98,6 +98,8 @@ export interface ChatState {
 export interface SendOptions {
   text: string;
   skillSlugs: string[];
+  /** Qualified paths of files to inject into the system prompt. */
+  contextFiles?: string[];
   snapshot: SkillSnapshot[];
 }
 
@@ -364,7 +366,7 @@ class ChatStore {
   };
 
   send = async (opts: SendOptions): Promise<void> => {
-    const { text, skillSlugs, snapshot } = opts;
+    const { text, skillSlugs, snapshot, contextFiles } = opts;
     if (!text || this.state.streaming) return;
 
     const userMsg: ChatMsg = { id: makeId(), role: "user", content: text };
@@ -392,7 +394,11 @@ class ChatStore {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history, skillSlugs }),
+        body: JSON.stringify({
+          messages: history,
+          skillSlugs,
+          contextFiles: contextFiles ?? [],
+        }),
         signal: ctrl.signal,
       });
       if (!res.ok || !res.body) {
