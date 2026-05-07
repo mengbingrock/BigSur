@@ -170,25 +170,37 @@ const EDIT_SYSTEM_PROMPT =
   "Do not return anything outside the rewritten passage. Do not repeat the surrounding context.";
 
 /**
- * Build a system-prompt addendum from the user's active protocols. Protocols
- * are treated as authoritative reference text the model should follow, NOT as
- * Claude Code skills (those get symlinked into `.claude/skills/` instead).
+ * Build a system-prompt addendum from the user's active protocols. Each
+ * active protocol is symlinked into `<deck>/.claude/protocols/<slug>/`
+ * (see linkSelectedProtocols) so the model can reach it via the Read tool.
+ * The addendum advertises name + description + path for each — but does
+ * NOT dump full bodies into the prompt, to keep the context small.
  */
-function buildProtocolAddendum(protocols: Skill[]): string {
-  if (protocols.length === 0) return "";
-  const blocks = protocols.map((p) => {
-    const header = `===PROTOCOL: ${p.name}===`;
-    const desc = p.description ? `Description: ${p.description}\n\n` : "";
-    return `${header}\n${desc}${p.body.trim()}\n===END PROTOCOL: ${p.name}===`;
+interface LinkedProtocol {
+  protocol: Skill;
+  /** Path relative to the working directory, e.g. `.claude/protocols/<slug>/SKILL.md`. */
+  relPath: string;
+}
+
+function buildProtocolAddendum(linked: LinkedProtocol[]): string {
+  if (linked.length === 0) return "";
+  const lines = linked.map(({ protocol, relPath }, i) => {
+    const idx = i + 1;
+    const desc = protocol.description ? ` — ${protocol.description}` : "";
+    return `${idx}. **${protocol.name}**${desc}\n   File: \`${relPath}\``;
   });
-  const intro =
+  return (
     "\n\nThe user has activated the following laboratory protocol" +
-    (protocols.length === 1 ? "" : "s") +
-    " for this session. " +
-    "Treat the text inside the ===PROTOCOL=== markers as authoritative reference for the user's procedure. " +
-    "When answering, cite specific sections of the protocol when relevant, follow its steps and quantities exactly, " +
-    "and flag any deviation the user is asking about. Do NOT treat protocols as Claude Code skills — they are reference documents, not callable tools.\n\n";
-  return intro + blocks.join("\n\n");
+    (linked.length === 1 ? "" : "s") +
+    " for this session:\n\n" +
+    lines.join("\n") +
+    "\n\n" +
+    "These are reference documents the user expects you to follow as authoritative procedure. " +
+    "Their bodies are NOT inlined into this prompt — read each file with the Read tool when its content is relevant to the user's question, " +
+    "or when the question depends on its specific steps, reagents, quantities, or quality checkpoints. " +
+    "Cite sections by header when helpful. Flag any deviation between what the user is doing and the protocol they have active. " +
+    "Do NOT treat protocols as callable Claude Code skills — they are passive reference text accessed via Read.\n"
+  );
 }
 
 function buildEditPrompt(edit: EditPayload): string {
@@ -266,6 +278,49 @@ async function linkSelectedSkills(
   return linkedNames;
 }
 
+/**
+ * Wire `<deck>/.claude/protocols/<slug>/` symlinks for the active protocols
+ * so the LLM can reach their full text via the Read tool when needed —
+ * without dumping all bodies into the system prompt up front.
+ */
+async function linkSelectedProtocols(
+  cwd: string,
+  selected: Skill[],
+): Promise<LinkedProtocol[]> {
+  const protocolsDir = path.join(cwd, ".claude", "protocols");
+  await fs.rm(protocolsDir, { recursive: true, force: true });
+  await fs.mkdir(protocolsDir, { recursive: true });
+
+  const linked: LinkedProtocol[] = [];
+  const used = new Set<string>();
+
+  for (const protocol of selected) {
+    const baseName = sanitizeSkillDirName(protocol.name);
+    let name = baseName;
+    let suffix = 2;
+    while (used.has(name)) {
+      name = `${baseName}-${suffix++}`;
+    }
+    used.add(name);
+
+    try {
+      await fs.symlink(
+        protocol.sourcePath,
+        path.join(protocolsDir, name),
+        "dir",
+      );
+      linked.push({
+        protocol,
+        relPath: `.claude/protocols/${name}/SKILL.md`,
+      });
+    } catch {
+      // symlink failed (e.g. permissions); skip but keep going
+    }
+  }
+
+  return linked;
+}
+
 export async function POST(req: Request): Promise<Response> {
   // Middleware enforces login on /api/chat; this fetch tells us *which* user
   // so the spawned process runs in their personal deck folder.
@@ -291,7 +346,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   let userPrompt: string;
-  let systemPrompt: string;
+  let systemPrompt = SYSTEM_PROMPT;
   let selectedSkills: Skill[] = [];
   let selectedProtocols: Skill[] = [];
 
@@ -336,19 +391,6 @@ export async function POST(req: Request): Promise<Response> {
         selectedSkills.push(artifact);
       }
     }
-
-    // Working-directory files explicitly checked in the panel.
-    const contextReport = await loadContextFiles(
-      email,
-      Array.isArray(body.contextFiles) ? body.contextFiles : [],
-    );
-
-    // Skills are wired in via `.claude/skills/` symlinks below.
-    // Protocols and checked context files ride along inside the system prompt.
-    systemPrompt =
-      SYSTEM_PROMPT +
-      buildProtocolAddendum(selectedProtocols) +
-      buildContextAddendum(contextReport);
   }
 
   // Working directory = user's persistent deck. Anything written here lives
@@ -356,6 +398,25 @@ export async function POST(req: Request): Promise<Response> {
   const cwd = userDeckDir(email);
   await fs.mkdir(cwd, { recursive: true });
   const linkedSkillNames = await linkSelectedSkills(cwd, selectedSkills);
+
+  if (mode !== "edit") {
+    const linkedProtocols = await linkSelectedProtocols(cwd, selectedProtocols);
+    // Working-directory files explicitly checked in the panel.
+    const contextReport = await loadContextFiles(
+      email,
+      Array.isArray(body.contextFiles) ? body.contextFiles : [],
+    );
+
+    // Skills are wired in via `.claude/skills/` symlinks (above).
+    // Protocols are wired in via `.claude/protocols/` symlinks; the addendum
+    //   only advertises name + description + path so the model uses Read on
+    //   demand instead of carrying full bodies in the prompt.
+    // Checked context files DO get inlined (small, explicitly-picked).
+    systemPrompt =
+      SYSTEM_PROMPT +
+      buildProtocolAddendum(linkedProtocols) +
+      buildContextAddendum(contextReport);
+  }
 
   const args = [
     "-p",
