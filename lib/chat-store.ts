@@ -100,6 +100,10 @@ export interface SendOptions {
   skillSlugs: string[];
   /** Qualified paths of files to inject into the system prompt. */
   contextFiles?: string[];
+  /** Per-session body overrides keyed by artifact slug. Used when the user
+   *  has tweaked an artifact's body for this turn (e.g. for a public
+   *  artifact they can't persist). */
+  artifactNotes?: Record<string, string>;
   snapshot: SkillSnapshot[];
 }
 
@@ -366,7 +370,7 @@ class ChatStore {
   };
 
   send = async (opts: SendOptions): Promise<void> => {
-    const { text, skillSlugs, snapshot, contextFiles } = opts;
+    const { text, skillSlugs, snapshot, contextFiles, artifactNotes } = opts;
     if (!text || this.state.streaming) return;
 
     const userMsg: ChatMsg = { id: makeId(), role: "user", content: text };
@@ -398,6 +402,7 @@ class ChatStore {
           messages: history,
           skillSlugs,
           contextFiles: contextFiles ?? [],
+          artifactNotes: artifactNotes ?? {},
         }),
         signal: ctrl.signal,
       });

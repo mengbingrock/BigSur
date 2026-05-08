@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import { diffLines, structuredPatch } from "diff";
 import {
   Send,
   Loader2,
@@ -19,6 +21,7 @@ import {
   X,
   Undo2,
   Trash2,
+  Wand2,
 } from "lucide-react";
 import type { Skill } from "@/lib/types";
 import type { DeckFile } from "@/lib/deck-shared";
@@ -95,6 +98,7 @@ export default function Chat({
   initialDeckFiles,
   deckMaxBytes,
 }: Props) {
+  const router = useRouter();
   // Chat session state (messages, streaming, error, session) lives in a
   // module-scoped store so the live fetch survives navigation away from
   // /chat. UI-only state (input, selection, scroll) stays local.
@@ -108,6 +112,9 @@ export default function Chat({
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(
     () => new Set(),
+  );
+  const [artifactNotes, setArtifactNotes] = useState<Record<string, string>>(
+    () => ({}),
   );
   const [input, setInput] = useState("");
   const [pinned, setPinned] = useState(true);
@@ -359,6 +366,7 @@ export default function Chat({
       text,
       skillSlugs: Array.from(selected),
       contextFiles: Array.from(selectedFiles),
+      artifactNotes,
       snapshot: buildSkillSnapshot(),
     });
   };
@@ -429,6 +437,18 @@ export default function Chat({
             artifacts={skillsOnly}
             selected={selected}
             onToggle={toggleSkill}
+            artifactNotes={artifactNotes}
+            onSetNote={(slug, body) =>
+              setArtifactNotes((prev) => ({ ...prev, [slug]: body }))
+            }
+            onClearNote={(slug) =>
+              setArtifactNotes((prev) => {
+                const next = { ...prev };
+                delete next[slug];
+                return next;
+              })
+            }
+            onApplied={() => router.refresh()}
           />
 
           <hr className="my-5 border-rule" />
@@ -446,6 +466,18 @@ export default function Chat({
             artifacts={protocolsOnly}
             selected={selected}
             onToggle={toggleSkill}
+            artifactNotes={artifactNotes}
+            onSetNote={(slug, body) =>
+              setArtifactNotes((prev) => ({ ...prev, [slug]: body }))
+            }
+            onClearNote={(slug) =>
+              setArtifactNotes((prev) => {
+                const next = { ...prev };
+                delete next[slug];
+                return next;
+              })
+            }
+            onApplied={() => router.refresh()}
           />
 
           {selectedSkills.length > 0 && (
@@ -1568,6 +1600,14 @@ interface ArtifactToggleSectionProps {
   artifacts: Skill[];
   selected: Set<string>;
   onToggle: (slug: string) => void;
+  /** Per-session body overrides keyed by slug, lifted from the parent. */
+  artifactNotes: Record<string, string>;
+  onSetNote: (slug: string, body: string) => void;
+  onClearNote: (slug: string) => void;
+  /** Called after a successful permanent edit (PUT /api/skills/[slug]) so
+   *  the parent can re-fetch skill data. NOT called for session-only saves
+   *  — those don't change the on-disk artifact. */
+  onApplied?: () => void;
 }
 
 function ArtifactToggleSection({
@@ -1577,7 +1617,118 @@ function ArtifactToggleSection({
   artifacts,
   selected,
   onToggle,
+  artifactNotes,
+  onSetNote,
+  onClearNote,
+  onApplied,
 }: ArtifactToggleSectionProps) {
+  // One row at a time can be in edit mode. State lives at the section level
+  // so opening one row's editor closes any other.
+  const [editingSlug, setEditingSlug] = useState<string | null>(null);
+  const [instruction, setInstruction] = useState("");
+  const [proposed, setProposed] = useState<string | null>(null);
+  const [originalBody, setOriginalBody] = useState<string | null>(null);
+  const [summary, setSummary] = useState<string>("");
+  const [showFullBody, setShowFullBody] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [busyMode, setBusyMode] = useState<null | "rewriting" | "applying">(
+    null,
+  );
+
+  function openEdit(slug: string) {
+    setEditingSlug(slug);
+    setInstruction("");
+    setProposed(null);
+    setOriginalBody(null);
+    setSummary("");
+    setShowFullBody(false);
+    setEditError(null);
+    setBusyMode(null);
+  }
+  function closeEdit() {
+    setEditingSlug(null);
+    setInstruction("");
+    setProposed(null);
+    setOriginalBody(null);
+    setSummary("");
+    setShowFullBody(false);
+    setEditError(null);
+    setBusyMode(null);
+  }
+
+  async function requestRewrite(skill: Skill) {
+    const text = instruction.trim();
+    if (!text) return;
+    setEditError(null);
+    setBusyMode("rewriting");
+    try {
+      const res = await fetch(
+        `/api/artifacts/${encodeURIComponent(skill.slug)}/llm-edit`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ instruction: text }),
+        },
+      );
+      const data = (await res.json().catch(() => ({}))) as {
+        proposed?: string;
+        current?: string;
+        summary?: string;
+        error?: string;
+      };
+      if (!res.ok || typeof data.proposed !== "string") {
+        throw new Error(data.error ?? `Rewrite failed (HTTP ${res.status})`);
+      }
+      setProposed(data.proposed);
+      setOriginalBody(typeof data.current === "string" ? data.current : skill.body);
+      setSummary(typeof data.summary === "string" ? data.summary : "");
+      setShowFullBody(false);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Rewrite failed.");
+    } finally {
+      setBusyMode(null);
+    }
+  }
+
+  async function applyProposedPersistent(skill: Skill) {
+    if (proposed == null) return;
+    setEditError(null);
+    setBusyMode("applying");
+    try {
+      const res = await fetch(`/api/skills/${encodeURIComponent(skill.slug)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: skill.name,
+          description: skill.description,
+          allowedTools: skill.allowedTools,
+          license: skill.license,
+          body: proposed,
+          kind: skill.artifactKind,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        throw new Error(data.error ?? `Apply failed (HTTP ${res.status})`);
+      }
+      // The on-disk artifact now matches; clear any session note so we don't
+      // double-apply the same body via the override path.
+      onClearNote(skill.slug);
+      closeEdit();
+      onApplied?.();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Apply failed.");
+    } finally {
+      setBusyMode(null);
+    }
+  }
+
+  function applyProposedSession(skill: Skill) {
+    if (proposed == null) return;
+    onSetNote(skill.slug, proposed);
+    closeEdit();
+  }
+
   return (
     <div>
       <p className="mb-3 text-xs uppercase tracking-[0.18em] text-muted">
@@ -1590,32 +1741,370 @@ function ArtifactToggleSection({
         )}
         {artifacts.map((s) => {
           const on = selected.has(s.slug);
+          const persistable = s.source.kind === "user";
+          const isEditing = editingSlug === s.slug;
+          const hasSessionNote = Object.prototype.hasOwnProperty.call(
+            artifactNotes,
+            s.slug,
+          );
+          const noteButtonClass = isEditing
+            ? "border-ink bg-ink text-paper"
+            : hasSessionNote
+              ? "border-ink text-ink"
+              : "border-rule text-muted hover:border-ink hover:text-ink";
           return (
-            <button
-              type="button"
-              key={s.slug}
-              onClick={() => onToggle(s.slug)}
-              className={`group flex items-start gap-2 rounded-sm px-2 py-2 text-left transition ${
-                on ? "bg-ink/5" : "hover:bg-ink/5"
-              }`}
-            >
-              <span className="mt-0.5 text-ink">
-                {on ? <SquareCheck size={16} /> : <Square size={16} />}
-              </span>
-              <span className="flex-1">
-                <span className="block font-serif text-sm leading-tight text-ink">
-                  {s.name}
-                </span>
-                {s.description && (
-                  <span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-muted">
-                    {s.description}
+            <div key={s.slug} className="flex flex-col">
+              <div
+                className={`flex items-start gap-2 rounded-sm px-2 py-2 transition ${
+                  on ? "bg-ink/5" : "hover:bg-ink/5"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => onToggle(s.slug)}
+                  className="mt-0.5 shrink-0 text-ink transition hover:opacity-70"
+                  title={on ? "Remove from this turn" : "Add to this turn"}
+                >
+                  {on ? <SquareCheck size={16} /> : <Square size={16} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onToggle(s.slug)}
+                  className="flex-1 min-w-0 text-left"
+                >
+                  <span className="block font-serif text-sm leading-tight text-ink">
+                    {s.name}
                   </span>
-                )}
-              </span>
-            </button>
+                  {s.description && (
+                    <span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-muted">
+                      {s.description}
+                    </span>
+                  )}
+                  {hasSessionNote && (
+                    <span className="mt-1 block text-[10px] uppercase tracking-[0.12em] text-ink">
+                      session note active
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => (isEditing ? closeEdit() : openEdit(s.slug))}
+                  title={
+                    isEditing
+                      ? "Close note"
+                      : persistable
+                        ? "Add a note — tell the AI how to tweak this artifact"
+                        : "Read-only artifact: your note will apply only to this session, won't be saved to disk"
+                  }
+                  className={`mt-0.5 inline-flex shrink-0 items-center gap-1 border px-1.5 py-0.5 text-[10px] uppercase tracking-[0.1em] transition ${noteButtonClass}`}
+                >
+                  <Wand2 size={11} />
+                  Note
+                </button>
+              </div>
+
+              {isEditing && (
+                <div className="mb-1 ml-7 mr-1 mt-1 flex flex-col gap-2 border-l-2 border-ink/30 bg-ink/[0.02] p-3 text-xs">
+                  {proposed == null ? (
+                    <>
+                      {hasSessionNote && (
+                        <div className="flex items-center justify-between gap-3 border border-ink/30 bg-ink/[0.04] px-2 py-1.5 text-[11px] text-ink">
+                          <span>
+                            A session-only note is active for this artifact.
+                            New rewrites will replace it.
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => onClearNote(s.slug)}
+                            className="shrink-0 text-muted underline underline-offset-2 transition hover:text-ink"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      )}
+                      <label className="text-muted">
+                        What should change in this artifact?{" "}
+                        {!persistable && (
+                          <span className="text-[10px] uppercase tracking-[0.1em] text-ink">
+                            (read-only — your note will apply to this session only)
+                          </span>
+                        )}
+                      </label>
+                      <textarea
+                        autoFocus
+                        value={instruction}
+                        onChange={(e) => setInstruction(e.target.value)}
+                        rows={3}
+                        placeholder="e.g. Always prioritise Thermo Fisher kits when listing options."
+                        className="resize-y border border-rule bg-paper px-2 py-1.5 text-xs text-ink focus:border-ink focus:outline-none"
+                        disabled={busyMode !== null}
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => requestRewrite(s)}
+                          disabled={
+                            busyMode !== null || instruction.trim().length === 0
+                          }
+                          className="inline-flex items-center gap-1.5 border border-ink bg-ink px-3 py-1 text-paper transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {busyMode === "rewriting" ? (
+                            <>
+                              <Loader2 size={11} className="animate-spin" />
+                              Rewriting…
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 size={11} />
+                              Rewrite with AI
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={closeEdit}
+                          disabled={busyMode !== null}
+                          className="text-muted transition hover:text-ink"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {summary && (
+                        <div className="border border-rule bg-paper px-3 py-2 text-[11px] leading-relaxed text-ink">
+                          <p className="mb-1 text-[10px] uppercase tracking-[0.12em] text-muted">
+                            Summary of changes
+                          </p>
+                          <p className="whitespace-pre-wrap">{summary}</p>
+                        </div>
+                      )}
+                      {(() => {
+                        const before = originalBody ?? s.body;
+                        const after = proposed;
+                        const stats = diffLines(before, after).reduce(
+                          (acc, p) => {
+                            const n = p.count ?? p.value.split("\n").length - 1;
+                            if (p.added) acc.added += n;
+                            else if (p.removed) acc.removed += n;
+                            return acc;
+                          },
+                          { added: 0, removed: 0 },
+                        );
+                        const noChange = stats.added === 0 && stats.removed === 0;
+                        return (
+                          <div className="flex items-center justify-between gap-2 text-[11px] text-muted">
+                            <span>
+                              {noChange ? (
+                                <span>No changes proposed — try a different instruction.</span>
+                              ) : (
+                                <>
+                                  <span className="text-emerald-700">
+                                    +{stats.added} added
+                                  </span>
+                                  {", "}
+                                  <span className="text-red-700">
+                                    −{stats.removed} removed
+                                  </span>
+                                </>
+                              )}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setShowFullBody((v) => !v)}
+                              className="underline underline-offset-2 transition hover:text-ink"
+                            >
+                              {showFullBody ? "Show diff" : "Edit manually"}
+                            </button>
+                          </div>
+                        );
+                      })()}
+                      {showFullBody ? (
+                        <textarea
+                          value={proposed}
+                          onChange={(e) => setProposed(e.target.value)}
+                          rows={10}
+                          spellCheck={false}
+                          className="resize-y border border-rule bg-paper px-2 py-1.5 font-mono text-[11px] leading-relaxed text-ink focus:border-ink focus:outline-none"
+                          disabled={busyMode !== null}
+                        />
+                      ) : (
+                        <DiffView
+                          before={originalBody ?? s.body}
+                          after={proposed}
+                        />
+                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {persistable && (
+                          <button
+                            type="button"
+                            onClick={() => applyProposedPersistent(s)}
+                            disabled={busyMode !== null}
+                            className="inline-flex items-center gap-1.5 border border-ink bg-ink px-3 py-1 text-paper transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                            title="Save to your artifact on disk"
+                          >
+                            {busyMode === "applying" ? (
+                              <>
+                                <Loader2 size={11} className="animate-spin" />
+                                Saving…
+                              </>
+                            ) : (
+                              "Save to artifact"
+                            )}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => applyProposedSession(s)}
+                          disabled={busyMode !== null}
+                          className={`inline-flex items-center gap-1.5 border px-3 py-1 transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                            persistable
+                              ? "border-rule text-ink hover:border-ink"
+                              : "border-ink bg-ink text-paper hover:opacity-90"
+                          }`}
+                          title="Apply only for this session — no on-disk change"
+                        >
+                          Use this session only
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProposed(null);
+                            setEditError(null);
+                          }}
+                          disabled={busyMode !== null}
+                          className="text-muted transition hover:text-ink"
+                        >
+                          Try another instruction
+                        </button>
+                        <button
+                          type="button"
+                          onClick={closeEdit}
+                          disabled={busyMode !== null}
+                          className="text-muted transition hover:text-ink"
+                        >
+                          Discard
+                        </button>
+                        {hasSessionNote && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onClearNote(s.slug);
+                              closeEdit();
+                            }}
+                            disabled={busyMode !== null}
+                            className="ml-auto text-muted underline underline-offset-2 transition hover:text-ink"
+                          >
+                            Clear session note
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                  {editError && (
+                    <p className="text-[11px] text-red-600">{editError}</p>
+                  )}
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Compact unified-diff renderer for the Note review pane. Shows changed
+ * hunks with 3 lines of context, and elides identical regions between
+ * hunks ("… N unchanged lines …").
+ */
+function DiffView({ before, after }: { before: string; after: string }) {
+  const patch = useMemo(
+    () =>
+      structuredPatch("current", "proposed", before, after, "", "", {
+        context: 3,
+      }),
+    [before, after],
+  );
+
+  if (patch.hunks.length === 0) {
+    return (
+      <div className="border border-rule bg-paper px-3 py-3 text-[11px] italic text-muted">
+        Identical to the current body.
+      </div>
+    );
+  }
+
+  // Compute the gap between hunks so we can show "… N unchanged lines …".
+  const beforeLineCount = before.split("\n").length;
+
+  return (
+    <div className="max-h-72 overflow-y-auto border border-rule bg-paper font-mono text-[11px] leading-snug">
+      {patch.hunks.map((h, hi) => {
+        const previousEnd =
+          hi === 0
+            ? 1
+            : patch.hunks[hi - 1].oldStart + patch.hunks[hi - 1].oldLines;
+        const gap = h.oldStart - previousEnd;
+        return (
+          <div key={hi}>
+            {gap > 0 && (
+              <div className="bg-ink/[0.04] px-2 py-0.5 text-[10px] text-muted">
+                … {gap} unchanged line{gap === 1 ? "" : "s"} …
+              </div>
+            )}
+            {h.lines.map((line, li) => {
+              const sigil = line[0];
+              const text = line.slice(1);
+              if (sigil === "+") {
+                return (
+                  <div
+                    key={li}
+                    className="whitespace-pre-wrap break-words bg-emerald-100/60 px-2 text-emerald-900"
+                  >
+                    <span className="select-none text-emerald-700">+ </span>
+                    {text}
+                  </div>
+                );
+              }
+              if (sigil === "-") {
+                return (
+                  <div
+                    key={li}
+                    className="whitespace-pre-wrap break-words bg-red-100/60 px-2 text-red-900"
+                  >
+                    <span className="select-none text-red-700">− </span>
+                    {text}
+                  </div>
+                );
+              }
+              return (
+                <div
+                  key={li}
+                  className="whitespace-pre-wrap break-words px-2 text-muted"
+                >
+                  <span className="select-none text-muted/70">  </span>
+                  {text}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+      {(() => {
+        const last = patch.hunks[patch.hunks.length - 1];
+        const tail = beforeLineCount - (last.oldStart + last.oldLines - 1);
+        if (tail > 0) {
+          return (
+            <div className="bg-ink/[0.04] px-2 py-0.5 text-[10px] text-muted">
+              … {tail} unchanged line{tail === 1 ? "" : "s"} after this …
+            </div>
+          );
+        }
+        return null;
+      })()}
     </div>
   );
 }

@@ -28,6 +28,12 @@ interface ChatRequest {
   skillSlugs: string[];
   /** Qualified deck paths whose contents should be injected into the system prompt. */
   contextFiles?: string[];
+  /** Per-session artifact body overrides keyed by slug. The override REPLACES
+   *  the artifact's saved body for this turn only — the on-disk artifact is
+   *  not modified. Used when the user has tweaked a public artifact via the
+   *  "Note" button without persisting (which they can't, since it's
+   *  read-only). */
+  artifactNotes?: Record<string, string>;
   edit?: EditPayload;
 }
 
@@ -243,13 +249,65 @@ function sanitizeSkillDirName(name: string): string {
 }
 
 /**
- * Wire `<deck>/.claude/skills/<name>` symlinks for the skills the user
- * selected this turn. The `.claude/skills/` directory is wiped and
- * recreated each call so a previous turn's skills don't leak in.
+ * Materialize an artifact's directory at `dst` using a custom body. The
+ * SKILL.md frontmatter is preserved from the source; the body is replaced.
+ * Sibling files (references/, etc.) are symlinked from the source so the
+ * overridden artifact still has access to its reference material.
+ */
+async function materializeArtifactWithOverride(
+  dst: string,
+  skill: Skill,
+  customBody: string,
+): Promise<void> {
+  await fs.mkdir(dst, { recursive: true });
+  const sourceSkillMd = path.join(skill.sourcePath, "SKILL.md");
+  let raw = "";
+  try {
+    raw = await fs.readFile(sourceSkillMd, "utf8");
+  } catch {
+    // Fall through to writing a bare body.
+  }
+  const matterMod = (await import("gray-matter")) as unknown as {
+    default: typeof import("gray-matter") & {
+      stringify(content: string, data: Record<string, unknown>): string;
+    };
+  };
+  const matter = matterMod.default;
+  const parsed = raw ? matter(raw) : { data: {}, content: "" };
+  const written = matter.stringify(
+    customBody.replace(/\s+$/, "") + "\n",
+    parsed.data as Record<string, unknown>,
+  );
+  await fs.writeFile(path.join(dst, "SKILL.md"), written, "utf8");
+  // Symlink siblings (references/, etc.) so the artifact stays whole.
+  try {
+    const entries = await fs.readdir(skill.sourcePath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name === "SKILL.md") continue;
+      const src = path.join(skill.sourcePath, entry.name);
+      const target = path.join(dst, entry.name);
+      try {
+        await fs.symlink(src, target, entry.isDirectory() ? "dir" : "file");
+      } catch {
+        // best-effort
+      }
+    }
+  } catch {
+    // best-effort
+  }
+}
+
+/**
+ * Wire `<deck>/.claude/skills/<name>` for the skills the user selected this
+ * turn. Plain symlink for unmodified artifacts; a materialized real
+ * directory (custom SKILL.md body, references symlinked) when the user has
+ * a per-session override for that slug. The `.claude/skills/` directory is
+ * wiped and recreated each call so previous turns don't leak in.
  */
 async function linkSelectedSkills(
   cwd: string,
   selected: Skill[],
+  notes: Record<string, string> = {},
 ): Promise<string[]> {
   const skillsDir = path.join(cwd, ".claude", "skills");
   await fs.rm(skillsDir, { recursive: true, force: true });
@@ -267,11 +325,17 @@ async function linkSelectedSkills(
     }
     used.add(name);
 
+    const dst = path.join(skillsDir, name);
+    const override = notes[skill.slug];
     try {
-      await fs.symlink(skill.sourcePath, path.join(skillsDir, name), "dir");
+      if (typeof override === "string" && override.trim().length > 0) {
+        await materializeArtifactWithOverride(dst, skill, override);
+      } else {
+        await fs.symlink(skill.sourcePath, dst, "dir");
+      }
       linkedNames.push(name);
     } catch {
-      // symlink failed (e.g. permissions); skip this skill but keep going
+      // skip this skill but keep going
     }
   }
 
@@ -286,6 +350,7 @@ async function linkSelectedSkills(
 async function linkSelectedProtocols(
   cwd: string,
   selected: Skill[],
+  notes: Record<string, string> = {},
 ): Promise<LinkedProtocol[]> {
   const protocolsDir = path.join(cwd, ".claude", "protocols");
   await fs.rm(protocolsDir, { recursive: true, force: true });
@@ -303,18 +368,20 @@ async function linkSelectedProtocols(
     }
     used.add(name);
 
+    const dst = path.join(protocolsDir, name);
+    const override = notes[protocol.slug];
     try {
-      await fs.symlink(
-        protocol.sourcePath,
-        path.join(protocolsDir, name),
-        "dir",
-      );
+      if (typeof override === "string" && override.trim().length > 0) {
+        await materializeArtifactWithOverride(dst, protocol, override);
+      } else {
+        await fs.symlink(protocol.sourcePath, dst, "dir");
+      }
       linked.push({
         protocol,
         relPath: `.claude/protocols/${name}/SKILL.md`,
       });
     } catch {
-      // symlink failed (e.g. permissions); skip but keep going
+      // skip but keep going
     }
   }
 
@@ -397,10 +464,20 @@ export async function POST(req: Request): Promise<Response> {
   // on across chat sessions and surfaces in the Working Directory panel.
   const cwd = userDeckDir(email);
   await fs.mkdir(cwd, { recursive: true });
-  const linkedSkillNames = await linkSelectedSkills(cwd, selectedSkills);
+  const artifactNotes =
+    mode === "edit" || !body.artifactNotes ? {} : body.artifactNotes;
+  const linkedSkillNames = await linkSelectedSkills(
+    cwd,
+    selectedSkills,
+    artifactNotes,
+  );
 
   if (mode !== "edit") {
-    const linkedProtocols = await linkSelectedProtocols(cwd, selectedProtocols);
+    const linkedProtocols = await linkSelectedProtocols(
+      cwd,
+      selectedProtocols,
+      artifactNotes,
+    );
     // Working-directory files explicitly checked in the panel.
     const contextReport = await loadContextFiles(
       email,

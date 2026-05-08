@@ -12,7 +12,9 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.0",
+    "@types/diff": "^7.0.2",
     "bcryptjs": "^3.0.3",
+    "diff": "^9.0.0",
     "fuse.js": "7.0.0",
     "gray-matter": "4.0.3",
     "iron-session": "^8.0.4",
