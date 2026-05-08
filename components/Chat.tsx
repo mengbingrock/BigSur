@@ -354,6 +354,10 @@ export default function Chat({
       answers,
       Array.from(selected),
       buildSkillSnapshot(),
+      {
+        contextFiles: Array.from(selectedFiles),
+        artifactNotes,
+      },
     );
   };
 
@@ -1877,7 +1881,28 @@ function ArtifactToggleSection({
                           <p className="mb-1 text-[10px] uppercase tracking-[0.12em] text-muted">
                             Summary of changes
                           </p>
-                          <p className="whitespace-pre-wrap">{summary}</p>
+                          {(() => {
+                            const lines = summary
+                              .split("\n")
+                              .map((l) => l.trim())
+                              .filter((l) => l.length > 0);
+                            const bullets = lines
+                              .filter((l) => /^[-*•]\s+/.test(l))
+                              .map((l) => l.replace(/^[-*•]\s+/, ""));
+                            if (
+                              bullets.length > 0 &&
+                              bullets.length === lines.length
+                            ) {
+                              return (
+                                <ul className="ml-4 list-disc space-y-0.5">
+                                  {bullets.map((b, i) => (
+                                    <li key={i}>{b}</li>
+                                  ))}
+                                </ul>
+                              );
+                            }
+                            return <p className="whitespace-pre-wrap">{summary}</p>;
+                          })()}
                         </div>
                       )}
                       {(() => {

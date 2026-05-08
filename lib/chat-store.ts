@@ -347,6 +347,10 @@ class ChatStore {
     answers: AskUserAnswer[],
     skillSlugs: string[],
     snapshot: SkillSnapshot[],
+    extra?: {
+      contextFiles?: string[];
+      artifactNotes?: Record<string, string>;
+    },
   ): Promise<void> => {
     if (this.state.streaming) return;
     this.mutateMessage(messageId, (m) => ({
@@ -366,7 +370,13 @@ class ChatStore {
       `Here are my answers to the questions you just asked:\n${lines.join("\n")}\n\n` +
       `Please continue from this.`;
 
-    await this.send({ text, skillSlugs, snapshot });
+    await this.send({
+      text,
+      skillSlugs,
+      snapshot,
+      contextFiles: extra?.contextFiles,
+      artifactNotes: extra?.artifactNotes,
+    });
   };
 
   send = async (opts: SendOptions): Promise<void> => {

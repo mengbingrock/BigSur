@@ -3,6 +3,7 @@ import type { ChildProcessByStdio } from "node:child_process";
 import type { Readable } from "node:stream";
 import fs from "node:fs/promises";
 import path from "node:path";
+import matter from "gray-matter";
 import { getAllSkills } from "@/lib/skills";
 import { getCurrentEmail } from "@/lib/session";
 import { readDeckFile, userDeckDir } from "@/lib/deck";
@@ -265,14 +266,9 @@ async function materializeArtifactWithOverride(
   try {
     raw = await fs.readFile(sourceSkillMd, "utf8");
   } catch {
-    // Fall through to writing a bare body.
+    // Fall through to writing a bare body — the artifact will still load,
+    // just without preserved frontmatter.
   }
-  const matterMod = (await import("gray-matter")) as unknown as {
-    default: typeof import("gray-matter") & {
-      stringify(content: string, data: Record<string, unknown>): string;
-    };
-  };
-  const matter = matterMod.default;
   const parsed = raw ? matter(raw) : { data: {}, content: "" };
   const written = matter.stringify(
     customBody.replace(/\s+$/, "") + "\n",

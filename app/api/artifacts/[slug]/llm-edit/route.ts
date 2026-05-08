@@ -15,7 +15,9 @@ const REWRITE_SYSTEM_PROMPT =
   "Return TWO parts separated EXACTLY by the sentinel line `" +
   SUMMARY_SENTINEL +
   "` (on its own line, no leading/trailing spaces).\n" +
-  "PART 1 — a plain-English summary, 1–3 short sentences, of what you changed and why. Use bullet points only if there are multiple distinct changes. No quotation marks, no markdown headings.\n" +
+  "PART 1 — a markdown bullet list of WHAT CHANGED as a result of the user's note. " +
+  "Use 1–5 bullets, each starting with `- ` and under ~12 words. Each bullet names ONE concrete change (added X / removed Y / reordered Z / replaced A with B). " +
+  "Do not narrate intent or rationale. Do not write paragraphs. No headings, no preamble, no quotation marks.\n" +
   "PART 2 — the full rewritten markdown body. No preamble. No quotation marks around the result. No code-fence wrappers around the whole document.\n" +
   "Preserve existing markdown structure (headings, lists, tables, code blocks, links) in PART 2 unless the instruction asks otherwise. " +
   "If the instruction is ambiguous, make a single best-effort interpretation rather than asking. " +
