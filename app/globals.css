@@ -142,3 +142,31 @@ body {
   background: #f1efe9;
   font-weight: 600;
 }
+
+/* React Flow handles default to ~6 px dots — too small to discover. Enlarge,
+ * give a contrasting colour, and make them grow on node hover so users find
+ * the connect affordance without trial-and-error. */
+.react-flow__handle {
+  width: 10px;
+  height: 10px;
+  background: #ffffff;
+  border: 1.5px solid #111;
+  border-radius: 50%;
+  opacity: 0.85;
+  transition: transform 120ms, opacity 120ms;
+}
+.react-flow__node:hover .react-flow__handle,
+.react-flow__handle:hover {
+  opacity: 1;
+  transform: scale(1.25) translate(var(--xy-handle-offset-x, 0), var(--xy-handle-offset-y, 0));
+}
+.react-flow__handle.connectingto,
+.react-flow__handle-connecting {
+  background: #111;
+}
+/* The "drag a connection" line drawn between cursor and source. */
+.react-flow__connectionline path {
+  stroke: #111;
+  stroke-width: 1.5px;
+  stroke-dasharray: 4 4;
+}

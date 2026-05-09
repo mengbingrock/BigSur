@@ -2,7 +2,23 @@
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { diffLines, structuredPatch } from "diff";
+
+// React Flow needs the DOM (uses ResizeObserver, measures container) — load
+// it client-side only and lazily so it never weighs on the chat bundle.
+const ProjectCanvas = dynamic(() => import("./ProjectCanvas"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full w-full items-center justify-center text-xs text-muted">
+      Loading canvas…
+    </div>
+  ),
+});
+
+// Type-only import: bundlers strip these at compile time, so it doesn't
+// pull ProjectCanvas back into the chat bundle.
+import type { PendingCanvasQuestion } from "./ProjectCanvas";
 import {
   Send,
   Loader2,
@@ -117,6 +133,48 @@ export default function Chat({
     () => ({}),
   );
   const [input, setInput] = useState("");
+  // Bumped on every "Clear chat" — used as React key for ProjectCanvas so
+  // the canvas remounts (drops user-added step/choice nodes and edges)
+  // alongside the chat reset.
+  const [canvasResetKey, setCanvasResetKey] = useState(0);
+  // Width of the right-side canvas pane in CSS px. Persisted so the user's
+  // chosen split survives reloads. Clamped at drag time to [240, 1200].
+  const CANVAS_WIDTH_KEY = "monterey.canvasWidth.v1";
+  const CANVAS_WIDTH_MIN = 240;
+  const CANVAS_WIDTH_MAX = 1200;
+  const CANVAS_WIDTH_DEFAULT = 448; // 28rem
+  const [canvasWidth, setCanvasWidth] = useState<number>(CANVAS_WIDTH_DEFAULT);
+  const [canvasResizing, setCanvasResizing] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem(CANVAS_WIDTH_KEY);
+    if (!raw) return;
+    const n = parseInt(raw, 10);
+    if (Number.isFinite(n)) {
+      setCanvasWidth(
+        Math.max(CANVAS_WIDTH_MIN, Math.min(CANVAS_WIDTH_MAX, n)),
+      );
+    }
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(CANVAS_WIDTH_KEY, String(canvasWidth));
+  }, [canvasWidth]);
+
+  // While the splitter is being dragged, force a col-resize cursor over the
+  // whole document so it doesn't flicker back to the default when the
+  // pointer briefly leaves the handle.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (canvasResizing) {
+      const prev = document.body.style.cursor;
+      document.body.style.cursor = "col-resize";
+      return () => {
+        document.body.style.cursor = prev;
+      };
+    }
+  }, [canvasResizing]);
   const [pinned, setPinned] = useState(true);
   const [activeSelection, setActiveSelection] =
     useState<ActiveSelection | null>(null);
@@ -342,12 +400,63 @@ export default function Chat({
       bodyChars: s.body.length,
     }));
 
+  // ALL canvas-surfaced questions (pending + already-answered). Both kinds
+  // stay visible on the canvas so the user has a record of decisions. The
+  // node renderer reads the optional `answer` field to switch between
+  // pickable and read-only "answered" states.
+  const pendingCanvasQuestions = useMemo<
+    (PendingCanvasQuestion & { source: "tool" | "extracted" })[]
+  >(() => {
+    const out: (PendingCanvasQuestion & { source: "tool" | "extracted" })[] = [];
+    for (const m of messages) {
+      if (m.role !== "assistant") continue;
+      // (1) AskUserQuestion tool calls — first sub-question per call.
+      const activity = m.activity ?? [];
+      for (const a of activity) {
+        if (a.kind !== "tool" || a.name !== "AskUserQuestion") continue;
+        const parsed = parseAskUserInput(a.input);
+        if (!parsed || parsed.length === 0) continue;
+        const q = parsed[0];
+        const answers = m.askUserAnswers?.[a.id];
+        const answer = answers?.[0]?.answer;
+        out.push({
+          messageId: m.id,
+          toolUseId: a.id,
+          question: q.question,
+          options: q.options,
+          multiSelect: q.multiSelect,
+          source: "tool",
+          answer,
+        });
+      }
+      // (2) Extracted choices from plain-text replies.
+      const ec = m.extractedChoices ?? [];
+      for (const c of ec) {
+        const answer = m.extractedChoicesAnswered?.[c.id];
+        out.push({
+          messageId: m.id,
+          toolUseId: c.id, // re-use the field as a unique routing key
+          question: c.question,
+          options: c.options.map((label) => ({ label })),
+          multiSelect: c.multiSelect,
+          source: "extracted",
+          answer,
+        });
+      }
+    }
+    return out;
+  }, [messages]);
+
   const onAnswerAskUserQuestion = async (
     messageId: string,
     toolUseId: string,
     answers: AskUserAnswer[],
   ) => {
-    if (streaming) return;
+    // No closure-based `streaming` check here — that flag could be a stale
+    // capture from an earlier render of Chat (the canvas's `data.onAnswer`
+    // is refreshed by a reconciler effect that runs from prior renders, so
+    // its closures lag the live store). chatStore.submitAskUserAnswer has
+    // its own runtime check against the current store state.
     await chatStore.submitAskUserAnswer(
       messageId,
       toolUseId,
@@ -407,8 +516,44 @@ export default function Chat({
     }
   };
 
+  // Pointer-driven splitter between chat and canvas. Width grows when the
+  // handle moves left (canvas grows toward the chat). Listeners attach to
+  // `window` so a fast cursor doesn't lose the drag mid-flight.
+  const onCanvasResizeStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = canvasWidth;
+    setCanvasResizing(true);
+    const onMove = (ev: PointerEvent) => {
+      const dx = ev.clientX - startX;
+      const next = Math.max(
+        CANVAS_WIDTH_MIN,
+        Math.min(CANVAS_WIDTH_MAX, startWidth - dx),
+      );
+      setCanvasWidth(next);
+    };
+    const onUp = () => {
+      setCanvasResizing(false);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  };
+
   return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[18rem,1fr]">
+    <div
+      className={`grid grid-cols-1 gap-8 lg:grid-cols-[18rem_1fr_var(--canvas-w)] ${
+        canvasResizing ? "select-none" : ""
+      }`}
+      style={
+        {
+          "--canvas-w": `${canvasWidth}px`,
+        } as React.CSSProperties
+      }
+    >
       <aside className="order-2 lg:order-1">
         <div className="sticky top-6 border border-rule p-5">
           <ChatDeckPanel
@@ -505,8 +650,14 @@ export default function Chat({
           streaming={streaming}
           onClear={() => {
             if (streaming) return;
-            if (!confirm("Clear the chat? Your deck files are not affected.")) return;
+            if (
+              !confirm(
+                "Clear the chat? Canvas state (user-added nodes/edges) will reset too. Deck files are not affected.",
+              )
+            )
+              return;
             chatStore.clear();
+            setCanvasResetKey((k) => k + 1);
           }}
         />
 
@@ -645,6 +796,92 @@ export default function Chat({
           </div>
         </div>
       </section>
+
+      <aside className="relative order-3 lg:order-3">
+        {/* Vertical drag-handle for resizing the chat/canvas split. Sits on
+         *  the left edge of the canvas aside, only visible at lg+. Uses
+         *  Pointer events so a fast cursor that briefly leaves the handle
+         *  doesn't kill the drag (window-level listeners). */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize chat / canvas split"
+          onPointerDown={onCanvasResizeStart}
+          onDoubleClick={() => setCanvasWidth(CANVAS_WIDTH_DEFAULT)}
+          title="Drag to resize · double-click to reset"
+          className={`absolute left-0 top-0 bottom-0 z-10 hidden w-2 -translate-x-1/2 cursor-col-resize bg-transparent transition lg:block ${
+            canvasResizing
+              ? "bg-ink/40"
+              : "hover:bg-ink/20"
+          }`}
+        />
+        <div className="flex h-[calc(100vh-12rem)] min-h-[60vh] flex-col border border-rule">
+          <div className="flex items-center justify-between border-b border-rule px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-muted">
+            <span>
+              Canvas
+              {(() => {
+                const unanswered = pendingCanvasQuestions.filter(
+                  (q) => q.answer === undefined,
+                ).length;
+                return unanswered > 0 ? (
+                  <span className="ml-2 inline-flex items-center gap-1 border border-ink bg-ink px-1.5 py-0.5 font-mono text-[9px] normal-case tracking-normal text-paper">
+                    {unanswered} question{unanswered === 1 ? "" : "s"}
+                  </span>
+                ) : null;
+              })()}
+            </span>
+            <span className="font-mono normal-case tracking-normal text-[10px] text-muted">
+              drag · zoom · connect
+            </span>
+          </div>
+          <div className="relative flex-1 min-h-0">
+            <ProjectCanvas
+              key={canvasResetKey}
+              pendingQuestions={pendingCanvasQuestions}
+              onSendToChat={(text) => {
+                // Fire the canvas-authored choice as a regular chat turn
+                // — same path the textarea Send button takes, so all the
+                // skill / protocol / artifactNotes / contextFiles plumbing
+                // applies.
+                if (streaming) return;
+                void chatStore.send({
+                  text,
+                  skillSlugs: Array.from(selected),
+                  contextFiles: Array.from(selectedFiles),
+                  artifactNotes,
+                  snapshot: buildSkillSnapshot(),
+                });
+              }}
+              onAnswer={async (messageId, toolUseId, raw) => {
+                const meta = pendingCanvasQuestions.find(
+                  (p) => p.toolUseId === toolUseId,
+                );
+                if (meta?.source === "extracted") {
+                  const a = raw[0]?.answer;
+                  if (a === undefined) return;
+                  await chatStore.submitExtractedChoice(
+                    messageId,
+                    toolUseId,
+                    a,
+                    Array.from(selected),
+                    buildSkillSnapshot(),
+                    {
+                      contextFiles: Array.from(selectedFiles),
+                      artifactNotes,
+                    },
+                  );
+                  return;
+                }
+                const answers: AskUserAnswer[] = raw.map((r) => ({
+                  question: r.question,
+                  answer: r.answer,
+                }));
+                await onAnswerAskUserQuestion(messageId, toolUseId, answers);
+              }}
+            />
+          </div>
+        </div>
+      </aside>
 
       {activeSelection && (
         <EditPopover

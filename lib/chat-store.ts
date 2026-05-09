@@ -61,6 +61,90 @@ export interface AskUserAnswer {
   answer: string | string[];
 }
 
+/**
+ * A choice that a Haiku post-stream extractor inferred from the assistant's
+ * plain-text reply when the model offered options without invoking the
+ * AskUserQuestion tool. Surfaced as canvas question nodes so users have
+ * a clickable way to respond.
+ */
+export interface ExtractedChoice {
+  /** Synthetic id; deterministic from message id + index. */
+  id: string;
+  question: string;
+  options: string[];
+  multiSelect: boolean;
+}
+
+/**
+ * Local regex fallback for choice patterns Haiku sometimes misses. Runs
+ * only when the server-side extractor returns an empty result. Conservative
+ * — only catches very simple, high-confidence patterns to avoid false
+ * positives. Returns the same shape Haiku does so the rest of the pipeline
+ * is unchanged.
+ */
+function heuristicExtractChoices(
+  text: string,
+): { question: string; options: string[]; multiSelect: boolean }[] {
+  const out: { question: string; options: string[]; multiSelect: boolean }[] = [];
+
+  // Pattern 1: "X or Y?" with short alternatives. Captures the trailing
+  // sentence ending in "?" and looks for a single " or " inside it.
+  // Example: "Coffee or tea?" -> ["Coffee", "Tea"]
+  // Example: "Would you like to use TRIzol or RNeasy?" -> ["TRIzol", "RNeasy"]
+  const sentences = text.match(/[^.!?\n][^.!?\n]*\?/g) ?? [];
+  for (const sRaw of sentences) {
+    const s = sRaw.trim();
+    if (s.length < 4 || s.length > 200) continue;
+    const beforeQ = s.replace(/\?+$/, "").trim();
+    // Split on " or " (case-insensitive). Skip if more than one occurrence
+    // (likely a complex compound — let Haiku handle multi-option later).
+    const parts = beforeQ.split(/\s+or\s+/i);
+    if (parts.length !== 2) continue;
+    // Take last 1–4 words from the first segment as the option label
+    // (drops the lead-in like "Would you like to use").
+    const left = parts[0]
+      .replace(/[,;:]+$/, "")
+      .trim()
+      .split(/\s+/)
+      .slice(-4)
+      .join(" ");
+    const right = parts[1].replace(/[,.;:]+$/, "").trim();
+    if (
+      left.length < 1 ||
+      right.length < 1 ||
+      left.length > 40 ||
+      right.length > 40
+    ) {
+      continue;
+    }
+    // Capitalise option labels for nicer display.
+    const cap = (w: string) => w.charAt(0).toUpperCase() + w.slice(1);
+    out.push({
+      question: s.slice(0, 100),
+      options: [cap(left), cap(right)],
+      multiSelect: false,
+    });
+    break; // One choice per reply is enough for fallback.
+  }
+
+  // Pattern 2: yes/no question. Emit only if pattern 1 didn't catch one.
+  // Example: "Should I proceed?" -> ["Yes", "No"]
+  if (out.length === 0) {
+    const m = text.match(
+      /\b(Should|Would|Could|Shall|Will|Do|Does|Did|Want|Are|Is|Can|Ready|May)\b[^?!\n]{2,120}\?/i,
+    );
+    if (m) {
+      out.push({
+        question: m[0].trim().slice(0, 100),
+        options: ["Yes", "No"],
+        multiSelect: false,
+      });
+    }
+  }
+
+  return out;
+}
+
 export interface ChatMsg {
   id: string;
   role: "user" | "assistant";
@@ -78,6 +162,15 @@ export interface ChatMsg {
    * navigation/reload.
    */
   askUserAnswers?: Record<string, AskUserAnswer[]>;
+  /** True once the post-stream choice extractor has been called. Prevents
+   *  repeating the LLM call on every re-render. */
+  extractionAttempted?: boolean;
+  /** Choices the extractor inferred from this message's plain text. */
+  extractedChoices?: ExtractedChoice[];
+  /** Per-choice-id record of how the user answered an extracted choice
+   *  (single → string, multi → string[]). Dismissal isn't supported here
+   *  yet — to not see the question, just don't submit. */
+  extractedChoicesAnswered?: Record<string, string | string[]>;
 }
 
 export interface SessionInfo {
@@ -170,6 +263,15 @@ function readPersistedMessages(): ChatMsg[] {
           m.askUserAnswers && typeof m.askUserAnswers === "object"
             ? (m.askUserAnswers as Record<string, AskUserAnswer[]>)
             : undefined,
+        extractionAttempted: Boolean(m.extractionAttempted),
+        extractedChoices: Array.isArray(m.extractedChoices)
+          ? (m.extractedChoices as ExtractedChoice[])
+          : undefined,
+        extractedChoicesAnswered:
+          m.extractedChoicesAnswered &&
+          typeof m.extractedChoicesAnswered === "object"
+            ? (m.extractedChoicesAnswered as Record<string, string | string[]>)
+            : undefined,
         // activity intentionally dropped on persist
       }));
   } catch {
@@ -189,6 +291,9 @@ function persistMessages(messages: ChatMsg[]): void {
       loadedSkills: m.loadedSkills,
       edits: m.edits,
       askUserAnswers: m.askUserAnswers,
+      extractionAttempted: m.extractionAttempted,
+      extractedChoices: m.extractedChoices,
+      extractedChoicesAnswered: m.extractedChoicesAnswered,
     }));
     window.localStorage.setItem(HISTORY_KEY, JSON.stringify(slim));
   } catch {
@@ -352,7 +457,10 @@ class ChatStore {
       artifactNotes?: Record<string, string>;
     },
   ): Promise<void> => {
-    if (this.state.streaming) return;
+    if (this.state.streaming) {
+      return;
+    }
+    const beforeMsg = this.state.messages.find((m) => m.id === messageId);
     this.mutateMessage(messageId, (m) => ({
       ...m,
       askUserAnswers: {
@@ -360,6 +468,7 @@ class ChatStore {
         [toolUseId]: answers,
       },
     }));
+    const afterMsg = this.state.messages.find((m) => m.id === messageId);
     persistMessages(this.state.messages);
 
     const lines = answers.map((a) => {
@@ -441,7 +550,139 @@ class ChatStore {
     } finally {
       this.abort = null;
       this.setState({ streaming: false });
+      // Post-stream choice extraction: when the assistant finishes a turn
+      // without invoking AskUserQuestion, run a fast Haiku pass to detect
+      // any plain-text choices ("would you like A or B?") and surface them
+      // on the canvas as question nodes. Cheap, async, never blocks the UI.
+      const finalAssistant = this.state.messages
+        .slice()
+        .reverse()
+        .find((m) => m.id === assistantMsg.id);
+      if (finalAssistant) {
+        void this.maybeExtractChoices(finalAssistant.id);
+      }
     }
+  };
+
+  /**
+   * Run the post-stream choice extractor for an assistant message. Skips
+   * automatically if (a) the message already used AskUserQuestion (those
+   * questions are surfaced via the existing tool-mirror), (b) extraction
+   * has already been attempted (idempotent across re-renders), or
+   * (c) the message has no real text content.
+   */
+  maybeExtractChoices = async (messageId: string): Promise<void> => {
+    const msg = this.state.messages.find((m) => m.id === messageId);
+    if (!msg || msg.role !== "assistant") {
+      return;
+    }
+    if (msg.extractionAttempted) {
+      return;
+    }
+    if (msg.errored) {
+      return;
+    }
+    const text = (msg.content ?? "").trim();
+    // 10-char threshold catches short replies like "Coffee or tea?"
+    // (14 chars). Anything shorter is almost certainly not a question.
+    if (text.length < 10) {
+      return;
+    }
+    const hasAskUser = (msg.activity ?? []).some(
+      (a) => a.kind === "tool" && a.name === "AskUserQuestion",
+    );
+    if (hasAskUser) {
+      return;
+    }
+    // Mark attempted up front so concurrent triggers don't double-fire.
+    this.mutateMessage(messageId, (m) => ({ ...m, extractionAttempted: true }));
+    persistMessages(this.state.messages);
+    try {
+      const res = await fetch("/api/extract-choices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { choices?: unknown };
+      let rawChoices = Array.isArray(data.choices) ? data.choices : [];
+      // Fallback heuristics — run when Haiku missed obvious patterns. The
+      // canvas affordance is high-value enough that a small false-positive
+      // rate beats missing a real question.
+      if (rawChoices.length === 0) {
+        const fallback = heuristicExtractChoices(text);
+        if (fallback.length > 0) {
+          rawChoices = fallback;
+        }
+      }
+      if (rawChoices.length === 0) return;
+      const validated: ExtractedChoice[] = [];
+      rawChoices.forEach((c: unknown, i: number) => {
+        if (!c || typeof c !== "object") return;
+        const r = c as Record<string, unknown>;
+        const q = typeof r.question === "string" ? r.question : "";
+        const opts = Array.isArray(r.options)
+          ? r.options.filter((o): o is string => typeof o === "string")
+          : [];
+        if (!q || opts.length < 2) return;
+        validated.push({
+          id: `${messageId}-c${i}`,
+          question: q,
+          options: opts,
+          multiSelect: Boolean(r.multiSelect),
+        });
+      });
+      if (validated.length === 0) return;
+      this.mutateMessage(messageId, (m) => ({
+        ...m,
+        extractedChoices: validated,
+      }));
+      persistMessages(this.state.messages);
+    } catch {
+      // Silent — extractor failures shouldn't surface in the UI; the user
+      // can still answer in chat the normal way.
+    }
+  };
+
+  /**
+   * Submit an answer to one of the post-stream-extracted choices on the
+   * canvas. Records the answer on the originating assistant message and
+   * fires a follow-up user turn ("I picked …") so the chat can continue.
+   */
+  submitExtractedChoice = async (
+    messageId: string,
+    choiceId: string,
+    answer: string | string[],
+    skillSlugs: string[],
+    snapshot: SkillSnapshot[],
+    extra?: {
+      contextFiles?: string[];
+      artifactNotes?: Record<string, string>;
+    },
+  ): Promise<void> => {
+    if (this.state.streaming) {
+      return;
+    }
+    const msg = this.state.messages.find((m) => m.id === messageId);
+    const choice = msg?.extractedChoices?.find((c) => c.id === choiceId);
+    if (!choice) return;
+    this.mutateMessage(messageId, (m) => ({
+      ...m,
+      extractedChoicesAnswered: {
+        ...(m.extractedChoicesAnswered ?? {}),
+        [choiceId]: answer,
+      },
+    }));
+    persistMessages(this.state.messages);
+    const human = Array.isArray(answer) ? answer.join(", ") : answer;
+    const text = `For the choice you offered (${choice.question}): ${human}.\n\nPlease continue.`;
+    await this.send({
+      text,
+      skillSlugs,
+      snapshot,
+      contextFiles: extra?.contextFiles,
+      artifactNotes: extra?.artifactNotes,
+    });
   };
 
   submitEdit = async (opts: EditOptions): Promise<void> => {
