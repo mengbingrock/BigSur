@@ -76,6 +76,25 @@ export interface ExtractedChoice {
 }
 
 /**
+ * A workflow step the extractor inferred from a plain-text assistant
+ * reply. Surfaced on the canvas as a step-style node. Phases can be
+ * hierarchical: `subPhases` carries finer-grained children that
+ * expand on click in the UI.
+ */
+export interface ExtractedPhase {
+  /** Canvas-unique id; deterministic from message id + local id. */
+  id: string;
+  label: string;
+  summary: string;
+  subPhases?: ExtractedPhase[];
+}
+export interface ExtractedPipelineEdge {
+  /** Canvas-unique ids matching ExtractedPhase.id. */
+  source: string;
+  target: string;
+}
+
+/**
  * Local regex fallback for choice patterns Haiku sometimes misses. Runs
  * only when the server-side extractor returns an empty result. Conservative
  * — only catches very simple, high-confidence patterns to avoid false
@@ -171,6 +190,11 @@ export interface ChatMsg {
    *  (single → string, multi → string[]). Dismissal isn't supported here
    *  yet — to not see the question, just don't submit. */
   extractedChoicesAnswered?: Record<string, string | string[]>;
+  /** Workflow phases Haiku extracted — rendered as a pipeline of step
+   *  nodes on the canvas. */
+  extractedPhases?: ExtractedPhase[];
+  /** Edges between extracted phases (sequence / branching). */
+  extractedPipelineEdges?: ExtractedPipelineEdge[];
 }
 
 export interface SessionInfo {
@@ -272,6 +296,12 @@ function readPersistedMessages(): ChatMsg[] {
           typeof m.extractedChoicesAnswered === "object"
             ? (m.extractedChoicesAnswered as Record<string, string | string[]>)
             : undefined,
+        extractedPhases: Array.isArray(m.extractedPhases)
+          ? (m.extractedPhases as ExtractedPhase[])
+          : undefined,
+        extractedPipelineEdges: Array.isArray(m.extractedPipelineEdges)
+          ? (m.extractedPipelineEdges as ExtractedPipelineEdge[])
+          : undefined,
         // activity intentionally dropped on persist
       }));
   } catch {
@@ -294,6 +324,8 @@ function persistMessages(messages: ChatMsg[]): void {
       extractionAttempted: m.extractionAttempted,
       extractedChoices: m.extractedChoices,
       extractedChoicesAnswered: m.extractedChoicesAnswered,
+      extractedPhases: m.extractedPhases,
+      extractedPipelineEdges: m.extractedPipelineEdges,
     }));
     window.localStorage.setItem(HISTORY_KEY, JSON.stringify(slim));
   } catch {
@@ -604,19 +636,21 @@ class ChatStore {
         body: JSON.stringify({ text }),
       });
       if (!res.ok) return;
-      const data = (await res.json()) as { choices?: unknown };
+      const data = (await res.json()) as {
+        choices?: unknown;
+        phases?: unknown;
+        edges?: unknown;
+      };
+
+      // --- Choices (with regex fallback) ---
       let rawChoices = Array.isArray(data.choices) ? data.choices : [];
-      // Fallback heuristics — run when Haiku missed obvious patterns. The
-      // canvas affordance is high-value enough that a small false-positive
-      // rate beats missing a real question.
       if (rawChoices.length === 0) {
         const fallback = heuristicExtractChoices(text);
         if (fallback.length > 0) {
           rawChoices = fallback;
         }
       }
-      if (rawChoices.length === 0) return;
-      const validated: ExtractedChoice[] = [];
+      const validatedChoices: ExtractedChoice[] = [];
       rawChoices.forEach((c: unknown, i: number) => {
         if (!c || typeof c !== "object") return;
         const r = c as Record<string, unknown>;
@@ -625,17 +659,82 @@ class ChatStore {
           ? r.options.filter((o): o is string => typeof o === "string")
           : [];
         if (!q || opts.length < 2) return;
-        validated.push({
+        validatedChoices.push({
           id: `${messageId}-c${i}`,
           question: q,
           options: opts,
           multiSelect: Boolean(r.multiSelect),
         });
       });
-      if (validated.length === 0) return;
+
+      // --- Phases (the pipeline; recursive) ---
+      const phaseIdMap = new Map<string, string>(); // local-id -> canvas-id
+      function buildPhase(
+        p: unknown,
+        parentCanvasId: string,
+        index: number,
+      ): ExtractedPhase | null {
+        if (!p || typeof p !== "object") return null;
+        const r = p as Record<string, unknown>;
+        const localId = typeof r.id === "string" ? r.id : "";
+        const label = typeof r.label === "string" ? r.label.trim() : "";
+        if (!localId || !label) return null;
+        const canvasId = `${parentCanvasId}-p${index}`;
+        phaseIdMap.set(localId, canvasId);
+        const subs: ExtractedPhase[] = [];
+        if (Array.isArray(r.subPhases)) {
+          (r.subPhases as unknown[]).forEach((sp, j) => {
+            const child = buildPhase(sp, canvasId, j);
+            if (child) subs.push(child);
+          });
+        }
+        return {
+          id: canvasId,
+          label,
+          summary:
+            typeof r.summary === "string" ? r.summary.trim() : "",
+          subPhases: subs.length > 0 ? subs : undefined,
+        };
+      }
+      const validatedPhases: ExtractedPhase[] = [];
+      if (Array.isArray(data.phases)) {
+        data.phases.forEach((p: unknown, i: number) => {
+          const built = buildPhase(p, messageId, i);
+          if (built) validatedPhases.push(built);
+        });
+      }
+
+      // --- Edges (referencing namespaced phase ids) ---
+      const validatedEdges: ExtractedPipelineEdge[] = [];
+      if (Array.isArray(data.edges)) {
+        for (const e of data.edges as unknown[]) {
+          if (!e || typeof e !== "object") continue;
+          const r = e as Record<string, unknown>;
+          const from = typeof r.from === "string" ? r.from : "";
+          const to = typeof r.to === "string" ? r.to : "";
+          const sId = phaseIdMap.get(from);
+          const tId = phaseIdMap.get(to);
+          if (!sId || !tId || sId === tId) continue;
+          validatedEdges.push({ source: sId, target: tId });
+        }
+      }
+
+      if (
+        validatedChoices.length === 0 &&
+        validatedPhases.length === 0
+      ) {
+        return;
+      }
       this.mutateMessage(messageId, (m) => ({
         ...m,
-        extractedChoices: validated,
+        extractedChoices:
+          validatedChoices.length > 0 ? validatedChoices : m.extractedChoices,
+        extractedPhases:
+          validatedPhases.length > 0 ? validatedPhases : m.extractedPhases,
+        extractedPipelineEdges:
+          validatedEdges.length > 0
+            ? validatedEdges
+            : m.extractedPipelineEdges,
       }));
       persistMessages(this.state.messages);
     } catch {

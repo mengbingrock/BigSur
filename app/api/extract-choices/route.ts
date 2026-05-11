@@ -6,54 +6,140 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_TEXT_BYTES = 32 * 1024;
-const TIMEOUT_MS = 20_000;
+// Medium effort on longer structured replies (multi-option protocols,
+// multi-phase pipelines) can take 30-45 s. Cap at 60 s.
+const TIMEOUT_MS = 60_000;
 
-const SYSTEM_PROMPT = `You are a choice-extraction engine.
+const SYSTEM_PROMPT = `You are a structure-extraction engine that turns an
+assistant's reply into a graph the user can interact with. You always
+output STRICT JSON of this shape:
 
-INPUT: the most recent reply from a chat assistant.
-TASK: identify any *user-facing* choices the assistant is asking the user to make.
-OUTPUT: STRICT JSON of this exact shape — nothing else:
+{
+  "phases": [
+    {
+      "id": "p1",
+      "label": "...",
+      "summary": "...",
+      "subPhases": [
+        { "id": "p1.1", "label": "...", "summary": "..." }
+      ]
+    }
+  ],
+  "edges":  [ { "from": "p1", "to": "p2" } ],
+  "choices":[ { "question": "...", "options": ["...", "..."], "multiSelect": false } ]
+}
 
-{ "choices": [
-  { "question": "<short rephrase of what's being asked>",
-    "options": ["<option label>", "<option label>", ...],
-    "multiSelect": <true|false> }
-] }
+Phases are HIERARCHICAL. A top-level phase may contain 'subPhases' —
+finer-grained sub-steps the user can drill into. Use sub-phases when
+the assistant's reply naturally has two layers (a high-level
+"Extraction -> RT -> qPCR" plus key steps inside each), but ONLY include
+sub-phases when there is real structural detail; don't pad them.
 
-LEAN TOWARD CATCHING — when the assistant ends with a question mark and offers
-two or more alternatives, treat that as a choice. The user benefits from a
-clickable choice node much more than from a missed one. Only return empty
-when you are CONFIDENT the assistant has already decided or is just listing
-examples without asking.
+Cap: top-level phases ≤ 8; subPhases per top-level ≤ 8; recursion
+depth ≤ 2 (no sub-sub-phases). Each sub-phase id should nest under its
+parent ("p1.1", "p1.2", etc.).
 
-A choice can take ANY of these forms:
+All three arrays are independent and any can be empty. Output pure JSON
+— no code fences, no prose. If the reply has no structure at all, output
+{"phases":[],"edges":[],"choices":[]}.
 
-  • Inline disjunction: "Coffee or tea?" → options ["Coffee", "Tea"].
-  • "Would you prefer A, B, or C?" → options ["A", "B", "C"].
-  • "Should I X?" / "Want me to Y?" / "Ready to Z?" → options ["Yes", "No"].
-  • Numbered list after a question: "Which?\\n1. RNeasy\\n2. TRIzol" → ["RNeasy","TRIzol"].
-  • Bulleted list after a question: "Pick:\\n- foo\\n- bar".
-  • Question mark + listed alternatives anywhere in the reply.
-  • "Do you want me to do X, or would you rather Y?" → ["X","Y"].
-  • If the question is yes/no but multiple framings, still emit one choice with ["Yes","No"].
+The two things you extract are FLEXIBLE concepts, not pattern-matches.
+Lean toward catching when the signal is reasonable. False positives cost
+the user one click to dismiss; false negatives leave them without an
+affordance and feel broken.
 
-NOT a choice (return {"choices":[]} ONLY when one of these clearly applies):
+========================================================================
+PIPELINE (phases + edges)
+========================================================================
 
-  • The assistant has explicitly already decided: "We could use A, B, or C — I'm going with A."
-  • Pure example listing with no question: "Some examples include X, Y, Z. Anyway, here's…"
-  • Open-ended free-form ask: "What else would you like?" (no enumerated options at all).
+A *phase* is a distinct stage of a procedure / workflow / plan the user
+is expected to perform or follow. The signal that a pipeline is present
+is *any* of these (any one is sufficient — don't insist on a particular
+form):
 
-Rules:
+  • An ordered series of stages connected by arrows, "then", "next",
+    "followed by", "after that", numbering ("step 1 / step 2 / step 3"),
+    or section headings ("Phase 1: …", "Stage A: …").
+  • A title or intro line that names stages with separators —
+    "X → Y → Z", "X / Y / Z", "X, then Y, then Z".
+  • A description that lays out a clear front-to-back procedure.
+  • A reply that compares several procedures that *share* the same
+    high-level pipeline: extract the SHARED pipeline once.
 
-- A choice needs at least TWO concrete options. For yes/no questions emit ["Yes", "No"].
-- multiSelect = true ONLY when the question explicitly invites picking more than one ("which of the following apply", "select all"). Default false.
-- Keep each option label short (≤ 8 words). Strip leading numbers, bullets, articles, and parentheticals.
-- Keep "question" under 100 chars.
-- Multiple distinct choices in one reply → one entry per choice.
+Edges encode order. Sequential A→B emits { from:"p1", to:"p2" }. If two
+phases run in parallel from the same predecessor, emit two edges from
+that predecessor. If the reply names only the phases without specifying
+order, emit phases but no edges.
 
-OUTPUT FORMAT:
-- Pure JSON — no preamble, no code fences, no commentary.
-- If unparseable, return { "choices": [] }.`;
+DO emit phases when the assistant is comparing or offering several
+*variants* of the same pipeline: extract the shared high-level phases
+once (e.g. if four protocols all do "Extraction → RT → qPCR", emit
+those three phases, then surface the four protocols as a single
+multi-option choice).
+
+Skip phases when:
+  • There is no procedure — only conversation, opinions, or a single
+    short instruction.
+  • The only "steps" are *parameters* of one operation (e.g. "set
+    temperature, set volume, press start" might still qualify as a
+    pipeline — use judgement).
+
+Cap: ≤ 8 phases. Label ≤ 30 chars (the short name of the stage).
+Summary ≤ 90 chars (one sentence on what the stage does).
+
+========================================================================
+CHOICES
+========================================================================
+
+A *choice* is anywhere the assistant has made the user the decision-
+maker among ≥ 2 enumerated alternatives. The signal can be:
+
+  • A direct question: "Which X?", "Should I Y?", "Do you prefer A or B?"
+  • A request phrased as an instruction: "Pick one and I'll …", "Reply
+    with the option number", "Let me know which one to use", "Tell me
+    which …", "Choose one to proceed".
+  • A list of numbered or bulleted options ("Option 1: …", "Option 2: …")
+    when the surrounding context invites the user to pick among them.
+  • An offer to take an action: "Want me to run X?" → ["Yes","No"].
+
+When the assistant LISTS options AND recommends one ("here are four
+choices … I'd recommend option 2"), that is STILL a choice — the
+recommendation is the assistant's hint, not its final decision. The user
+is being asked to confirm or override. Emit the choice with all listed
+options; do NOT skip it just because a recommendation appears.
+
+Skip a choice only when:
+  • The assistant has *unambiguously* declared a single course of action
+    and is not asking the user to pick ("I've decided to use X; here's
+    the protocol").
+  • The mentioned options are illustrative examples in prose that the
+    assistant is not asking the user to choose between.
+  • The "question" is open-ended free-form with no enumerated options
+    ("What else would you like?").
+
+For options labeled "Option 1: TRIzol → …", "Option 2: RNeasy → …", the
+option *label* should be a short tag readers can scan — typically the
+distinguishing name or the headline of the option, not the full
+description. For "Option 1: TRIzol → DNase → High-Capacity cDNA RT →
+TaqMan qPCR (Gold-standard, tissue)" the label is "TRIzol + TaqMan" or
+"Option 1: TRIzol + TaqMan". Keep ≤ 8 words.
+
+multiSelect = true only when the question explicitly says "pick all
+that apply", "select any combination", "which of the following apply",
+etc. Default false.
+
+A choice needs ≥ 2 options. Cap options at 12. Question ≤ 100 chars.
+
+========================================================================
+COEXISTENCE
+========================================================================
+
+Phases and choices can coexist in a single reply. A protocol-comparison
+reply typically has:
+  • A shared pipeline (3–5 phases) → emit those.
+  • A multi-option choice for the user to pick a variant → emit that.
+
+Output ONLY JSON.`;
 
 function runClaude(userPrompt: string): Promise<{ stdout: string; code: number; stderr: string }> {
   return new Promise((resolve, reject) => {
@@ -64,8 +150,11 @@ function runClaude(userPrompt: string): Promise<{ stdout: string; code: number; 
         userPrompt,
         "--system-prompt",
         SYSTEM_PROMPT,
+        // Sonnet handles the hierarchical nesting better than Haiku for
+        // complex protocol replies. Costs a bit more per call but pays off
+        // when the reply has 3+ phases or 4+ option variants.
         "--model",
-        "haiku",
+        "sonnet",
         "--tools",
         "",
         "--output-format",
@@ -74,7 +163,7 @@ function runClaude(userPrompt: string): Promise<{ stdout: string; code: number; 
         "--permission-mode",
         "bypassPermissions",
         "--effort",
-        "low",
+        "medium",
       ],
       { stdio: ["ignore", "pipe", "pipe"] },
     );
@@ -102,65 +191,129 @@ function runClaude(userPrompt: string): Promise<{ stdout: string; code: number; 
   });
 }
 
-interface RawChoice {
-  question?: unknown;
-  options?: unknown;
-  multiSelect?: unknown;
-}
 interface ParsedChoice {
   question: string;
   options: string[];
   multiSelect: boolean;
 }
+interface ParsedPhase {
+  id: string;
+  label: string;
+  summary: string;
+  subPhases?: ParsedPhase[];
+}
+interface ParsedEdge {
+  from: string;
+  to: string;
+}
+interface ParsedStructure {
+  phases: ParsedPhase[];
+  edges: ParsedEdge[];
+  choices: ParsedChoice[];
+}
 
-function tryParseChoices(raw: string): ParsedChoice[] {
+function tryParseStructure(raw: string): ParsedStructure {
+  const empty: ParsedStructure = { phases: [], edges: [], choices: [] };
   const trimmed = raw
     .replace(/^﻿/, "")
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/i, "")
     .trim();
-  if (!trimmed) return [];
+  if (!trimmed) return empty;
   let parsed: unknown;
   try {
     parsed = JSON.parse(trimmed);
   } catch {
-    // The model may have wrapped extra prose around the JSON. Try to
-    // extract the first {...} block.
     const start = trimmed.indexOf("{");
     const end = trimmed.lastIndexOf("}");
     if (start >= 0 && end > start) {
       try {
         parsed = JSON.parse(trimmed.slice(start, end + 1));
       } catch {
-        return [];
+        return empty;
       }
     } else {
-      return [];
+      return empty;
     }
   }
-  if (!parsed || typeof parsed !== "object") return [];
-  const arr = (parsed as { choices?: unknown }).choices;
-  if (!Array.isArray(arr)) return [];
-  const out: ParsedChoice[] = [];
-  for (const c of arr as RawChoice[]) {
-    if (!c || typeof c !== "object") continue;
-    const q = typeof c.question === "string" ? c.question.trim() : "";
-    if (!q) continue;
-    const opts = Array.isArray(c.options)
-      ? (c.options as unknown[])
-          .filter((o): o is string => typeof o === "string")
-          .map((o) => o.trim())
-          .filter((o) => o.length > 0)
-      : [];
-    if (opts.length < 2) continue; // a "choice" needs at least two options
-    out.push({
-      question: q.slice(0, 200),
-      options: opts.slice(0, 12),
-      multiSelect: Boolean(c.multiSelect),
-    });
+  if (!parsed || typeof parsed !== "object") return empty;
+  const root = parsed as Record<string, unknown>;
+
+  // --- Phases --- (recursive, capped to depth 2)
+  function parsePhase(node: unknown, depth: number): ParsedPhase | null {
+    if (!node || typeof node !== "object") return null;
+    const r = node as Record<string, unknown>;
+    const id = typeof r.id === "string" ? r.id.trim() : "";
+    const label = typeof r.label === "string" ? r.label.trim() : "";
+    if (!id || !label) return null;
+    const summary =
+      typeof r.summary === "string" ? r.summary.trim().slice(0, 200) : "";
+    const out: ParsedPhase = {
+      id: id.slice(0, 64),
+      label: label.slice(0, 60),
+      summary,
+    };
+    if (depth < 2 && Array.isArray(r.subPhases)) {
+      const subs: ParsedPhase[] = [];
+      for (const sp of r.subPhases as unknown[]) {
+        const child = parsePhase(sp, depth + 1);
+        if (child) subs.push(child);
+        if (subs.length >= 8) break;
+      }
+      if (subs.length > 0) out.subPhases = subs;
+    }
+    return out;
   }
-  return out;
+  const phases: ParsedPhase[] = [];
+  if (Array.isArray(root.phases)) {
+    for (const p of root.phases as unknown[]) {
+      const parsed = parsePhase(p, 1);
+      if (parsed) phases.push(parsed);
+      if (phases.length >= 8) break;
+    }
+  }
+
+  // --- Edges --- (only between known phase ids)
+  const phaseIds = new Set(phases.map((p) => p.id));
+  const edges: ParsedEdge[] = [];
+  if (Array.isArray(root.edges)) {
+    for (const e of root.edges as unknown[]) {
+      if (!e || typeof e !== "object") continue;
+      const r = e as Record<string, unknown>;
+      const from = typeof r.from === "string" ? r.from.trim() : "";
+      const to = typeof r.to === "string" ? r.to.trim() : "";
+      if (!from || !to || !phaseIds.has(from) || !phaseIds.has(to)) continue;
+      if (from === to) continue;
+      edges.push({ from, to });
+      if (edges.length >= 16) break;
+    }
+  }
+
+  // --- Choices ---
+  const choices: ParsedChoice[] = [];
+  if (Array.isArray(root.choices)) {
+    for (const c of root.choices as unknown[]) {
+      if (!c || typeof c !== "object") continue;
+      const r = c as Record<string, unknown>;
+      const q = typeof r.question === "string" ? r.question.trim() : "";
+      if (!q) continue;
+      const opts = Array.isArray(r.options)
+        ? (r.options as unknown[])
+            .filter((o): o is string => typeof o === "string")
+            .map((o) => o.trim())
+            .filter((o) => o.length > 0)
+        : [];
+      if (opts.length < 2) continue;
+      choices.push({
+        question: q.slice(0, 200),
+        options: opts.slice(0, 12),
+        multiSelect: Boolean(r.multiSelect),
+      });
+    }
+  }
+
+  return { phases, edges, choices };
 }
 
 export async function POST(req: NextRequest) {
@@ -175,8 +328,9 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Invalid JSON." }, { status: 400 });
   }
   const text = (body?.text ?? "").trim();
+  const empty = { phases: [], edges: [], choices: [] };
   if (!text) {
-    return Response.json({ choices: [] });
+    return Response.json(empty);
   }
   // Cap input size — we only need the assistant's last reply, not War and Peace.
   const truncated =
@@ -192,13 +346,18 @@ export async function POST(req: NextRequest) {
         `Return the JSON now.`,
     );
     if (result.code !== 0) {
-      return Response.json({ choices: [] });
+      return Response.json(empty);
     }
     raw = result.stdout;
   } catch (err) {
-    return Response.json({ choices: [] });
+    return Response.json(empty);
   }
 
-  const choices = tryParseChoices(raw);
-  return Response.json({ choices });
+  const structure = tryParseStructure(raw);
+  console.log(
+    `[extract-choices] in=${truncated.length}ch phases=${structure.phases.length} ` +
+      `edges=${structure.edges.length} choices=${structure.choices.length} ` +
+      `raw="${raw.replace(/\s+/g, " ").slice(0, 280)}"`,
+  );
+  return Response.json(structure);
 }
