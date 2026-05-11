@@ -107,6 +107,12 @@ type StepNodeData = {
    *  user-added step nodes (they have no "original"). */
   originalLabel?: string;
   originalSummary?: string;
+  /** Set on sub-phase step nodes only — the canvas id of the parent
+   *  phase node this child was expanded from. Lets the edge reconciler
+   *  draw a parent → child edge without trying to parse the id back
+   *  out of the node id (which is fragile when message ids contain
+   *  hyphens themselves). */
+  parentId?: string;
 } & Record<string, unknown>;
 
 type StepNode = Node<StepNodeData, "step">;
@@ -202,7 +208,14 @@ const StepNodeComponent = memo(function StepNodeComponent({
         isEdited ? "border-amber-500" : ""
       }`}
     >
-      <Handle type="target" position={Position.Left} />
+      {/* Four explicitly id'd handles. The horizontal pair carries the
+       *  top-level phase → phase workflow line; the vertical pair carries
+       *  parent → sub-phase drop-downs. Edges MUST specify sourceHandle/
+       *  targetHandle that match these ids — un-id'd edges would be
+       *  ambiguous once more than one handle of a given type exists. */}
+      <Handle id="left" type="target" position={Position.Left} />
+      <Handle id="top" type="target" position={Position.Top} />
+      <Handle id="bottom" type="source" position={Position.Bottom} />
       {isEdited && (
         <div className="mb-1 inline-block border border-amber-500 bg-amber-50 px-1 text-[9px] uppercase tracking-[0.1em] text-amber-700">
           edited
@@ -252,7 +265,7 @@ const StepNodeComponent = memo(function StepNodeComponent({
           placeholder="Summary…"
         />
       )}
-      <Handle type="source" position={Position.Right} />
+      <Handle id="right" type="source" position={Position.Right} />
     </div>
   );
 });
@@ -1234,7 +1247,9 @@ function CanvasInner({
         additions.push({
           id: eid,
           source: `phase-${e.source}`,
+          sourceHandle: "right",
           target: `phase-${e.target}`,
+          targetHandle: "left",
           animated: true,
           style: { stroke: "#111", strokeWidth: 1.5 },
           markerEnd: { type: MarkerType.ArrowClosed, color: "#111" },
@@ -1296,6 +1311,7 @@ function CanvasInner({
             expanded: false,
             originalLabel: info.phase.label,
             originalSummary: info.phase.summary || "",
+            parentId: info.parentId,
           } satisfies StepNodeData,
           sourcePosition: Position.Right,
           targetPosition: Position.Left,
@@ -1343,35 +1359,41 @@ function CanvasInner({
     });
   }, [nodes, setNodes, setEdges]);
 
-  // Add subphase edges right after subphase nodes appear. Runs as a
-  // second pass because the node ids only become real after the
-  // setNodes above commits.
+  // Add (and prune) sub-phase edges to mirror the current sub-phase node
+  // set. Runs as a second pass because new node ids only become real
+  // after the setNodes above commits.
   useEffect(() => {
     setEdges((curr) => {
-      const have = new Set(curr.map((e) => e.id));
+      const nodeIds = new Set(nodes.map((n) => n.id));
+      // 1. Drop sub-phase edges whose source or target node is gone
+      //    (e.g. parent collapsed → children just disappeared).
+      const pruned = curr.filter((e) => {
+        if (!e.id.startsWith("subphase-edge-")) return true;
+        return nodeIds.has(e.source) && nodeIds.has(e.target);
+      });
+      // 2. Add a parent → child edge for every sub-phase node that
+      //    doesn't have one yet.
+      const have = new Set(pruned.map((e) => e.id));
       const additions: Edge[] = [];
       for (const n of nodes) {
         if (!n.id.startsWith("subphase-")) continue;
-        // Parent id is the segment between "subphase-" and the next "-".
-        // n.id format: subphase-<parentId>-<subPhaseId>
-        // parentId starts with "phase-" so split on the FIRST "-" after
-        // "subphase-".
-        const tail = n.id.slice("subphase-".length);
-        const dashAfterParent = tail.indexOf("-", "phase-".length);
-        if (dashAfterParent < 0) continue;
-        const parentId = tail.slice(0, dashAfterParent);
+        const parentId = (n.data as StepNodeData | undefined)?.parentId;
+        if (!parentId || !nodeIds.has(parentId)) continue;
         const eid = `subphase-edge-${parentId}->${n.id}`;
         if (have.has(eid)) continue;
         additions.push({
           id: eid,
           source: parentId,
+          sourceHandle: "bottom",
           target: n.id,
+          targetHandle: "top",
           animated: false,
           style: { stroke: "#666", strokeWidth: 1, strokeDasharray: "4 3" },
           markerEnd: { type: MarkerType.ArrowClosed, color: "#666" },
         });
       }
-      return additions.length > 0 ? [...curr, ...additions] : curr;
+      if (pruned.length === curr.length && additions.length === 0) return curr;
+      return additions.length > 0 ? [...pruned, ...additions] : pruned;
     });
   }, [nodes, setEdges]);
 
