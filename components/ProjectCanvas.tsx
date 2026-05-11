@@ -86,6 +86,32 @@ type MultiChoiceData = {
 type SingleChoiceNode = Node<SingleChoiceData, "singleChoice">;
 type MultiChoiceNode = Node<MultiChoiceData, "multiChoice">;
 
+// Plain free-text "step" node. Stored as a custom type so the label is
+// editable inline (default React Flow nodes render data.label as a
+// non-editable string). When the step represents an extracted pipeline
+// phase, `subPhases` carries finer-grained children that the user can
+// reveal by clicking the expand button; `expanded` tracks the toggle
+// state and is read by a reconciler effect that creates child nodes.
+// `originalLabel` / `originalSummary` snapshot the LLM-provided text so
+// the serialiser can include a before/after diff when the user has
+// edited.
+type StepNodeData = {
+  label: string;
+  /** Optional one-line summary, shown under the label in a smaller font. */
+  summary?: string;
+  /** Sub-phases that can be drilled into. */
+  subPhases?: CanvasPhase[];
+  /** Whether sub-phase children are currently materialised on the canvas. */
+  expanded?: boolean;
+  /** What the extractor originally produced — null/undefined for plain
+   *  user-added step nodes (they have no "original"). */
+  originalLabel?: string;
+  originalSummary?: string;
+} & Record<string, unknown>;
+
+type StepNode = Node<StepNodeData, "step">;
+
+
 // Question pushed onto the canvas by the chat layer. Two origins are
 // supported (see `source`):
 //   - "tool": the LLM invoked the AskUserQuestion tool. Submit goes through
@@ -117,6 +143,11 @@ type PendingQuestionData = PendingCanvasQuestion & {
   draftSingle?: string | null;
   /** Pre-submit draft picks for multi-choice. */
   draftMulti?: string[];
+  /** Extra options the user added to this LLM-emitted question — lets
+   *  them answer "none of the above — here's my own answer" without
+   *  having to type into the chat. Stored alongside the original
+   *  options; the submit handler treats them equally. */
+  customOptions?: string[];
 } & Record<string, unknown>;
 
 type PendingQuestionNode = Node<PendingQuestionData, "pendingQuestion">;
@@ -131,6 +162,100 @@ interface CanvasInteractionCtxValue {
   onSendToChat?: (text: string) => void;
 }
 const CanvasInteractionContext = createContext<CanvasInteractionCtxValue>({});
+
+const StepNodeComponent = memo(function StepNodeComponent({
+  id,
+  data,
+  selected,
+}: NodeProps<StepNode>) {
+  const { setNodes } = useReactFlow();
+  const hasChildren = Array.isArray(data.subPhases) && data.subPhases.length > 0;
+  const expanded = Boolean(data.expanded);
+  // True only when this node was created from extractor output AND its
+  // current text differs from the snapshot. Pure user-added step nodes
+  // have no originalLabel and never show as edited.
+  const labelEdited =
+    data.originalLabel !== undefined &&
+    (data.label ?? "") !== (data.originalLabel ?? "");
+  const summaryEdited =
+    data.originalSummary !== undefined &&
+    (data.summary ?? "") !== (data.originalSummary ?? "");
+  const isEdited = labelEdited || summaryEdited;
+  function patch(partial: Partial<StepNodeData>) {
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id
+          ? ({ ...n, data: { ...(n.data as StepNodeData), ...partial } } as Node)
+          : n,
+      ),
+    );
+  }
+  function setLabel(label: string) {
+    patch({ label });
+  }
+  function setSummary(summary: string) {
+    patch({ summary });
+  }
+  return (
+    <div
+      className={`${customNodeShell} w-[200px] ${selected ? "ring-1 ring-ink" : ""} ${
+        isEdited ? "border-amber-500" : ""
+      }`}
+    >
+      <Handle type="target" position={Position.Left} />
+      {isEdited && (
+        <div className="mb-1 inline-block border border-amber-500 bg-amber-50 px-1 text-[9px] uppercase tracking-[0.1em] text-amber-700">
+          edited
+        </div>
+      )}
+      <div className="flex items-start gap-1.5">
+        <textarea
+          className="nodrag flex-1 min-w-0 resize-none bg-transparent text-[12px] leading-snug text-ink placeholder:text-muted focus:outline-none"
+          value={data.label ?? ""}
+          onChange={(e) => setLabel(e.target.value)}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          rows={Math.max(1, Math.min(6, ((data.label ?? "").match(/\n/g)?.length ?? 0) + 1))}
+          placeholder="Step description…"
+        />
+        {hasChildren && (
+          <button
+            type="button"
+            className="nodrag shrink-0 border border-ink bg-paper px-1 py-0 text-[10px] leading-tight text-ink hover:bg-ink hover:text-paper"
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              patch({ expanded: !expanded });
+            }}
+            title={
+              expanded
+                ? "Collapse — hide sub-phases"
+                : `Expand — show ${data.subPhases!.length} sub-phase${data.subPhases!.length === 1 ? "" : "s"}`
+            }
+          >
+            {expanded ? "−" : "+"}
+          </button>
+        )}
+      </div>
+      {/* Summary: editable when present OR when this is an extractor-
+       *  produced node (has originalSummary, may be empty). User-added
+       *  step nodes (no originalSummary) skip this row to stay compact. */}
+      {(data.summary !== undefined || data.originalSummary !== undefined) && (
+        <textarea
+          className="nodrag mt-1 w-full resize-none bg-transparent text-[10px] leading-snug text-muted placeholder:text-muted/60 focus:text-ink focus:outline-none"
+          value={data.summary ?? ""}
+          onChange={(e) => setSummary(e.target.value)}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          rows={Math.max(1, Math.min(4, ((data.summary ?? "").match(/\n/g)?.length ?? 0) + 1))}
+          placeholder="Summary…"
+        />
+      )}
+      <Handle type="source" position={Position.Right} />
+    </div>
+  );
+});
 
 const SingleChoiceNodeComponent = memo(function SingleChoiceNodeComponent({
   id,
@@ -479,13 +604,14 @@ const PendingQuestionNodeComponent = memo(function PendingQuestionNodeComponent(
   const isMulti = data.multiSelect;
   // Defensive: if options arrived in an unexpected shape, fall back to []
   // so .map() doesn't throw and silently kill the render.
-  const optionLabels = Array.isArray(data.options)
+  const llmOptionLabels = Array.isArray(data.options)
     ? data.options
         .map((o) =>
           typeof o === "string" ? o : (o as { label?: string })?.label ?? "",
         )
         .filter((s) => s.length > 0)
     : [];
+  const customOptions = data.customOptions ?? [];
   // If answer is recorded on the data, render in read-only "answered" mode.
   const isAnswered = data.answer !== undefined;
   const answeredSet =
@@ -516,9 +642,36 @@ const PendingQuestionNodeComponent = memo(function PendingQuestionNodeComponent(
     const next = typeof updater === "function" ? updater(cur) : updater;
     patch({ draftMulti: next });
   };
+  function addCustomOption() {
+    if (isAnswered) return;
+    patch({ customOptions: [...customOptions, ""] });
+  }
+  function setCustomOption(idx: number, value: string) {
+    if (isAnswered) return;
+    const oldLabel = customOptions[idx];
+    const next = customOptions.slice();
+    next[idx] = value;
+    // If this option was drafted, follow the rename in draft state.
+    const renamedSingle = singleChoice === oldLabel ? value : singleChoice;
+    const renamedMulti = multiChoice.map((v) => (v === oldLabel ? value : v));
+    patch({
+      customOptions: next,
+      draftSingle: renamedSingle,
+      draftMulti: renamedMulti,
+    });
+  }
+  function removeCustomOption(idx: number) {
+    if (isAnswered) return;
+    const removed = customOptions[idx];
+    patch({
+      customOptions: customOptions.filter((_, i) => i !== idx),
+      draftSingle: singleChoice === removed ? null : singleChoice,
+      draftMulti: multiChoice.filter((v) => v !== removed),
+    });
+  }
   const canSubmit = isMulti
     ? multiChoice.length > 0
-    : singleChoice !== null;
+    : singleChoice !== null && singleChoice.length > 0;
 
   async function onSubmit() {
     if (!canSubmit || submitting || isAnswered) return;
@@ -563,8 +716,36 @@ const PendingQuestionNodeComponent = memo(function PendingQuestionNodeComponent(
         <span>
           {isAnswered ? "Answered" : isMulti ? "Multiple choice" : "Single choice"}
         </span>
-        <span style={{ fontFamily: "monospace", letterSpacing: 0, textTransform: "none", fontSize: 9 }}>
-          {data.source === "extracted" ? "inferred" : "from chat"}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          {!isAnswered && (
+            <button
+              type="button"
+              className="nodrag"
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                addCustomOption();
+              }}
+              title="Add your own option"
+              style={{
+                fontFamily: "monospace",
+                letterSpacing: 0,
+                textTransform: "none",
+                fontSize: 9,
+                color: "#666",
+                background: "transparent",
+                border: "1px solid #ccc",
+                padding: "1px 5px",
+                cursor: "pointer",
+              }}
+            >
+              + opt
+            </button>
+          )}
+          <span style={{ fontFamily: "monospace", letterSpacing: 0, textTransform: "none", fontSize: 9 }}>
+            {data.source === "extracted" ? "inferred" : "from chat"}
+          </span>
         </span>
       </div>
       <div style={{ marginBottom: 8, fontFamily: "Georgia, serif", lineHeight: 1.2 }}>
@@ -574,10 +755,10 @@ const PendingQuestionNodeComponent = memo(function PendingQuestionNodeComponent(
         className="nodrag"
         style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 2 }}
       >
-        {optionLabels.length === 0 && (
+        {llmOptionLabels.length === 0 && customOptions.length === 0 && (
           <li style={{ fontSize: 11, color: "#999" }}>(no options received)</li>
         )}
-        {optionLabels.map((opt) => {
+        {llmOptionLabels.map((opt) => {
           // Once answered, "checked" reflects what the user submitted (read
           // from data.answer); before that, it's the local draft state.
           const checked = isAnswered
@@ -599,7 +780,7 @@ const PendingQuestionNodeComponent = memo(function PendingQuestionNodeComponent(
             }
           };
           return (
-            <li key={opt}>
+            <li key={`llm-${opt}`}>
               <div
                 style={{
                   display: "flex",
@@ -610,9 +791,6 @@ const PendingQuestionNodeComponent = memo(function PendingQuestionNodeComponent(
                   fontWeight: isAnswered && checked ? 600 : 400,
                 }}
               >
-                {/* Custom radio/checkbox: a button styled to look like the
-                 *  native control. Avoids React Flow's pointer-event
-                 *  contention that swallows native input clicks. */}
                 <button
                   type="button"
                   role={isMulti ? "checkbox" : "radio"}
@@ -660,6 +838,134 @@ const PendingQuestionNodeComponent = memo(function PendingQuestionNodeComponent(
                 >
                   {opt}
                 </span>
+              </div>
+            </li>
+          );
+        })}
+        {/* User-added custom options. Editable; picked the same way as LLM
+         *  options. When the user submits, the custom label is sent as the
+         *  answer just like an LLM option. */}
+        {customOptions.map((opt, idx) => {
+          const checked = isAnswered
+            ? answeredSet.has(opt)
+            : isMulti
+              ? multiChoice.includes(opt)
+              : singleChoice === opt;
+          const togglable = !isAnswered && !submitting && opt.trim().length > 0;
+          const handlePick = () => {
+            if (!togglable) return;
+            if (isMulti) {
+              setMultiChoice((cur) =>
+                cur.includes(opt)
+                  ? cur.filter((v) => v !== opt)
+                  : [...cur, opt],
+              );
+            } else {
+              setSingleChoice(opt);
+            }
+          };
+          return (
+            <li key={`custom-${idx}`}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: 11,
+                  color: checked ? "#111" : isAnswered ? "#999" : "#666",
+                  fontWeight: isAnswered && checked ? 600 : 400,
+                }}
+              >
+                <button
+                  type="button"
+                  role={isMulti ? "checkbox" : "radio"}
+                  aria-checked={checked}
+                  disabled={!togglable}
+                  className="nodrag"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePick();
+                  }}
+                  style={{
+                    width: 12,
+                    height: 12,
+                    flexShrink: 0,
+                    border: "1px dashed #111",
+                    borderRadius: isMulti ? 0 : "50%",
+                    background: "#fff",
+                    cursor: togglable ? "pointer" : "default",
+                    opacity: togglable ? 1 : 0.5,
+                    padding: 0,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  title={
+                    !togglable
+                      ? "Type a label first"
+                      : checked
+                        ? "Picked"
+                        : "Pick this option"
+                  }
+                >
+                  {checked && (
+                    <span
+                      style={{
+                        display: "block",
+                        width: isMulti ? 6 : 5,
+                        height: isMulti ? 6 : 5,
+                        background: "#111",
+                        borderRadius: isMulti ? 0 : "50%",
+                      }}
+                    />
+                  )}
+                </button>
+                <input
+                  type="text"
+                  className="nodrag"
+                  value={opt}
+                  onChange={(e) => setCustomOption(idx, e.target.value)}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  placeholder="My own answer…"
+                  disabled={isAnswered}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    border: "none",
+                    borderBottom: "1px dashed #ccc",
+                    background: "transparent",
+                    fontSize: 11,
+                    color: "#111",
+                    padding: "0 2px",
+                    outline: "none",
+                  }}
+                />
+                {!isAnswered && (
+                  <button
+                    type="button"
+                    className="nodrag"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeCustomOption(idx);
+                    }}
+                    title="Remove this option"
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#999",
+                      fontSize: 11,
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
               </div>
             </li>
           );
@@ -719,6 +1025,7 @@ const PendingQuestionNodeComponent = memo(function PendingQuestionNodeComponent(
 });
 
 const NODE_TYPES = {
+  step: StepNodeComponent,
   singleChoice: SingleChoiceNodeComponent,
   multiChoice: MultiChoiceNodeComponent,
   pendingQuestion: PendingQuestionNodeComponent,
@@ -740,20 +1047,45 @@ const DEFAULT_EDGE_OPTIONS = {
 
 // ---------- Canvas inner --------------------------------------------------
 
+/**
+ * One phase in the canvas pipeline. Can carry nested sub-phases that
+ * the user reveals by clicking the parent's expand button — drives the
+ * "hierarchical drill-down" view of the LLM's reply.
+ */
+export interface CanvasPhase {
+  id: string;
+  label: string;
+  summary: string;
+  subPhases?: CanvasPhase[];
+}
+
+export interface CanvasPipeline {
+  phases: CanvasPhase[];
+  edges: { source: string; target: string }[];
+}
+
 interface CanvasInnerProps {
   pendingQuestions: PendingCanvasQuestion[];
+  pipeline?: CanvasPipeline;
   onAnswer: (
     messageId: string,
     toolUseId: string,
     answers: { question: string; answer: string | string[] }[],
   ) => Promise<void>;
   onSendToChat?: (text: string) => void;
+  /** When set, the canvas writes a "consume pending edits" function into
+   *  the ref. Chat can call it before each user send so the LLM sees what
+   *  the user edited since the last extraction. Calling commits the edits
+   *  (current values become the new baseline). */
+  editGetterRef?: React.MutableRefObject<(() => string | null) | null>;
 }
 
 function CanvasInner({
   pendingQuestions,
+  pipeline,
   onAnswer,
   onSendToChat,
+  editGetterRef,
 }: CanvasInnerProps) {
   const [nodes, setNodes] = useNodesState<Node>(INITIAL_NODES);
   const [edges, setEdges] = useEdgesState<Edge>(INITIAL_EDGES);
@@ -806,6 +1138,7 @@ function CanvasInner({
             onAnswer: onAnswerRef.current,
             draftSingle: oldData?.draftSingle,
             draftMulti: oldData?.draftMulti,
+            customOptions: oldData?.customOptions,
           } as PendingQuestionData,
         };
       });
@@ -842,6 +1175,205 @@ function CanvasInner({
       return additions.length > 0 ? [...refreshed, ...additions] : refreshed;
     });
   }, [pendingQuestions, setNodes]);
+
+  // Pipeline reconciler: bring Haiku-extracted phases onto the canvas as
+  // step nodes, with edges between them representing the workflow's
+  // sequence. Like the question reconciler: only ADDS new nodes, never
+  // removes (Clear chat is the only wipe). Existing user-managed nodes
+  // pass through untouched.
+  useEffect(() => {
+    if (!pipeline || pipeline.phases.length === 0) return;
+    const wantNodeIds = new Set(pipeline.phases.map((p) => `phase-${p.id}`));
+    const wantEdgeIds = new Set(
+      pipeline.edges.map((e) => `phase-edge-${e.source}->${e.target}`),
+    );
+
+    setNodes((curr) => {
+      const haveIds = new Set(curr.map((n) => n.id));
+      // Layout: pack new phases horizontally in a row at the top of the
+      // canvas, offset to the right of any existing phase nodes.
+      const existingPhases = curr.filter((n) => n.id.startsWith("phase-") && !n.id.startsWith("phase-edge-"));
+      let nextX =
+        existingPhases.length > 0
+          ? Math.max(...existingPhases.map((n) => n.position.x + 220))
+          : 320;
+      const additions: Node[] = [];
+      for (const p of pipeline.phases) {
+        const nodeId = `phase-${p.id}`;
+        if (haveIds.has(nodeId)) continue;
+        if (!wantNodeIds.has(nodeId)) continue;
+        additions.push({
+          id: nodeId,
+          type: "step",
+          position: { x: nextX, y: 24 },
+          data: {
+            label: p.label,
+            summary: p.summary || "",
+            subPhases: p.subPhases,
+            expanded: false,
+            // Snapshot the extractor output so future edits can be diffed
+            // and surfaced to the LLM on the next turn.
+            originalLabel: p.label,
+            originalSummary: p.summary || "",
+          } satisfies StepNodeData,
+          sourcePosition: Position.Right,
+          targetPosition: Position.Left,
+        } as StepNode);
+        nextX += 220;
+      }
+      return additions.length > 0 ? [...curr, ...additions] : curr;
+    });
+
+    setEdges((curr) => {
+      const haveIds = new Set(curr.map((e) => e.id));
+      const additions: Edge[] = [];
+      for (const e of pipeline.edges) {
+        const eid = `phase-edge-${e.source}->${e.target}`;
+        if (haveIds.has(eid)) continue;
+        if (!wantEdgeIds.has(eid)) continue;
+        additions.push({
+          id: eid,
+          source: `phase-${e.source}`,
+          target: `phase-${e.target}`,
+          animated: true,
+          style: { stroke: "#111", strokeWidth: 1.5 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: "#111" },
+        });
+      }
+      return additions.length > 0 ? [...curr, ...additions] : curr;
+    });
+  }, [pipeline, setNodes, setEdges]);
+
+  // Drill-down: when a phase node has `expanded: true` and carries
+  // sub-phases, materialise child step-nodes below it (and edges from
+  // parent → each child). When the user collapses, remove those child
+  // nodes and their edges. Driven entirely by the parent's `expanded`
+  // flag, so this stays declarative.
+  useEffect(() => {
+    setNodes((curr) => {
+      // Build the desired set of subphase node ids for each expanded
+      // parent. Anything else under the `subphase-` prefix should be
+      // dropped (came from a now-collapsed parent).
+      const desired = new Map<string, { parentId: string; phase: CanvasPhase }>();
+      for (const n of curr) {
+        if (n.type !== "step") continue;
+        const d = n.data as StepNodeData | undefined;
+        if (!d?.expanded || !d.subPhases) continue;
+        d.subPhases.forEach((sp) => {
+          const childId = `subphase-${n.id}-${sp.id}`;
+          desired.set(childId, { parentId: n.id, phase: sp });
+        });
+      }
+      // Drop subphase nodes that are no longer desired.
+      let filtered = curr.filter((n) => {
+        if (!n.id.startsWith("subphase-")) return true;
+        return desired.has(n.id);
+      });
+      // Add subphase nodes that aren't there yet, positioned just below
+      // their parent.
+      const haveIds = new Set(filtered.map((n) => n.id));
+      const additions: Node[] = [];
+      // Track per-parent count so siblings spread out horizontally.
+      const perParent: Record<string, number> = {};
+      for (const [childId, info] of desired.entries()) {
+        if (haveIds.has(childId)) continue;
+        const parent = filtered.find((n) => n.id === info.parentId);
+        if (!parent) continue;
+        const idx = perParent[info.parentId] ?? 0;
+        perParent[info.parentId] = idx + 1;
+        additions.push({
+          id: childId,
+          type: "step",
+          position: {
+            x: parent.position.x + idx * 220 - 20,
+            y: parent.position.y + 180,
+          },
+          data: {
+            label: info.phase.label,
+            summary: info.phase.summary || "",
+            // recursive sub-phases are deferred — could expand further if needed
+            subPhases: info.phase.subPhases,
+            expanded: false,
+            originalLabel: info.phase.label,
+            originalSummary: info.phase.summary || "",
+          } satisfies StepNodeData,
+          sourcePosition: Position.Right,
+          targetPosition: Position.Left,
+        } as StepNode);
+      }
+      if (
+        additions.length === 0 &&
+        filtered.length === curr.length
+      ) {
+        return curr;
+      }
+      return additions.length > 0 ? [...filtered, ...additions] : filtered;
+    });
+
+    setEdges((curr) => {
+      // Mirror the nodes work: the desired edge set is "parent → child"
+      // for every materialised subphase node.
+      const wantEdgeIds = new Set<string>();
+      const wantEdgeSpecs: { id: string; source: string; target: string }[] = [];
+      // Recompute parent-expanded map from the latest nodes
+      // (snapshot since `curr` here is edges; we look at latest store).
+      // We use a small heuristic: scan the current nodes by reading from
+      // the store via the data we set above. Simpler: derive from edges
+      // and rebuild from scratch each tick.
+      // — Pull node list via setNodes(curr => { ... return curr; }) trick is
+      // not needed; instead, use a freshly-derived map from `nodes` state
+      // available through closure. We approximate by including every edge
+      // whose ids match the subphase pattern.
+      // Simplest: just diff against existing subphase-edge ids by recomputing
+      // them from currently-pending subphase node ids.
+      const subphaseNodeIds = new Set(
+        curr
+          .map((e) => e.target)
+          .filter((id) => id.startsWith("subphase-")),
+      );
+      // Drop subphase edges whose target is no longer a desired subphase
+      // (the corresponding node was removed in the previous setNodes call).
+      const filtered = curr.filter((e) => {
+        if (!e.id.startsWith("subphase-edge-")) return true;
+        return subphaseNodeIds.has(e.target);
+      });
+      void wantEdgeIds;
+      void wantEdgeSpecs;
+      return filtered;
+    });
+  }, [nodes, setNodes, setEdges]);
+
+  // Add subphase edges right after subphase nodes appear. Runs as a
+  // second pass because the node ids only become real after the
+  // setNodes above commits.
+  useEffect(() => {
+    setEdges((curr) => {
+      const have = new Set(curr.map((e) => e.id));
+      const additions: Edge[] = [];
+      for (const n of nodes) {
+        if (!n.id.startsWith("subphase-")) continue;
+        // Parent id is the segment between "subphase-" and the next "-".
+        // n.id format: subphase-<parentId>-<subPhaseId>
+        // parentId starts with "phase-" so split on the FIRST "-" after
+        // "subphase-".
+        const tail = n.id.slice("subphase-".length);
+        const dashAfterParent = tail.indexOf("-", "phase-".length);
+        if (dashAfterParent < 0) continue;
+        const parentId = tail.slice(0, dashAfterParent);
+        const eid = `subphase-edge-${parentId}->${n.id}`;
+        if (have.has(eid)) continue;
+        additions.push({
+          id: eid,
+          source: parentId,
+          target: n.id,
+          animated: false,
+          style: { stroke: "#666", strokeWidth: 1, strokeDasharray: "4 3" },
+          markerEnd: { type: MarkerType.ArrowClosed, color: "#666" },
+        });
+      }
+      return additions.length > 0 ? [...curr, ...additions] : curr;
+    });
+  }, [nodes, setEdges]);
 
   // Fit the viewport exactly ONCE — when the canvas first transitions from
   // empty to populated. After that the camera belongs to the user; new
@@ -887,10 +1419,14 @@ function CanvasInner({
           ...curr,
           {
             id,
+            type: "step",
             position: basePos,
-            data: { label: "New step" },
-            ...NODE_BASE,
-          },
+            // Empty label so the placeholder ("Step description…") shows
+            // and the user can start typing immediately.
+            data: { label: "" },
+            sourcePosition: Position.Right,
+            targetPosition: Position.Left,
+          } as StepNode,
         ];
       }
       if (kind === "singleChoice") {
@@ -944,6 +1480,56 @@ function CanvasInner({
     const lines: string[] = [];
     lines.push("The user has built the following on the canvas:");
     lines.push("");
+    // Collect edits to phase nodes so the LLM sees, up front and explicitly,
+    // what the user changed about the pipeline since extraction.
+    type Edit = {
+      id: string;
+      labelFrom?: string;
+      labelTo?: string;
+      summaryFrom?: string;
+      summaryTo?: string;
+    };
+    const edits: Edit[] = [];
+    for (const n of nodes) {
+      if (n.type !== "step") continue;
+      const d = n.data as StepNodeData | undefined;
+      if (!d || d.originalLabel === undefined) continue;
+      const labelChanged = (d.label ?? "") !== (d.originalLabel ?? "");
+      const summaryChanged =
+        d.originalSummary !== undefined &&
+        (d.summary ?? "") !== (d.originalSummary ?? "");
+      if (!labelChanged && !summaryChanged) continue;
+      edits.push({
+        id: n.id,
+        labelFrom: labelChanged ? d.originalLabel : undefined,
+        labelTo: labelChanged ? d.label ?? "" : undefined,
+        summaryFrom: summaryChanged ? d.originalSummary ?? "" : undefined,
+        summaryTo: summaryChanged ? d.summary ?? "" : undefined,
+      });
+    }
+    if (edits.length > 0) {
+      lines.push("## Pipeline edits the user made");
+      lines.push(
+        "The user edited the following phase nodes after you extracted them. " +
+          "Treat each edit as the user's correction or refinement of what you " +
+          "originally proposed, and respect it going forward:",
+      );
+      for (const ed of edits) {
+        const parts: string[] = [];
+        if (ed.labelTo !== undefined) {
+          parts.push(
+            `label: "${(ed.labelFrom ?? "").replace(/\n/g, " ")}" → "${(ed.labelTo ?? "").replace(/\n/g, " ")}"`,
+          );
+        }
+        if (ed.summaryTo !== undefined) {
+          parts.push(
+            `summary: "${(ed.summaryFrom ?? "").replace(/\n/g, " ")}" → "${(ed.summaryTo ?? "").replace(/\n/g, " ")}"`,
+          );
+        }
+        lines.push(`- **[${ed.id}]** ${parts.join("; ")}`);
+      }
+      lines.push("");
+    }
     lines.push("## Nodes");
     if (nodes.length === 0) {
       lines.push("- _(none)_");
@@ -984,9 +1570,16 @@ function CanvasInner({
           );
         } else if (type === "pendingQuestion") {
           const d = n.data as PendingQuestionData;
-          const optStrs = (d.options ?? [])
+          const llmOpts = (d.options ?? [])
             .map((o) => (typeof o === "string" ? o : o?.label ?? ""))
             .filter((s) => s.length > 0);
+          const customOpts = (d.customOptions ?? [])
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0);
+          const optStrs = [
+            ...llmOpts,
+            ...customOpts.map((s) => `${s} (user-added)`),
+          ];
           const ans = d.answer;
           let ansStr: string;
           if (ans !== undefined) {
@@ -1011,12 +1604,21 @@ function CanvasInner({
           );
         } else {
           // Default / step node: data.label is a string.
+          const d = n.data as StepNodeData | undefined;
           const label =
-            (n.data as { label?: unknown })?.label &&
-            typeof (n.data as { label?: unknown }).label === "string"
-              ? ((n.data as { label: string }).label as string)
-              : "(unlabelled)";
-          lines.push(`- **[${id}]** step — "${label.replace(/\n/g, " ")}"`);
+            d?.label && typeof d.label === "string" ? d.label : "(unlabelled)";
+          const summary =
+            d?.summary && typeof d.summary === "string" ? d.summary.trim() : "";
+          const wasEdited =
+            d?.originalLabel !== undefined &&
+            ((d?.label ?? "") !== (d?.originalLabel ?? "") ||
+              (d?.originalSummary !== undefined &&
+                (d?.summary ?? "") !== (d?.originalSummary ?? "")));
+          lines.push(
+            `- **[${id}]** step — "${label.replace(/\n/g, " ")}"` +
+              (summary ? ` — ${summary.replace(/\n/g, " ")}` : "") +
+              (wasEdited ? " — _edited by user_" : ""),
+          );
         }
       }
     }
@@ -1043,6 +1645,66 @@ function CanvasInner({
     if (!text || !onSendToChat) return;
     onSendToChat(text);
   }
+
+  // Build the "what did the user edit since extraction" prefix block and,
+  // as a side effect, commit the edits (reset original* baselines to
+  // current values). Returns null when there are no edits to surface.
+  // Stashed in a ref so the latest closure is always callable from Chat
+  // without re-creating callbacks every render.
+  const consumePendingEditsRef = useRef<() => string | null>(() => null);
+  useEffect(() => {
+    consumePendingEditsRef.current = () => {
+      const editLines: string[] = [];
+      let touched = false;
+      const nextNodes = nodes.map((n) => {
+        if (n.type !== "step") return n;
+        const d = n.data as StepNodeData | undefined;
+        if (!d || d.originalLabel === undefined) return n;
+        const labelChanged = (d.label ?? "") !== (d.originalLabel ?? "");
+        const summaryChanged =
+          d.originalSummary !== undefined &&
+          (d.summary ?? "") !== (d.originalSummary ?? "");
+        if (!labelChanged && !summaryChanged) return n;
+        const parts: string[] = [];
+        if (labelChanged) {
+          parts.push(
+            `label: "${(d.originalLabel ?? "").replace(/\n/g, " ")}" → "${(d.label ?? "").replace(/\n/g, " ")}"`,
+          );
+        }
+        if (summaryChanged) {
+          parts.push(
+            `summary: "${(d.originalSummary ?? "").replace(/\n/g, " ")}" → "${(d.summary ?? "").replace(/\n/g, " ")}"`,
+          );
+        }
+        editLines.push(`- **[${n.id}]** ${parts.join("; ")}`);
+        touched = true;
+        return {
+          ...n,
+          data: {
+            ...d,
+            originalLabel: d.label,
+            originalSummary: d.summary ?? "",
+          },
+        };
+      });
+      if (!touched) return null;
+      setNodes(nextNodes);
+      return [
+        "The user edited the following pipeline phases on the canvas " +
+          "after you extracted them — treat each as the user's correction " +
+          "or refinement of what you originally proposed, and respect it " +
+          "going forward:",
+        ...editLines,
+      ].join("\n");
+    };
+  });
+  useEffect(() => {
+    if (!editGetterRef) return;
+    editGetterRef.current = () => consumePendingEditsRef.current();
+    return () => {
+      if (editGetterRef.current) editGetterRef.current = null;
+    };
+  }, [editGetterRef]);
 
   function deleteSelection() {
     if (!deleteEnabled) return;
@@ -1146,6 +1808,8 @@ function CanvasInner({
 
 export interface ProjectCanvasProps {
   pendingQuestions?: PendingCanvasQuestion[];
+  /** Haiku-extracted pipeline (phases + edges) to materialise as step nodes. */
+  pipeline?: CanvasPipeline;
   onAnswer?: (
     messageId: string,
     toolUseId: string,
@@ -1155,20 +1819,28 @@ export interface ProjectCanvasProps {
    *  Send to chat. The caller decides how to inject `text` into the chat
    *  (typically as a synthetic user-message turn). */
   onSendToChat?: (text: string) => void;
+  /** Optional ref; the canvas registers a "consume pending edits" function
+   *  inside it. Chat invokes the function before sending the user's next
+   *  textarea message to surface phase-node edits to the LLM. */
+  editGetterRef?: React.MutableRefObject<(() => string | null) | null>;
 }
 
 export default function ProjectCanvas({
   pendingQuestions = [],
+  pipeline,
   onAnswer = async () => {},
   onSendToChat,
+  editGetterRef,
 }: ProjectCanvasProps) {
   return (
     <div className="h-full w-full">
       <ReactFlowProvider>
         <CanvasInner
           pendingQuestions={pendingQuestions}
+          pipeline={pipeline}
           onAnswer={onAnswer}
           onSendToChat={onSendToChat}
+          editGetterRef={editGetterRef}
         />
       </ReactFlowProvider>
     </div>

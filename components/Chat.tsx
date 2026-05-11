@@ -137,6 +137,10 @@ export default function Chat({
   // the canvas remounts (drops user-added step/choice nodes and edges)
   // alongside the chat reset.
   const [canvasResetKey, setCanvasResetKey] = useState(0);
+  // ProjectCanvas writes a getter into this ref. Each call returns a
+  // markdown block describing pipeline-phase edits since the last
+  // extraction (or null), and commits the edits so they aren't replayed.
+  const canvasEditGetterRef = useRef<(() => string | null) | null>(null);
   // Width of the right-side canvas pane in CSS px. Persisted so the user's
   // chosen split survives reloads. Clamped at drag time to [240, 1200].
   const CANVAS_WIDTH_KEY = "monterey.canvasWidth.v1";
@@ -447,6 +451,29 @@ export default function Chat({
     return out;
   }, [messages]);
 
+  // Pipeline (extracted phases + edges) for the canvas — derived from all
+  // assistant messages' extractor output. Phases are hierarchical;
+  // sub-phases come along via the recursive type. The canvas reconciler
+  // materialises top-level phases immediately, then reveals sub-phases
+  // on demand when the user clicks expand.
+  const canvasPipeline = useMemo<{
+    phases: import("./ProjectCanvas").CanvasPhase[];
+    edges: { source: string; target: string }[];
+  }>(() => {
+    const phases: import("./ProjectCanvas").CanvasPhase[] = [];
+    const edges: { source: string; target: string }[] = [];
+    for (const m of messages) {
+      if (m.role !== "assistant") continue;
+      for (const p of m.extractedPhases ?? []) {
+        phases.push(p);
+      }
+      for (const e of m.extractedPipelineEdges ?? []) {
+        edges.push({ source: e.source, target: e.target });
+      }
+    }
+    return { phases, edges };
+  }, [messages]);
+
   const onAnswerAskUserQuestion = async (
     messageId: string,
     toolUseId: string,
@@ -475,8 +502,14 @@ export default function Chat({
     if (!text || streaming) return;
     setInput("");
 
+    // Pull any pending pipeline-phase edits from the canvas and prefix
+    // them to the user message so the LLM sees the user's corrections
+    // alongside whatever they just typed.
+    const editPrefix = canvasEditGetterRef.current?.() ?? null;
+    const composed = editPrefix ? `${editPrefix}\n\n${text}` : text;
+
     await chatStore.send({
-      text,
+      text: composed,
       skillSlugs: Array.from(selected),
       contextFiles: Array.from(selectedFiles),
       artifactNotes,
@@ -838,6 +871,8 @@ export default function Chat({
             <ProjectCanvas
               key={canvasResetKey}
               pendingQuestions={pendingCanvasQuestions}
+              pipeline={canvasPipeline}
+              editGetterRef={canvasEditGetterRef}
               onSendToChat={(text) => {
                 // Fire the canvas-authored choice as a regular chat turn
                 // — same path the textarea Send button takes, so all the
