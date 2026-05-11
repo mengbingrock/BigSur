@@ -141,49 +141,76 @@ export default function Chat({
   // markdown block describing pipeline-phase edits since the last
   // extraction (or null), and commits the edits so they aren't replayed.
   const canvasEditGetterRef = useRef<(() => string | null) | null>(null);
-  // Width of the right-side canvas pane in CSS px. Persisted so the user's
-  // chosen split survives reloads. Clamped at drag time to [240, 1200].
-  const CANVAS_WIDTH_KEY = "monterey.canvasWidth.v1";
-  const CANVAS_WIDTH_MIN = 240;
-  const CANVAS_WIDTH_MAX = 1200;
-  const CANVAS_WIDTH_DEFAULT = 448; // 28rem
-  const [canvasWidth, setCanvasWidth] = useState<number>(CANVAS_WIDTH_DEFAULT);
+  // Height of the top canvas pane in CSS px. Persisted so the user's
+  // chosen split survives reloads. Clamped at drag time to [180, 1200].
+  const CANVAS_HEIGHT_KEY = "monterey.canvasHeight.v1";
+  const CANVAS_HEIGHT_MIN = 180;
+  const CANVAS_HEIGHT_MAX = 1200;
+  const CANVAS_HEIGHT_DEFAULT = 360;
+  const [canvasHeight, setCanvasHeight] = useState<number>(CANVAS_HEIGHT_DEFAULT);
   const [canvasResizing, setCanvasResizing] = useState(false);
+
+  // Height of the bottom chat pane in CSS px. Persisted across reloads.
+  // The chat is normally `flex-1` so it fills whatever the canvas leaves;
+  // this value is applied as a `min-height` instead so dragging the bottom
+  // handle DOWN can push the chat past the viewport (page scrolls), and
+  // dragging UP shrinks it back toward the default flex-fill.
+  const CHAT_HEIGHT_KEY = "monterey.chatHeight.v1";
+  const CHAT_HEIGHT_MIN = 0;
+  const CHAT_HEIGHT_MAX = 2400;
+  const CHAT_HEIGHT_DEFAULT = 0;
+  const [chatHeight, setChatHeight] = useState<number>(CHAT_HEIGHT_DEFAULT);
+  const [chatResizing, setChatResizing] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const raw = window.localStorage.getItem(CANVAS_WIDTH_KEY);
+    const raw = window.localStorage.getItem(CANVAS_HEIGHT_KEY);
     if (!raw) return;
     const n = parseInt(raw, 10);
     if (Number.isFinite(n)) {
-      setCanvasWidth(
-        Math.max(CANVAS_WIDTH_MIN, Math.min(CANVAS_WIDTH_MAX, n)),
+      setCanvasHeight(
+        Math.max(CANVAS_HEIGHT_MIN, Math.min(CANVAS_HEIGHT_MAX, n)),
       );
     }
   }, []);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(CANVAS_WIDTH_KEY, String(canvasWidth));
-  }, [canvasWidth]);
+    window.localStorage.setItem(CANVAS_HEIGHT_KEY, String(canvasHeight));
+  }, [canvasHeight]);
 
-  // While the splitter is being dragged, force a col-resize cursor over the
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem(CHAT_HEIGHT_KEY);
+    if (!raw) return;
+    const n = parseInt(raw, 10);
+    if (Number.isFinite(n)) {
+      setChatHeight(Math.max(CHAT_HEIGHT_MIN, Math.min(CHAT_HEIGHT_MAX, n)));
+    }
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(CHAT_HEIGHT_KEY, String(chatHeight));
+  }, [chatHeight]);
+
+  // While the splitter is being dragged, force a row-resize cursor over the
   // whole document so it doesn't flicker back to the default when the
   // pointer briefly leaves the handle.
   useEffect(() => {
     if (typeof document === "undefined") return;
-    if (canvasResizing) {
+    if (canvasResizing || chatResizing) {
       const prev = document.body.style.cursor;
-      document.body.style.cursor = "col-resize";
+      document.body.style.cursor = "row-resize";
       return () => {
         document.body.style.cursor = prev;
       };
     }
-  }, [canvasResizing]);
+  }, [canvasResizing, chatResizing]);
   const [pinned, setPinned] = useState(true);
   const [activeSelection, setActiveSelection] =
     useState<ActiveSelection | null>(null);
   const [slashIndex, setSlashIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const chatSectionRef = useRef<HTMLElement | null>(null);
   const stickToBottomRef = useRef(true);
   const prevMessageCountRef = useRef(0);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -549,21 +576,55 @@ export default function Chat({
     }
   };
 
-  // Pointer-driven splitter between chat and canvas. Width grows when the
-  // handle moves left (canvas grows toward the chat). Listeners attach to
-  // `window` so a fast cursor doesn't lose the drag mid-flight.
+  // Pointer-driven handle on the BOTTOM edge of the chat. Drag down to
+  // grow chat height (page scrolls past the viewport), drag up to shrink
+  // back to the flex-1 default (chat-h reaches 0). Same window-level
+  // listener pattern as the canvas/chat splitter above.
+  const onChatResizeStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    // Anchor to the chat's CURRENT rendered height (not the stored
+    // chat-h, which may still be 0 from flex-1 default). This way the
+    // very first pixel of drag immediately grows the chat instead of
+    // doing nothing until the user passes the existing height.
+    const measured =
+      chatSectionRef.current?.getBoundingClientRect().height ?? 0;
+    const startHeight = Math.max(chatHeight, measured);
+    setChatResizing(true);
+    const onMove = (ev: PointerEvent) => {
+      const dy = ev.clientY - startY;
+      const next = Math.max(
+        CHAT_HEIGHT_MIN,
+        Math.min(CHAT_HEIGHT_MAX, startHeight + dy),
+      );
+      setChatHeight(next);
+    };
+    const onUp = () => {
+      setChatResizing(false);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  };
+
+  // Pointer-driven splitter between canvas (top) and chat (bottom). Height
+  // grows when the handle moves down. Listeners attach to `window` so a fast
+  // cursor doesn't lose the drag mid-flight.
   const onCanvasResizeStart = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const startX = e.clientX;
-    const startWidth = canvasWidth;
+    const startY = e.clientY;
+    const startHeight = canvasHeight;
     setCanvasResizing(true);
     const onMove = (ev: PointerEvent) => {
-      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
       const next = Math.max(
-        CANVAS_WIDTH_MIN,
-        Math.min(CANVAS_WIDTH_MAX, startWidth - dx),
+        CANVAS_HEIGHT_MIN,
+        Math.min(CANVAS_HEIGHT_MAX, startHeight + dy),
       );
-      setCanvasWidth(next);
+      setCanvasHeight(next);
     };
     const onUp = () => {
       setCanvasResizing(false);
@@ -578,12 +639,13 @@ export default function Chat({
 
   return (
     <div
-      className={`grid grid-cols-1 gap-8 lg:grid-cols-[18rem_1fr_var(--canvas-w)] ${
-        canvasResizing ? "select-none" : ""
+      className={`grid grid-cols-1 gap-8 lg:grid-cols-[18rem_1fr] ${
+        canvasResizing || chatResizing ? "select-none" : ""
       }`}
       style={
         {
-          "--canvas-w": `${canvasWidth}px`,
+          "--canvas-h": `${canvasHeight}px`,
+          "--chat-h": `${chatHeight}px`,
         } as React.CSSProperties
       }
     >
@@ -674,7 +736,94 @@ export default function Chat({
         </div>
       </aside>
 
-      <section className="order-1 flex h-[calc(100vh-12rem)] min-h-[60vh] flex-col border border-rule lg:order-2">
+      <div className="order-1 flex min-h-[calc(100vh-8rem)] flex-col gap-0 lg:order-2">
+      <aside className="relative shrink-0" style={{ height: "var(--canvas-h)" }}>
+        <div className="flex h-full flex-col border border-rule">
+          <div className="flex items-center justify-between border-b border-rule px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-muted">
+            <span>
+              Canvas
+              {(() => {
+                const unanswered = pendingCanvasQuestions.filter(
+                  (q) => q.answer === undefined,
+                ).length;
+                return unanswered > 0 ? (
+                  <span className="ml-2 inline-flex items-center gap-1 border border-ink bg-ink px-1.5 py-0.5 font-mono text-[9px] normal-case tracking-normal text-paper">
+                    {unanswered} question{unanswered === 1 ? "" : "s"}
+                  </span>
+                ) : null;
+              })()}
+            </span>
+            <span className="font-mono normal-case tracking-normal text-[10px] text-muted">
+              drag · zoom · connect
+            </span>
+          </div>
+          <div className="relative flex-1 min-h-0">
+            <ProjectCanvas
+              key={canvasResetKey}
+              pendingQuestions={pendingCanvasQuestions}
+              pipeline={canvasPipeline}
+              editGetterRef={canvasEditGetterRef}
+              onSendToChat={(text) => {
+                // Fire the canvas-authored choice as a regular chat turn
+                // — same path the textarea Send button takes, so all the
+                // skill / protocol / artifactNotes / contextFiles plumbing
+                // applies.
+                if (streaming) return;
+                void chatStore.send({
+                  text,
+                  skillSlugs: Array.from(selected),
+                  contextFiles: Array.from(selectedFiles),
+                  artifactNotes,
+                  snapshot: buildSkillSnapshot(),
+                });
+              }}
+              onAnswer={async (messageId, toolUseId, raw) => {
+                const meta = pendingCanvasQuestions.find(
+                  (p) => p.toolUseId === toolUseId,
+                );
+                if (meta?.source === "extracted") {
+                  const a = raw[0]?.answer;
+                  if (a === undefined) return;
+                  await chatStore.submitExtractedChoice(
+                    messageId,
+                    toolUseId,
+                    a,
+                    Array.from(selected),
+                    buildSkillSnapshot(),
+                    {
+                      contextFiles: Array.from(selectedFiles),
+                      artifactNotes,
+                    },
+                  );
+                  return;
+                }
+                const answers: AskUserAnswer[] = raw.map((r) => ({
+                  question: r.question,
+                  answer: r.answer,
+                }));
+                await onAnswerAskUserQuestion(messageId, toolUseId, answers);
+              }}
+            />
+          </div>
+        </div>
+      </aside>
+      {/* Horizontal drag-handle for resizing the canvas / chat split. */}
+      <div
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="Resize canvas / chat split"
+        onPointerDown={onCanvasResizeStart}
+        onDoubleClick={() => setCanvasHeight(CANVAS_HEIGHT_DEFAULT)}
+        title="Drag to resize · double-click to reset"
+        className={`relative my-1 h-2 shrink-0 cursor-row-resize transition ${
+          canvasResizing ? "bg-ink/40" : "hover:bg-ink/20"
+        }`}
+      />
+      <section
+        ref={chatSectionRef}
+        className="flex flex-1 flex-col border border-rule"
+        style={{ minHeight: "var(--chat-h)" }}
+      >
         <SessionHeader
           session={session}
           selectedSkills={selectedSkills}
@@ -829,94 +978,22 @@ export default function Chat({
           </div>
         </div>
       </section>
-
-      <aside className="relative order-3 lg:order-3">
-        {/* Vertical drag-handle for resizing the chat/canvas split. Sits on
-         *  the left edge of the canvas aside, only visible at lg+. Uses
-         *  Pointer events so a fast cursor that briefly leaves the handle
-         *  doesn't kill the drag (window-level listeners). */}
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize chat / canvas split"
-          onPointerDown={onCanvasResizeStart}
-          onDoubleClick={() => setCanvasWidth(CANVAS_WIDTH_DEFAULT)}
-          title="Drag to resize · double-click to reset"
-          className={`absolute left-0 top-0 bottom-0 z-10 hidden w-2 -translate-x-1/2 cursor-col-resize bg-transparent transition lg:block ${
-            canvasResizing
-              ? "bg-ink/40"
-              : "hover:bg-ink/20"
-          }`}
-        />
-        <div className="flex h-[calc(100vh-12rem)] min-h-[60vh] flex-col border border-rule">
-          <div className="flex items-center justify-between border-b border-rule px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-muted">
-            <span>
-              Canvas
-              {(() => {
-                const unanswered = pendingCanvasQuestions.filter(
-                  (q) => q.answer === undefined,
-                ).length;
-                return unanswered > 0 ? (
-                  <span className="ml-2 inline-flex items-center gap-1 border border-ink bg-ink px-1.5 py-0.5 font-mono text-[9px] normal-case tracking-normal text-paper">
-                    {unanswered} question{unanswered === 1 ? "" : "s"}
-                  </span>
-                ) : null;
-              })()}
-            </span>
-            <span className="font-mono normal-case tracking-normal text-[10px] text-muted">
-              drag · zoom · connect
-            </span>
-          </div>
-          <div className="relative flex-1 min-h-0">
-            <ProjectCanvas
-              key={canvasResetKey}
-              pendingQuestions={pendingCanvasQuestions}
-              pipeline={canvasPipeline}
-              editGetterRef={canvasEditGetterRef}
-              onSendToChat={(text) => {
-                // Fire the canvas-authored choice as a regular chat turn
-                // — same path the textarea Send button takes, so all the
-                // skill / protocol / artifactNotes / contextFiles plumbing
-                // applies.
-                if (streaming) return;
-                void chatStore.send({
-                  text,
-                  skillSlugs: Array.from(selected),
-                  contextFiles: Array.from(selectedFiles),
-                  artifactNotes,
-                  snapshot: buildSkillSnapshot(),
-                });
-              }}
-              onAnswer={async (messageId, toolUseId, raw) => {
-                const meta = pendingCanvasQuestions.find(
-                  (p) => p.toolUseId === toolUseId,
-                );
-                if (meta?.source === "extracted") {
-                  const a = raw[0]?.answer;
-                  if (a === undefined) return;
-                  await chatStore.submitExtractedChoice(
-                    messageId,
-                    toolUseId,
-                    a,
-                    Array.from(selected),
-                    buildSkillSnapshot(),
-                    {
-                      contextFiles: Array.from(selectedFiles),
-                      artifactNotes,
-                    },
-                  );
-                  return;
-                }
-                const answers: AskUserAnswer[] = raw.map((r) => ({
-                  question: r.question,
-                  answer: r.answer,
-                }));
-                await onAnswerAskUserQuestion(messageId, toolUseId, answers);
-              }}
-            />
-          </div>
-        </div>
-      </aside>
+      {/* Bottom drag-handle on the chat. Drag down to extend the chat
+       *  past the viewport (page scrolls); drag back up to collapse to
+       *  the flex-1 default. Same row-resize pattern as the canvas/chat
+       *  splitter above. */}
+      <div
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="Resize chat height — drag down to grow"
+        onPointerDown={onChatResizeStart}
+        onDoubleClick={() => setChatHeight(CHAT_HEIGHT_DEFAULT)}
+        title="Drag down to grow the chat · double-click to reset"
+        className={`relative mt-1 h-2 shrink-0 cursor-row-resize transition ${
+          chatResizing ? "bg-ink/40" : "hover:bg-ink/20"
+        }`}
+      />
+      </div>
 
       {activeSelection && (
         <EditPopover
