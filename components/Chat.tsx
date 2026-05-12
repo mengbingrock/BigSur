@@ -472,6 +472,8 @@ export default function Chat({
           multiSelect: c.multiSelect,
           source: "extracted",
           answer,
+          kind: c.kind ?? "choice",
+          parentOptions: c.parentOptions,
         });
       }
     }
@@ -740,14 +742,23 @@ export default function Chat({
       <aside className="relative shrink-0" style={{ height: "var(--canvas-h)" }}>
         <div className="flex h-full flex-col border border-rule">
           <div className="flex items-center justify-between border-b border-rule px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-muted">
-            <span>
-              Canvas
+            <span className="flex items-center gap-2">
+              <span>Canvas</span>
               {(() => {
+                const extracting = messages.some((m) => m.extracting);
+                if (extracting) {
+                  return (
+                    <span className="inline-flex items-center gap-1 border border-rule bg-paper px-1.5 py-0.5 font-mono text-[9px] normal-case tracking-normal text-muted">
+                      <Loader2 size={10} className="animate-spin" />
+                      Extracting structure…
+                    </span>
+                  );
+                }
                 const unanswered = pendingCanvasQuestions.filter(
                   (q) => q.answer === undefined,
                 ).length;
                 return unanswered > 0 ? (
-                  <span className="ml-2 inline-flex items-center gap-1 border border-ink bg-ink px-1.5 py-0.5 font-mono text-[9px] normal-case tracking-normal text-paper">
+                  <span className="inline-flex items-center gap-1 border border-ink bg-ink px-1.5 py-0.5 font-mono text-[9px] normal-case tracking-normal text-paper">
                     {unanswered} question{unanswered === 1 ? "" : "s"}
                   </span>
                 ) : null;

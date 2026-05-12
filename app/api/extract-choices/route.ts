@@ -6,9 +6,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_TEXT_BYTES = 32 * 1024;
-// Medium effort on longer structured replies (multi-option protocols,
-// multi-phase pipelines) can take 30-45 s. Cap at 60 s.
-const TIMEOUT_MS = 60_000;
+// Sonnet medium-effort runs on a multi-variant protocol reply with
+// phases + choices + materials commonly hit ~60-90 s. The previous
+// 60 s cap was killing the call right at the edge; bump to 150 s.
+const TIMEOUT_MS = 150_000;
 
 const SYSTEM_PROMPT = `You are a structure-extraction engine that turns an
 assistant's reply into a graph the user can interact with. You always
@@ -26,7 +27,8 @@ output STRICT JSON of this shape:
     }
   ],
   "edges":  [ { "from": "p1", "to": "p2" } ],
-  "choices":[ { "question": "...", "options": ["...", "..."], "multiSelect": false } ]
+  "choices":[ { "question": "...", "options": ["...", "..."], "multiSelect": false } ],
+  "materials":[ { "name": "...", "alternatives": ["...", "..."], "appliesTo": ["...", "..."] } ]
 }
 
 Phases are HIERARCHICAL. A top-level phase may contain 'subPhases' —
@@ -131,13 +133,69 @@ etc. Default false.
 A choice needs ≥ 2 options. Cap options at 12. Question ≤ 100 chars.
 
 ========================================================================
+MATERIALS & REAGENTS
+========================================================================
+
+When the assistant's reply describes a protocol that names specific
+materials, reagents, kits, instruments, antibodies, primers, enzymes,
+buffers, or consumables (e.g. "TRIzol", "SuperScript IV", "SYBR Green
+Master Mix", "Eppendorf 1.5 mL tubes"), extract them so the user can
+confirm or substitute each one before running the protocol. This is
+high-value because users commonly want to swap a reagent for whatever
+their lab actually stocks.
+
+For each material/reagent:
+  • name: the exact item the assistant proposed (≤ 60 chars). Strip
+    catalogue numbers ("TRIzol Reagent (Thermo Fisher, 15596-026)" →
+    "TRIzol Reagent").
+  • alternatives: 2–5 *interchangeable* substitutes that achieve the
+    same function. ALWAYS include the original name as the first
+    entry — it's the assistant's pick, and the user is confirming or
+    overriding it. Draw on your knowledge of standard catalogues
+    (Invitrogen / Thermo, Qiagen, Roche, Sigma, NEB, Bio-Rad, Promega,
+    Takara, Agilent, Cell Signaling, …). Prefer concrete named
+    products (kits, branded reagents) over generic categories.
+  • appliesTo: a LIST of EXACT option labels (from a "choices" entry
+    above) this reagent is used in. A reagent may belong to multiple
+    variants — list ALL of them. Example: if the reply offers Options
+    1–4 and TRIzol Reagent is used in Options 1 and 3, set
+    appliesTo: ["Option 1: TRIzol + Two-Step RT + SYBR",
+                 "Option 3: TRIzol + One-Step RT-qPCR (TaqMan)"].
+    Strings must match the corresponding choice option EXACTLY
+    (copy them verbatim); the canvas only reveals the reagent when
+    the user's pick on the parent choice equals one of these
+    strings.
+    If the reagent is used regardless of choice (common buffer,
+    universal consumable, the reply has no variants at all), omit
+    appliesTo or set it to [].
+    Tagging rules — IMPORTANT:
+      • Variant-specific reagents (RT enzyme bound to one chemistry,
+        master mix bound to one detection method, sample-prep kit
+        bound to one extraction approach) MUST be tagged.
+      • Cross-variant reagents (shared lysis buffers, DNase, water,
+        primers used in all variants) → leave appliesTo empty.
+      • Never tag a reagent for an option that doesn't actually use
+        it — the user will see a reagent that doesn't fit and lose
+        trust in the canvas.
+
+Skip generic categories ("any RNA extraction kit", "a fluorescent
+dye") — only emit when the assistant named a specific product or
+recipe. Skip the materials block entirely when the reply is pure
+planning / explanation with no named products.
+
+Cap: ≤ 8 materials per reply. Cap each alternatives list at 6.
+Output an empty "materials":[] when there's nothing concrete to confirm.
+
+========================================================================
 COEXISTENCE
 ========================================================================
 
-Phases and choices can coexist in a single reply. A protocol-comparison
-reply typically has:
+Phases, choices, and materials can coexist in a single reply. A
+protocol reply typically has:
   • A shared pipeline (3–5 phases) → emit those.
   • A multi-option choice for the user to pick a variant → emit that.
+  • A list of named reagents → emit those as materials so the user
+    can confirm/swap each one.
 
 Output ONLY JSON.`;
 
@@ -206,14 +264,28 @@ interface ParsedEdge {
   from: string;
   to: string;
 }
+interface ParsedMaterial {
+  name: string;
+  alternatives: string[];
+  /** List of EXACT option labels this reagent applies to. Empty
+   *  means the reagent applies regardless of choice (or there's no
+   *  choice at all). */
+  appliesTo?: string[];
+}
 interface ParsedStructure {
   phases: ParsedPhase[];
   edges: ParsedEdge[];
   choices: ParsedChoice[];
+  materials: ParsedMaterial[];
 }
 
 function tryParseStructure(raw: string): ParsedStructure {
-  const empty: ParsedStructure = { phases: [], edges: [], choices: [] };
+  const empty: ParsedStructure = {
+    phases: [],
+    edges: [],
+    choices: [],
+    materials: [],
+  };
   const trimmed = raw
     .replace(/^﻿/, "")
     .trim()
@@ -313,7 +385,56 @@ function tryParseStructure(raw: string): ParsedStructure {
     }
   }
 
-  return { phases, edges, choices };
+  // --- Materials --- (each becomes a confirm-or-swap dropdown choice)
+  const materials: ParsedMaterial[] = [];
+  if (Array.isArray(root.materials)) {
+    for (const m of root.materials as unknown[]) {
+      if (!m || typeof m !== "object") continue;
+      const r = m as Record<string, unknown>;
+      const name = typeof r.name === "string" ? r.name.trim() : "";
+      if (!name) continue;
+      const rawAlts = Array.isArray(r.alternatives)
+        ? (r.alternatives as unknown[])
+            .filter((s): s is string => typeof s === "string")
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0)
+        : [];
+      // Always lead with the assistant's pick so the user sees the
+      // default first; de-dup while preserving order.
+      const seen = new Set<string>();
+      const alternatives: string[] = [];
+      for (const opt of [name, ...rawAlts]) {
+        const key = opt.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        alternatives.push(opt.slice(0, 80));
+        if (alternatives.length >= 6) break;
+      }
+      // A single-option "alternatives" list is useless — drop it.
+      if (alternatives.length < 2) continue;
+      // Accept either the new appliesTo list OR the legacy singular
+      // "option" string so older cached prompts still work.
+      let appliesTo: string[] | undefined;
+      if (Array.isArray(r.appliesTo)) {
+        const collected = (r.appliesTo as unknown[])
+          .filter((s): s is string => typeof s === "string")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+          .map((s) => s.slice(0, 120));
+        if (collected.length > 0) appliesTo = collected.slice(0, 12);
+      } else if (typeof r.option === "string" && r.option.trim()) {
+        appliesTo = [r.option.trim().slice(0, 120)];
+      }
+      materials.push({
+        name: name.slice(0, 60),
+        alternatives,
+        appliesTo,
+      });
+      if (materials.length >= 8) break;
+    }
+  }
+
+  return { phases, edges, choices, materials };
 }
 
 export async function POST(req: NextRequest) {
@@ -328,7 +449,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Invalid JSON." }, { status: 400 });
   }
   const text = (body?.text ?? "").trim();
-  const empty = { phases: [], edges: [], choices: [] };
+  const empty = { phases: [], edges: [], choices: [], materials: [] };
   if (!text) {
     return Response.json(empty);
   }
@@ -338,6 +459,7 @@ export async function POST(req: NextRequest) {
       ? text.slice(0, Math.floor(MAX_TEXT_BYTES / 4))
       : text;
 
+  const startedAt = Date.now();
   let raw: string;
   try {
     const result = await runClaude(
@@ -346,10 +468,19 @@ export async function POST(req: NextRequest) {
         `Return the JSON now.`,
     );
     if (result.code !== 0) {
+      console.warn(
+        `[extract-choices] non-zero exit code=${result.code} ` +
+          `elapsed=${Date.now() - startedAt}ms ` +
+          `stderr="${result.stderr.replace(/\s+/g, " ").slice(0, 200)}"`,
+      );
       return Response.json(empty);
     }
     raw = result.stdout;
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(
+      `[extract-choices] threw after ${Date.now() - startedAt}ms: ${msg}`,
+    );
     return Response.json(empty);
   }
 
@@ -357,6 +488,7 @@ export async function POST(req: NextRequest) {
   console.log(
     `[extract-choices] in=${truncated.length}ch phases=${structure.phases.length} ` +
       `edges=${structure.edges.length} choices=${structure.choices.length} ` +
+      `materials=${structure.materials.length} ` +
       `raw="${raw.replace(/\s+/g, " ").slice(0, 280)}"`,
   );
   return Response.json(structure);

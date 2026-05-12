@@ -73,6 +73,19 @@ export interface ExtractedChoice {
   question: string;
   options: string[];
   multiSelect: boolean;
+  /** "material" choices are reagent/kit swaps that depend on a
+   *  higher-level variant pick; on the canvas they stay hidden until a
+   *  non-material choice from the same round is acted on, so the user
+   *  isn't reagent-shopping for a protocol they haven't agreed to yet.
+   *  Undefined / "choice" = regular, always visible. */
+  kind?: "material" | "choice";
+  /** For "material" entries: the list of EXACT option labels this
+   *  reagent applies to (each one of the regular sibling choice's
+   *  options). A reagent can belong to multiple variants — list every
+   *  one. The canvas reveals the material when the user's draft/
+   *  answer on a sibling matches ANY entry. Empty/undefined = applies
+   *  regardless of pick. */
+  parentOptions?: string[];
 }
 
 /**
@@ -184,6 +197,10 @@ export interface ChatMsg {
   /** True once the post-stream choice extractor has been called. Prevents
    *  repeating the LLM call on every re-render. */
   extractionAttempted?: boolean;
+  /** True while the post-stream extractor sub-agent is in flight for
+   *  this message. UI surfaces a spinner / status text so the user
+   *  knows why the canvas is still blank. Cleared in `finally`. */
+  extracting?: boolean;
   /** Choices the extractor inferred from this message's plain text. */
   extractedChoices?: ExtractedChoice[];
   /** Per-choice-id record of how the user answered an extracted choice
@@ -626,8 +643,14 @@ class ChatStore {
     if (hasAskUser) {
       return;
     }
-    // Mark attempted up front so concurrent triggers don't double-fire.
-    this.mutateMessage(messageId, (m) => ({ ...m, extractionAttempted: true }));
+    // Mark attempted up front so concurrent triggers don't double-fire,
+    // and flip the in-flight flag so the UI can render a "Extracting…"
+    // status while the sub-agent runs (can take 10–60 s on Sonnet).
+    this.mutateMessage(messageId, (m) => ({
+      ...m,
+      extractionAttempted: true,
+      extracting: true,
+    }));
     persistMessages(this.state.messages);
     try {
       const res = await fetch("/api/extract-choices", {
@@ -640,7 +663,48 @@ class ChatStore {
         choices?: unknown;
         phases?: unknown;
         edges?: unknown;
+        materials?: unknown;
       };
+
+      // --- Materials (rendered as confirm-or-swap dropdown choices) ---
+      // Reagents typically depend on which protocol variant the user
+      // picks, so the canvas hides them until a non-material choice
+      // from the same round is acted on. They're appended AFTER
+      // regular choices so when they do reveal they land to the right
+      // of the variant pick they depend on.
+      const validatedMaterials: ExtractedChoice[] = [];
+      if (Array.isArray(data.materials)) {
+        data.materials.forEach((m: unknown, i: number) => {
+          if (!m || typeof m !== "object") return;
+          const r = m as Record<string, unknown>;
+          const name = typeof r.name === "string" ? r.name.trim() : "";
+          const alts = Array.isArray(r.alternatives)
+            ? (r.alternatives as unknown[])
+                .filter((s): s is string => typeof s === "string")
+                .map((s) => s.trim())
+                .filter((s) => s.length > 0)
+            : [];
+          if (!name || alts.length < 2) return;
+          let parentOptions: string[] | undefined;
+          if (Array.isArray(r.appliesTo)) {
+            const list = (r.appliesTo as unknown[])
+              .filter((s): s is string => typeof s === "string")
+              .map((s) => s.trim())
+              .filter((s) => s.length > 0);
+            if (list.length > 0) parentOptions = list;
+          } else if (typeof r.option === "string" && r.option.trim()) {
+            parentOptions = [r.option.trim()];
+          }
+          validatedMaterials.push({
+            id: `${messageId}-m${i}`,
+            question: `Reagent: ${name} — confirm or swap`,
+            options: alts,
+            multiSelect: false,
+            kind: "material",
+            parentOptions,
+          });
+        });
+      }
 
       // --- Choices (with regex fallback) ---
       let rawChoices = Array.isArray(data.choices) ? data.choices : [];
@@ -666,6 +730,13 @@ class ChatStore {
           multiSelect: Boolean(r.multiSelect),
         });
       });
+      // Regular choices first, then materials — order drives canvas
+      // left-to-right placement inside the round's question row, and
+      // material reveal is gated on user picking a regular choice.
+      const allChoices: ExtractedChoice[] = [
+        ...validatedChoices,
+        ...validatedMaterials,
+      ];
 
       // --- Phases (the pipeline; recursive) ---
       const phaseIdMap = new Map<string, string>(); // local-id -> canvas-id
@@ -719,16 +790,13 @@ class ChatStore {
         }
       }
 
-      if (
-        validatedChoices.length === 0 &&
-        validatedPhases.length === 0
-      ) {
+      if (allChoices.length === 0 && validatedPhases.length === 0) {
         return;
       }
       this.mutateMessage(messageId, (m) => ({
         ...m,
         extractedChoices:
-          validatedChoices.length > 0 ? validatedChoices : m.extractedChoices,
+          allChoices.length > 0 ? allChoices : m.extractedChoices,
         extractedPhases:
           validatedPhases.length > 0 ? validatedPhases : m.extractedPhases,
         extractedPipelineEdges:
@@ -740,6 +808,9 @@ class ChatStore {
     } catch {
       // Silent — extractor failures shouldn't surface in the UI; the user
       // can still answer in chat the normal way.
+    } finally {
+      this.mutateMessage(messageId, (m) => ({ ...m, extracting: false }));
+      persistMessages(this.state.messages);
     }
   };
 

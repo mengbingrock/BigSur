@@ -135,6 +135,14 @@ export interface PendingCanvasQuestion {
   multiSelect: boolean;
   source?: "tool" | "extracted";
   answer?: string | string[];
+  /** "material" choices stay hidden on the canvas until a non-material
+   *  choice from the same chat round is drafted or answered. */
+  kind?: "material" | "choice";
+  /** When set on a material, the list of exact option labels this
+   *  reagent is tied to. Canvas reveals the material when a non-
+   *  material sibling has ANY of these strings as its draft/answer.
+   *  Empty/undefined → the reagent applies regardless of pick. */
+  parentOptions?: string[];
 }
 
 type PendingQuestionData = PendingCanvasQuestion & {
@@ -1077,6 +1085,68 @@ export interface CanvasPipeline {
   edges: { source: string; target: string }[];
 }
 
+/**
+ * Should this specific material node be visible right now?
+ *
+ *  - If the material has `parentOptions` (a list of option labels it
+ *    belongs to): reveal only when a regular sibling choice in the
+ *    same chat round has one of those exact strings as its current
+ *    draft pick or submitted answer. Materials tied to other options
+ *    stay hidden until the user actually picks one of theirs.
+ *  - If the material has no `parentOptions`: it applies regardless of
+ *    pick, so reveal once any regular sibling in the same round is
+ *    acted on. With no regular siblings at all, reveal immediately.
+ */
+function shouldRevealMaterial(
+  nodes: Node[],
+  material: PendingQuestionData,
+): boolean {
+  const messageId = material.messageId;
+  const wantOptions =
+    Array.isArray(material.parentOptions) && material.parentOptions.length > 0
+      ? material.parentOptions
+      : null;
+  let hasRegular = false;
+  let anyActed = false;
+  for (const n of nodes) {
+    if (!n.id.startsWith("pending-")) continue;
+    const data = n.data as PendingQuestionData | undefined;
+    if (!data || data.messageId !== messageId) continue;
+    if (data.kind === "material") continue;
+    hasRegular = true;
+    const single =
+      typeof data.draftSingle === "string" && data.draftSingle.length > 0
+        ? data.draftSingle
+        : null;
+    const multi = Array.isArray(data.draftMulti) ? data.draftMulti : [];
+    const answerSingle =
+      typeof data.answer === "string" ? data.answer : null;
+    const answerMulti = Array.isArray(data.answer) ? data.answer : [];
+    const acted =
+      single !== null ||
+      multi.length > 0 ||
+      answerSingle !== null ||
+      answerMulti.length > 0;
+    if (!acted) continue;
+    anyActed = true;
+    if (!wantOptions) return true; // untagged → any action unlocks
+    const userPicks: string[] = [
+      ...(single !== null ? [single] : []),
+      ...multi,
+      ...(answerSingle !== null ? [answerSingle] : []),
+      ...answerMulti,
+    ];
+    for (const want of wantOptions) {
+      if (userPicks.includes(want)) return true;
+    }
+  }
+  // No tagged option matched. Materials with specific parentOptions
+  // remain hidden; materials without any fall back to the "any acted"
+  // / "no regular siblings" behaviour.
+  if (wantOptions) return false;
+  return !hasRegular || anyActed;
+}
+
 interface CanvasInnerProps {
   pendingQuestions: PendingCanvasQuestion[];
   pipeline?: CanvasPipeline;
@@ -1157,22 +1227,148 @@ function CanvasInner({
       });
 
       // Append any incoming question that doesn't have a node yet.
-      // Position below the lowest existing pending node so new ones stack
-      // without overlapping previous answered ones.
+      // Position policy: if there's a workflow phase row for the same
+      // chat round (same messageId), drop the question to the RIGHT of
+      // the rightmost phase node in that row — the choice comes *after*
+      // the pipeline content in the assistant's reply, so it reads as
+      // the next step in the flow. The row may not be MATERIALISED yet
+      // in `refreshed` (effect-firing order means the pipeline effect
+      // could be queued behind this one), so we PREDICT row positions
+      // from the same algorithm the pipeline reconciler uses, sourcing
+      // from existing phase nodes + the `pipeline` prop directly. If a
+      // message has no pipeline either, fall back to the left-column
+      // stack.
+      const PHASE_COL_WIDTH = 220;
+      // Fallback only — first new row uses a dynamic bottom-of-prior-
+      // rounds scan so the new round can't overlap the previous round's
+      // question boxes regardless of how tall they ended up.
+      const PHASE_ROW_HEIGHT_FALLBACK = 540;
+      const PHASE_ROW_START_X = 320;
+      const PHASE_ROW_START_Y = 24;
+      const phaseMsgIdFromNodeId = (nodeId: string): string | null => {
+        const m = nodeId.match(/^phase-(.+)-p\d+$/);
+        return m ? m[1] : null;
+      };
+      const phaseRowByMsg = new Map<
+        string,
+        { y: number; rightX: number }
+      >();
+      for (const n of refreshed) {
+        if (!n.id.startsWith("phase-")) continue;
+        if (n.id.startsWith("phase-edge-")) continue;
+        const msg = phaseMsgIdFromNodeId(n.id);
+        if (!msg) continue;
+        const prev = phaseRowByMsg.get(msg);
+        const right = n.position.x + (n.width ?? PHASE_COL_WIDTH);
+        if (!prev) {
+          phaseRowByMsg.set(msg, { y: n.position.y, rightX: right });
+        } else {
+          phaseRowByMsg.set(msg, {
+            y: Math.min(prev.y, n.position.y),
+            rightX: Math.max(prev.rightX, right),
+          });
+        }
+      }
+      // Predict rows for messages whose phases are in `pipeline` but
+      // whose phase nodes haven't been created yet this render. Must
+      // match the pipeline reconciler's layout exactly so questions
+      // and phases line up on the same row when they appear together.
+      if (pipeline) {
+        // Which msg ids will this batch introduce? Exclude their own
+        // nodes from the prior-rounds bottom scan.
+        const newMsgIds = new Set<string>();
+        const phaseCountByMsg = new Map<string, number>();
+        for (const p of pipeline.phases) {
+          const m = `phase-${p.id}`.match(/^phase-(.+)-p\d+$/);
+          if (!m) continue;
+          const msg = m[1];
+          phaseCountByMsg.set(msg, (phaseCountByMsg.get(msg) ?? 0) + 1);
+          if (!phaseRowByMsg.has(msg)) newMsgIds.add(msg);
+        }
+        // Dynamic bottom of all PRIOR-ROUND content (phase + pending
+        // nodes), using measured heights so the first new row clears
+        // even very tall question boxes.
+        let priorBottom = 0;
+        for (const n of refreshed) {
+          const isPhase =
+            n.id.startsWith("phase-") && !n.id.startsWith("phase-edge-");
+          const isPending = n.id.startsWith("pending-");
+          if (!isPhase && !isPending) continue;
+          let msg: string | null = null;
+          if (isPhase) msg = phaseMsgIdFromNodeId(n.id);
+          else {
+            const data = n.data as PendingQuestionData | undefined;
+            msg = data?.messageId ?? null;
+          }
+          if (msg && newMsgIds.has(msg)) continue;
+          const h = n.height ?? (isPending ? 240 : 120);
+          const bottom = n.position.y + h;
+          if (bottom > priorBottom) priorBottom = bottom;
+        }
+        let nextNewY =
+          priorBottom > 0 ? priorBottom + 40 : PHASE_ROW_START_Y;
+        for (const [msg, count] of phaseCountByMsg.entries()) {
+          if (phaseRowByMsg.has(msg)) continue;
+          phaseRowByMsg.set(msg, {
+            y: nextNewY,
+            rightX: PHASE_ROW_START_X + count * PHASE_COL_WIDTH,
+          });
+          nextNewY += PHASE_ROW_HEIGHT_FALLBACK;
+        }
+      }
       const additions: Node[] = [];
-      let nextY = (() => {
-        const pending = refreshed.filter((n) => n.id.startsWith("pending-"));
+      let nextLeftColumnY = (() => {
+        const pending = refreshed.filter(
+          (n) => n.id.startsWith("pending-") && n.position.x < 100,
+        );
         return pending.length > 0
-          ? Math.max(...pending.map((n) => n.position.y + ((n.height ?? 180) + 20)))
+          ? Math.max(
+              ...pending.map((n) => n.position.y + ((n.height ?? 180) + 20)),
+            )
           : 24;
       })();
+      // Per-round write cursor: tracks the next free X for placing more
+      // question nodes BELOW the same workflow row, so several questions
+      // from one round flow left → right without overlapping.
+      const PENDING_Y_OFFSET = 160; // distance below the phase row
+      const PENDING_X_STEP = 260;
+      const rowCursor = new Map<string, { x: number; y: number }>();
       for (const q of pendingQuestions) {
         const id = `pending-${q.toolUseId}`;
         if (havePendingIds.has(id)) continue;
+        let position: { x: number; y: number };
+        const row = phaseRowByMsg.get(q.messageId);
+        if (row) {
+          const cur = rowCursor.get(q.messageId) ?? {
+            x: PHASE_ROW_START_X,
+            y: row.y + PENDING_Y_OFFSET,
+          };
+          position = { x: cur.x, y: cur.y };
+          rowCursor.set(q.messageId, {
+            x: cur.x + PENDING_X_STEP,
+            y: cur.y,
+          });
+        } else {
+          position = { x: 24, y: nextLeftColumnY };
+          nextLeftColumnY += 200;
+        }
+        // Material choices stay hidden until a sibling regular choice
+        // from the same round is acted on. Compute that condition from
+        // the CURRENT (refreshed) node list — any non-material pending
+        // node for this messageId with a draft or answer unlocks the
+        // material. The unlock can also fire later via the gate effect
+        // below when the user clicks a radio.
+        const isMaterial = q.kind === "material";
+        const hidden = isMaterial
+          ? !shouldRevealMaterial(refreshed, {
+              ...q,
+              onAnswer: onAnswerRef.current,
+            } as PendingQuestionData)
+          : false;
         additions.push({
           id,
           type: "pendingQuestion",
-          position: { x: 24, y: nextY },
+          position,
           data: { ...q, onAnswer: onAnswerRef.current },
           // selectable + draggable kept true so React Flow doesn't put
           // `pointer-events: none` on the wrapper. We control deletion
@@ -1180,14 +1376,37 @@ function CanvasInner({
           selectable: true,
           deletable: false,
           draggable: true,
+          hidden,
           width: 240,
           height: 180,
         } as PendingQuestionNode);
-        nextY += 200;
       }
       return additions.length > 0 ? [...refreshed, ...additions] : refreshed;
     });
-  }, [pendingQuestions, setNodes]);
+  }, [pendingQuestions, pipeline, setNodes]);
+
+  // Reveal effect: recompute every material node's hidden flag from
+  // current draft/answer state on its sibling regular choices. Each
+  // material is gated on its own parentOption so the user only sees
+  // the reagents that belong to the option they're picking. Runs on
+  // any `nodes` change but only commits a setNodes when a flag flips,
+  // so there's no setNodes loop.
+  useEffect(() => {
+    let changed = false;
+    const next = nodes.map((n) => {
+      if (!n.id.startsWith("pending-")) return n;
+      const data = n.data as PendingQuestionData | undefined;
+      if (!data || data.kind !== "material") return n;
+      const reveal = shouldRevealMaterial(nodes, data);
+      const shouldBeHidden = !reveal;
+      if ((n.hidden ?? false) !== shouldBeHidden) {
+        changed = true;
+        return { ...n, hidden: shouldBeHidden };
+      }
+      return n;
+    });
+    if (changed) setNodes(next);
+  }, [nodes, setNodes]);
 
   // Pipeline reconciler: bring Haiku-extracted phases onto the canvas as
   // step nodes, with edges between them representing the workflow's
@@ -1203,22 +1422,104 @@ function CanvasInner({
 
     setNodes((curr) => {
       const haveIds = new Set(curr.map((n) => n.id));
-      // Layout: pack new phases horizontally in a row at the top of the
-      // canvas, offset to the right of any existing phase nodes.
-      const existingPhases = curr.filter((n) => n.id.startsWith("phase-") && !n.id.startsWith("phase-edge-"));
-      let nextX =
-        existingPhases.length > 0
-          ? Math.max(...existingPhases.map((n) => n.position.x + 220))
-          : 320;
+      const existingPhases = curr.filter(
+        (n) =>
+          n.id.startsWith("phase-") && !n.id.startsWith("phase-edge-"),
+      );
+      // Layout policy: each chat round gets its OWN row, stacked vertically
+      // below any previous rounds. Within a round, phases flow horizontally
+      // left → right. The "round" is identified by the message-id prefix
+      // embedded in the phase node id (format: phase-<messageId>-p<index>).
+      const COL_WIDTH = 220; // horizontal step
+      // Fallback row spacing used only when we can't measure prior rounds
+      // (e.g. multiple new rounds in a single tick). The first new row's
+      // Y is computed dynamically from the bottom of all prior content,
+      // so a single round never overlaps the previous round's questions
+      // regardless of how tall they are.
+      const ROW_HEIGHT_FALLBACK = 540;
+      const ROW_START_X = 320;
+      const ROW_START_Y = 24;
+      const phaseMessageId = (nodeId: string): string | null => {
+        const m = nodeId.match(/^phase-(.+)-p\d+$/);
+        return m ? m[1] : null;
+      };
+      // Existing rows: messageId → { y, rightX } so new phases from the
+      // same round continue the row, and new rounds land below the
+      // lowest existing row.
+      const rowYByMsg = new Map<string, number>();
+      const rightXByMsg = new Map<string, number>();
+      for (const n of existingPhases) {
+        const msg = phaseMessageId(n.id);
+        if (!msg) continue;
+        rowYByMsg.set(
+          msg,
+          Math.min(rowYByMsg.get(msg) ?? Infinity, n.position.y),
+        );
+        rightXByMsg.set(
+          msg,
+          Math.max(
+            rightXByMsg.get(msg) ?? -Infinity,
+            n.position.x + COL_WIDTH,
+          ),
+        );
+      }
+      // Identify the msg ids the new round will introduce, so we don't
+      // accidentally count their own nodes (e.g. pending nodes the
+      // question reconciler may have already placed earlier in this
+      // batch) against the prior-rounds bottom.
+      const newMsgIds = new Set<string>();
+      for (const p of pipeline.phases) {
+        const nodeId = `phase-${p.id}`;
+        if (haveIds.has(nodeId)) continue;
+        const msg = phaseMessageId(nodeId);
+        if (msg) newMsgIds.add(msg);
+      }
+      // Scan curr for the bottom-most Y across all PRIOR-ROUND content
+      // (both phase nodes and pending question nodes), using each node's
+      // measured height. This catches tall question boxes the previous
+      // round produced, so the new round's row lands clear of them.
+      let priorBottom = 0;
+      for (const n of curr) {
+        const isPhase =
+          n.id.startsWith("phase-") && !n.id.startsWith("phase-edge-");
+        const isPending = n.id.startsWith("pending-");
+        if (!isPhase && !isPending) continue;
+        let msg: string | null = null;
+        if (isPhase) msg = phaseMessageId(n.id);
+        else {
+          const data = n.data as PendingQuestionData | undefined;
+          msg = data?.messageId ?? null;
+        }
+        if (msg && newMsgIds.has(msg)) continue;
+        const h = n.height ?? (isPending ? 240 : 120);
+        const bottom = n.position.y + h;
+        if (bottom > priorBottom) priorBottom = bottom;
+      }
+      let nextNewRowY =
+        priorBottom > 0 ? priorBottom + 40 : ROW_START_Y;
       const additions: Node[] = [];
       for (const p of pipeline.phases) {
         const nodeId = `phase-${p.id}`;
         if (haveIds.has(nodeId)) continue;
         if (!wantNodeIds.has(nodeId)) continue;
+        const msg = phaseMessageId(nodeId) ?? "_orphan";
+        let y: number;
+        let x: number;
+        if (rowYByMsg.has(msg)) {
+          y = rowYByMsg.get(msg)!;
+          x = rightXByMsg.get(msg) ?? ROW_START_X;
+          rightXByMsg.set(msg, x + COL_WIDTH);
+        } else {
+          y = nextNewRowY;
+          x = ROW_START_X;
+          rowYByMsg.set(msg, y);
+          rightXByMsg.set(msg, ROW_START_X + COL_WIDTH);
+          nextNewRowY += ROW_HEIGHT_FALLBACK;
+        }
         additions.push({
           id: nodeId,
           type: "step",
-          position: { x: nextX, y: 24 },
+          position: { x, y },
           data: {
             label: p.label,
             summary: p.summary || "",
@@ -1232,7 +1533,6 @@ function CanvasInner({
           sourcePosition: Position.Right,
           targetPosition: Position.Left,
         } as StepNode);
-        nextX += 220;
       }
       return additions.length > 0 ? [...curr, ...additions] : curr;
     });
