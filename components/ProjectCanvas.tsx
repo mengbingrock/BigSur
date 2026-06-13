@@ -18,6 +18,7 @@ import {
   Handle,
   MiniMap,
   ConnectionMode,
+  SelectionMode,
   Position,
   MarkerType,
   addEdge,
@@ -116,6 +117,21 @@ type StepNodeData = {
 } & Record<string, unknown>;
 
 type StepNode = Node<StepNodeData, "step">;
+
+// Freeform sticky-note / comment node. Pure annotation — not part of the
+// pipeline — but it carries handles so the user can still draw arrows to and
+// from it. `color` cycles through a small pastel palette.
+type CommentData = {
+  text: string;
+  color?: string;
+  /** Set once when the node is first added so the renderer can auto-focus
+   *  the textarea; cleared immediately after focusing. */
+  justCreated?: boolean;
+} & Record<string, unknown>;
+
+type CommentNode = Node<CommentData, "comment">;
+
+const COMMENT_COLORS = ["#fff8c4", "#d7f0ff", "#ffe0e6", "#e3ffd9", "#f0e6ff"];
 
 
 // Question pushed onto the canvas by the chat layer. Two origins are
@@ -1045,11 +1061,96 @@ const PendingQuestionNodeComponent = memo(function PendingQuestionNodeComponent(
   );
 });
 
+const CommentNodeComponent = memo(function CommentNodeComponent({
+  id,
+  data,
+  selected,
+}: NodeProps<CommentNode>) {
+  const { setNodes } = useReactFlow();
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  function patch(partial: Partial<CommentData>) {
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id
+          ? ({ ...n, data: { ...(n.data as CommentData), ...partial } } as Node)
+          : n,
+      ),
+    );
+  }
+  // Freshly-added comments grab focus once so the user can type immediately —
+  // no extra click needed, even if it was created from box-select mode. We
+  // guard with a local ref instead of patching node state (patching from
+  // inside the node mid-mount raced React Flow's renderer and produced a
+  // grey default node).
+  // Auto-focus a freshly-added comment so the user can type immediately.
+  // No ref guard: StrictMode (dev) double-invokes effects (run → cleanup →
+  // run); a guard that skips the second run leaves the first run's timeout
+  // cleared and focus never fires. Re-scheduling on each run is correct in
+  // both dev and prod. The effect only runs on mount since `justCreated`
+  // never changes after creation, so focus fires exactly once.
+  useEffect(() => {
+    if (!data.justCreated) return;
+    // Defer past React Flow's initial node-measurement pass — focusing on the
+    // bare mount races that layout and silently no-ops (focus stays on body).
+    const t = setTimeout(() => textareaRef.current?.focus(), 60);
+    return () => clearTimeout(t);
+  }, [data.justCreated]);
+  const color =
+    (typeof data.color === "string" && data.color) || COMMENT_COLORS[0];
+  function cycleColor() {
+    const i = COMMENT_COLORS.indexOf(color);
+    patch({ color: COMMENT_COLORS[(i + 1) % COMMENT_COLORS.length] });
+  }
+  return (
+    <div
+      className={`relative w-[180px] rounded-md border border-amber-400/70 px-2.5 py-2 text-[12px] text-ink shadow-sm ${
+        selected ? "ring-1 ring-ink" : ""
+      }`}
+      style={{ background: color }}
+    >
+      {/* Loose handles so arrows can be drawn to/from a comment too. */}
+      <Handle id="left" type="target" position={Position.Left} />
+      <Handle id="right" type="source" position={Position.Right} />
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-[9px] uppercase tracking-[0.1em] text-amber-700">
+          comment
+        </span>
+        <button
+          type="button"
+          className="nodrag h-3 w-3 rounded-full border border-ink/40"
+          style={{ background: color }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            cycleColor();
+          }}
+          title="Change colour"
+        />
+      </div>
+      <textarea
+        ref={textareaRef}
+        className="nodrag w-full resize-none bg-transparent text-[12px] leading-snug text-ink placeholder:text-amber-700/50 focus:outline-none"
+        value={data.text ?? ""}
+        onChange={(e) => patch({ text: e.target.value })}
+        onMouseDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        rows={Math.max(
+          2,
+          Math.min(8, ((data.text ?? "").match(/\n/g)?.length ?? 0) + 1),
+        )}
+        placeholder="Write a comment…"
+      />
+    </div>
+  );
+});
+
 const NODE_TYPES = {
   step: StepNodeComponent,
   singleChoice: SingleChoiceNodeComponent,
   multiChoice: MultiChoiceNodeComponent,
   pendingQuestion: PendingQuestionNodeComponent,
+  comment: CommentNodeComponent,
 };
 
 // ---------- Initial graph -------------------------------------------------
@@ -1173,6 +1274,10 @@ function CanvasInner({
   const [nodes, setNodes] = useNodesState<Node>(INITIAL_NODES);
   const [edges, setEdges] = useEdgesState<Edge>(INITIAL_EDGES);
   const rf = useReactFlow();
+
+  // Box-/rubber-band-select mode. When on, dragging on empty canvas draws a
+  // selection rectangle (instead of panning); pan moves to middle/right mouse.
+  const [boxSelect, setBoxSelect] = useState(false);
 
   // Stash latest onAnswer in a ref so the reconciler effect doesn't re-fire
   // on every chat turn just because Chat.tsx recreates its inline callback.
@@ -1729,6 +1834,31 @@ function CanvasInner({
     [setEdges],
   );
 
+  // Double-click an arrow to label it (or clear the label). The label
+  // travels with the edge into the chat serialisation.
+  const onEdgeDoubleClick = useCallback(
+    (_event: React.MouseEvent, edge: Edge) => {
+      const current = typeof edge.label === "string" ? edge.label : "";
+      const next = window.prompt("Arrow label (leave blank to clear):", current);
+      if (next === null) return; // cancelled
+      const label = next.trim();
+      setEdges((curr) =>
+        curr.map((e) =>
+          e.id === edge.id
+            ? {
+                ...e,
+                label: label || undefined,
+                labelStyle: { fontSize: 10, fill: "#111" },
+                labelBgStyle: { fill: "#fff", fillOpacity: 0.9 },
+                labelBgPadding: [4, 2] as [number, number],
+              }
+            : e,
+        ),
+      );
+    },
+    [setEdges],
+  );
+
   function addNode(kind: "step" | "singleChoice" | "multiChoice") {
     const id = `node-${Date.now()}`;
     const basePos = {
@@ -1781,6 +1911,70 @@ function CanvasInner({
         } as MultiChoiceNode,
       ];
     });
+  }
+
+  // The id of a node's outgoing (source) handle. Most node types expose a
+  // single un-id'd source handle (returns undefined → React Flow picks it);
+  // step nodes route their source out of the explicitly-id'd "bottom" handle,
+  // and comment nodes out of "right".
+  function nodeSourceHandle(type?: string): string | undefined {
+    if (type === "step") return "bottom";
+    if (type === "comment") return "right";
+    return undefined;
+  }
+
+  // Add a comment. If anything is selected, the comment is created next to
+  // the selection and tethered to each selected node with a dashed
+  // "annotation" edge — so the note is visibly *about* that content (and the
+  // relationship is carried into the chat serialisation).
+  function addComment() {
+    const sel = nodes.filter((n) => n.selected);
+    const stamp = Date.now();
+    const commentId = `node-${stamp}`;
+    let pos = { x: 80 + Math.random() * 80, y: 200 + Math.random() * 80 };
+    if (sel.length > 0) {
+      // Place it just BELOW the selection's bounding box. Since the selection
+      // is by definition in view, the comment lands in view too (placing it
+      // far to the right pushed it off-screen for right-edge selections).
+      const minX = Math.min(...sel.map((n) => n.position.x));
+      const maxY = Math.max(...sel.map((n) => n.position.y));
+      pos = { x: minX, y: maxY + 120 };
+    }
+    // NOT selected: leaving it unselected (and deselecting everything else
+    // below) clears React Flow's box-select "nodesselection" overlay, which
+    // otherwise stays mounted on top of the new comment and swallows clicks
+    // (looked grey / un-typeable). The textarea is auto-focused regardless.
+    const commentNode = {
+      id: commentId,
+      type: "comment",
+      position: pos,
+      selected: false,
+      data: { text: "", color: COMMENT_COLORS[0], justCreated: true },
+    } as CommentNode;
+    const annEdges = sel.map(
+      (n, i) =>
+        ({
+          id: `cedge-${stamp}-${i}`,
+          source: n.id,
+          sourceHandle: nodeSourceHandle(n.type as string | undefined),
+          target: commentId,
+          targetHandle: "left",
+          animated: false,
+          selectable: true,
+          style: { stroke: "#b45309", strokeWidth: 1, strokeDasharray: "4 3" },
+          data: { annotation: true },
+        }) as Edge,
+    );
+    // Drop the old selection + add the comment, attach its tethers, and
+    // leave box-select so the canvas returns to normal pointer behaviour.
+    // These batch into a single render — no flushSync (it raced React Flow's
+    // node-type resolution and rendered the comment as a grey default node).
+    setNodes((curr) => [
+      ...curr.map((n) => (n.selected ? { ...n, selected: false } : n)),
+      commentNode,
+    ]);
+    if (annEdges.length > 0) setEdges((curr) => [...curr, ...annEdges]);
+    setBoxSelect(false);
   }
 
   // What the user has highlighted right now — used to enable the Delete button.
@@ -1924,6 +2118,25 @@ function CanvasInner({
               `(from chat, ${d.source ?? "tool"}) — "${d.question}" ` +
               `[options: ${optStrs.join(", ")}] — ${ansStr}`,
           );
+        } else if (type === "comment") {
+          const d = n.data as CommentData;
+          const text = (typeof d.text === "string" ? d.text : "").trim();
+          // Surface what the comment is attached to, so the LLM reads the
+          // note as being *about* that specific content.
+          const related = Array.from(
+            new Set(
+              edges
+                .filter((e) => e.source === id || e.target === id)
+                .map((e) => (e.source === id ? e.target : e.source)),
+            ),
+          );
+          const rel =
+            related.length > 0
+              ? ` — about ${related.map((r) => `[${r}]`).join(", ")}`
+              : "";
+          lines.push(
+            `- **[${id}]** comment — "${text.replace(/\n/g, " ") || "(empty)"}"${rel}`,
+          );
         } else {
           // Default / step node: data.label is a string.
           const d = n.data as StepNodeData | undefined;
@@ -1946,11 +2159,20 @@ function CanvasInner({
     }
     lines.push("");
     lines.push("## Edges (flow direction)");
-    if (edges.length === 0) {
+    // Annotation tethers (comment → content) are reported via each comment's
+    // "about" line, not here — these are references, not workflow flow.
+    const flowEdges = edges.filter(
+      (e) => !(e.data as { annotation?: boolean } | undefined)?.annotation,
+    );
+    if (flowEdges.length === 0) {
       lines.push("- _(none)_");
     } else {
-      for (const e of edges) {
-        lines.push(`- [${e.source}] → [${e.target}]`);
+      for (const e of flowEdges) {
+        const label =
+          typeof e.label === "string" && e.label.trim()
+            ? ` ("${e.label.replace(/\n/g, " ")}")`
+            : "";
+        lines.push(`- [${e.source}] → [${e.target}]${label}`);
       }
     }
     lines.push("");
@@ -2043,6 +2265,67 @@ function CanvasInner({
     );
   }
 
+  // Only user-authored nodes can be duplicated — pending/phase nodes are
+  // owned by the reconcilers and cloning them would confuse id-based syncing.
+  const DUPLICABLE = new Set(["step", "singleChoice", "multiChoice", "comment"]);
+  const duplicableSelected = selectedNodes.filter((n) =>
+    DUPLICABLE.has(n.type as string),
+  );
+
+  function duplicateSelection() {
+    if (duplicableSelected.length === 0) return;
+    const stamp = Date.now();
+    const copies = duplicableSelected.map((n, i) => ({
+      ...n,
+      id: `node-${stamp}-${i}`,
+      position: { x: n.position.x + 28, y: n.position.y + 28 },
+      selected: true,
+      // Deep-ish copy of data so edits to the copy don't mutate the original.
+      data: { ...(n.data as Record<string, unknown>) },
+    })) as Node[];
+    setNodes((curr) => [
+      ...curr.map((n) => (n.selected ? { ...n, selected: false } : n)),
+      ...copies,
+    ]);
+  }
+
+  function selectAll() {
+    setNodes((curr) =>
+      curr.map((n) => (n.selected ? n : { ...n, selected: true })),
+    );
+    setEdges((curr) =>
+      curr.map((e) => (e.selected ? e : { ...e, selected: true })),
+    );
+  }
+
+  // Canvas-scoped keyboard shortcuts. Skipped while the user is typing in a
+  // node's textarea/input so ⌘A / ⌘D keep their normal text behaviour there.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      const t = e.target as HTMLElement | null;
+      const typing =
+        !!t &&
+        (t.tagName === "TEXTAREA" ||
+          t.tagName === "INPUT" ||
+          t.isContentEditable);
+      if (typing) return;
+      const key = e.key.toLowerCase();
+      if (key === "a") {
+        e.preventDefault();
+        selectAll();
+      } else if (key === "d") {
+        e.preventDefault();
+        duplicateSelection();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // Re-bind when the graph changes so the closures see current nodes/edges.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, edges]);
+
   return (
     <div className="relative h-full w-full">
       <div className="absolute right-2 top-2 z-10 flex items-center gap-1.5">
@@ -2089,6 +2372,65 @@ function CanvasInner({
         </button>
         <button
           type="button"
+          onClick={addComment}
+          className="inline-flex items-center gap-1 border border-amber-500 bg-amber-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-amber-800 transition hover:bg-amber-200"
+          title={
+            selectedNodes.length > 0
+              ? `Add a comment tethered to the ${selectedNodes.length} selected node${selectedNodes.length === 1 ? "" : "s"}`
+              : "Add a sticky-note comment (select nodes first to attach it to them)"
+          }
+        >
+          + Comment{selectedNodes.length > 0 ? ` (→ ${selectedNodes.length})` : ""}
+        </button>
+        <span className="mx-0.5 h-4 w-px bg-rule" aria-hidden />
+        <button
+          type="button"
+          onClick={() => setBoxSelect((v) => !v)}
+          aria-pressed={boxSelect}
+          className={`inline-flex items-center gap-1 border px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] transition ${
+            boxSelect
+              ? "border-ink bg-ink text-paper"
+              : "border-ink bg-paper text-ink hover:bg-ink hover:text-paper"
+          }`}
+          title={
+            boxSelect
+              ? "Box-select ON — drag to rubber-band select; pan with middle/right mouse. Click to switch back to pan."
+              : "Box-select OFF — click to enable drag-to-select (or hold Shift and drag any time)"
+          }
+        >
+          ▭ Box select
+        </button>
+        <button
+          type="button"
+          onClick={duplicateSelection}
+          disabled={duplicableSelected.length === 0}
+          className="inline-flex items-center gap-1 border border-ink bg-paper px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-ink transition hover:bg-ink hover:text-paper disabled:cursor-not-allowed disabled:border-rule disabled:text-muted/60 disabled:hover:bg-paper disabled:hover:text-muted/60"
+          title="Duplicate selected nodes (⌘/Ctrl+D)"
+        >
+          Duplicate
+          {duplicableSelected.length > 0 ? ` (${duplicableSelected.length})` : ""}
+        </button>
+        <button
+          type="button"
+          onClick={selectAll}
+          disabled={nodes.length === 0}
+          className="inline-flex items-center gap-1 border border-ink bg-paper px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-ink transition hover:bg-ink hover:text-paper disabled:cursor-not-allowed disabled:border-rule disabled:text-muted/60 disabled:hover:bg-paper disabled:hover:text-muted/60"
+          title="Select all nodes and edges (⌘/Ctrl+A)"
+        >
+          Select all
+        </button>
+        <button
+          type="button"
+          onClick={() => rf.fitView({ padding: 0.3, duration: 280 })}
+          disabled={nodes.length === 0}
+          className="inline-flex items-center gap-1 border border-ink bg-paper px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-ink transition hover:bg-ink hover:text-paper disabled:cursor-not-allowed disabled:border-rule disabled:text-muted/60 disabled:hover:bg-paper disabled:hover:text-muted/60"
+          title="Fit all nodes in view"
+        >
+          Fit
+        </button>
+        <span className="mx-0.5 h-4 w-px bg-rule" aria-hidden />
+        <button
+          type="button"
           onClick={sendCanvasToChat}
           disabled={(nodes.length === 0 && edges.length === 0) || !onSendToChat}
           className="inline-flex items-center gap-1 border border-ink bg-ink px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-paper transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
@@ -2109,7 +2451,14 @@ function CanvasInner({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onEdgeDoubleClick={onEdgeDoubleClick}
         connectionMode={ConnectionMode.Loose}
+        // Box-select: when on, left-drag draws a rubber-band selection and
+        // panning moves to the middle/right mouse buttons. Shift+drag always
+        // selects regardless. Partial mode selects nodes the box merely touches.
+        selectionOnDrag={boxSelect}
+        panOnDrag={boxSelect ? [1, 2] : true}
+        selectionMode={SelectionMode.Partial}
         connectionLineStyle={{ stroke: "#111", strokeWidth: 1.5 }}
         defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
         deleteKeyCode={["Backspace", "Delete"]}
