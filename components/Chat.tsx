@@ -431,36 +431,19 @@ export default function Chat({
       bodyChars: s.body.length,
     }));
 
-  // ALL canvas-surfaced questions (pending + already-answered). Both kinds
-  // stay visible on the canvas so the user has a record of decisions. The
-  // node renderer reads the optional `answer` field to switch between
-  // pickable and read-only "answered" states.
+  // Canvas-surfaced questions (pending + already-answered). Only extracted
+  // choices from plain-text replies are surfaced here; AskUserQuestion tool
+  // calls live exclusively in the chatbox. The node renderer reads the
+  // optional `answer` field to switch between pickable and read-only states.
   const pendingCanvasQuestions = useMemo<
     (PendingCanvasQuestion & { source: "tool" | "extracted" })[]
   >(() => {
     const out: (PendingCanvasQuestion & { source: "tool" | "extracted" })[] = [];
     for (const m of messages) {
       if (m.role !== "assistant") continue;
-      // (1) AskUserQuestion tool calls — first sub-question per call.
-      const activity = m.activity ?? [];
-      for (const a of activity) {
-        if (a.kind !== "tool" || a.name !== "AskUserQuestion") continue;
-        const parsed = parseAskUserInput(a.input);
-        if (!parsed || parsed.length === 0) continue;
-        const q = parsed[0];
-        const answers = m.askUserAnswers?.[a.id];
-        const answer = answers?.[0]?.answer;
-        out.push({
-          messageId: m.id,
-          toolUseId: a.id,
-          question: q.question,
-          options: q.options,
-          multiSelect: q.multiSelect,
-          source: "tool",
-          answer,
-        });
-      }
-      // (2) Extracted choices from plain-text replies.
+      // AskUserQuestion tool calls are intentionally NOT surfaced on the
+      // canvas — they render only in the chatbox via AskUserQuestionBlock.
+      // (1) Extracted choices from plain-text replies.
       const ec = m.extractedChoices ?? [];
       for (const c of ec) {
         const answer = m.extractedChoicesAnswered?.[c.id];
