@@ -1,0 +1,57 @@
+name: Build Windows desktop
+
+# Builds the Labee Windows installer on a real Windows runner (NSIS needs
+# Windows / Wine, which we don't have on the dev Mac) and attaches the .exe
+# to the given GitHub release.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attach the installer to"
+        default: "v0.1.0"
+        required: true
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js (standalone)
+        run: npm run build
+
+      - name: Prepare standalone assets
+        run: npm run electron:prepare
+
+      - name: Build Windows installer
+        run: npx electron-builder --win nsis --x64 --publish never
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: labee-windows-installer
+          path: release/*.exe
+
+      - name: Attach installer to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then TAG="${GITHUB_REF_NAME}"; fi
+          echo "Uploading to release $TAG"
+          gh release upload "$TAG" release/*.exe --clobber

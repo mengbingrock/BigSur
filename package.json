@@ -50,7 +50,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Labee-${version}-Setup.${ext}"
     },
     "linux": {
       "target": [
