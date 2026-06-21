@@ -25,6 +25,7 @@
       "output": "release",
       "buildResources": "build"
     },
+    "afterPack": "electron/after-pack.js",
     "files": [
       "electron/**/*",
       "package.json"
