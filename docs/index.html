@@ -107,10 +107,16 @@
   /* ---- desktop ---- */
   .desk{display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:center}
   .platforms{display:flex;gap:14px;margin-top:28px;flex-wrap:wrap}
-  .plat{display:flex;align-items:center;gap:10px;border:1px solid var(--rule);border-radius:8px;padding:14px 18px;font-size:14px;background:#fff}
-  .plat svg{width:20px;height:20px}
+  .plat{display:flex;align-items:center;gap:12px;border:1px solid var(--ink);border-radius:8px;padding:13px 18px;font-size:14px;background:#fff;text-decoration:none;color:var(--ink);transition:background .15s,color .15s}
+  .plat:hover{background:var(--ink);color:var(--paper)}
+  .plat svg{width:22px;height:22px;flex:none}
+  .plat .pl-name{font-weight:600;line-height:1.15}
+  .plat .pl-sub{display:block;font-size:11px;font-family:var(--mono);letter-spacing:.04em;color:var(--muted)}
+  .plat:hover .pl-sub{color:var(--rule)}
+  .plat.disabled{border-color:var(--rule);color:var(--muted);cursor:default}
+  .plat.disabled:hover{background:#fff;color:var(--muted)}
   .note{font-size:13px;color:var(--muted);margin-top:18px}
-  .codeblock{background:var(--ink);color:#EDEDE7;border-radius:10px;padding:22px 24px;font-family:var(--mono);font-size:13px;line-height:1.9;overflow-x:auto}
+  .codeblock{background:var(--ink);color:#EDEDE7;border-radius:10px;padding:22px 24px;font-family:var(--mono);font-size:13px;line-height:1.9;white-space:pre-wrap;word-break:break-word;overflow-x:auto}
   .codeblock .c{color:#8a8a82}
   .codeblock .amber{color:var(--amber)}
   @media(max-width:720px){.desk{grid-template-columns:1fr;gap:32px}}
@@ -274,12 +280,22 @@
       <div class="reveal">
         <p class="label">Native desktop</p>
         <h2 class="serif" style="font-weight:400;font-size:clamp(28px,4vw,42px);line-height:1.1;margin:14px 0 0">Runs on your machine.<br>Your data never leaves it.</h2>
-        <p style="color:var(--muted);font-size:17px;margin-top:16px">Labee ships as a real desktop app for macOS and Windows — the full workspace, packaged with its own server, storing everything in your local user folder.</p>
+        <p style="color:var(--muted);font-size:17px;margin-top:16px">Labee ships as a real desktop app — the full workspace, packaged with its own server, storing everything in your local user folder.</p>
         <div class="platforms">
-          <span class="plat"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 1.6c0 1.1-.45 2.18-1.18 2.96-.8.86-2.1 1.5-3.18 1.42-.13-1.07.42-2.2 1.1-2.93.78-.84 2.16-1.46 3.26-1.45zM20.5 17.2c-.6 1.38-.9 2-1.66 3.22-1.07 1.7-2.58 3.82-4.45 3.84-1.66.02-2.09-1.08-4.35-1.07-2.26.01-2.73 1.09-4.4 1.07-1.86-.02-3.29-1.94-4.36-3.64C-1.2 15.9-1.5 9.6 1.36 6.26 2.42 5.02 3.97 4.2 5.62 4.18c1.7-.03 2.77 1.08 4.18 1.08 1.37 0 2.2-1.08 4.18-1.08 1.42 0 2.93.78 4 2.12-3.52 1.93-2.95 6.96.52 8.9z"/></svg> macOS</span>
-          <span class="plat"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4.6l8-1.1v8.1H3V4.6zM12 3.4L21.5 2v9.6H12V3.4zM3 12.4h8v8.1l-8-1.1v-7zM12 12.4h9.5V22L12 20.6v-8.2z"/></svg> Windows</span>
+          <a class="plat" href="https://github.com/mengbingrock/BigSur/releases/download/v0.1.0/Labee-0.1.0-arm64.dmg">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 1.6c0 1.1-.45 2.18-1.18 2.96-.8.86-2.1 1.5-3.18 1.42-.13-1.07.42-2.2 1.1-2.93.78-.84 2.16-1.46 3.26-1.45zM20.5 17.2c-.6 1.38-.9 2-1.66 3.22-1.07 1.7-2.58 3.82-4.45 3.84-1.66.02-2.09-1.08-4.35-1.07-2.26.01-2.73 1.09-4.4 1.07-1.86-.02-3.29-1.94-4.36-3.64C-1.2 15.9-1.5 9.6 1.36 6.26 2.42 5.02 3.97 4.2 5.62 4.18c1.7-.03 2.77 1.08 4.18 1.08 1.37 0 2.2-1.08 4.18-1.08 1.42 0 2.93.78 4 2.12-3.52 1.93-2.95 6.96.52 8.9z"/></svg>
+            <span><span class="pl-name">Download for Mac</span><span class="pl-sub">Apple Silicon · .dmg</span></span>
+          </a>
+          <a class="plat" href="https://github.com/mengbingrock/BigSur/releases/download/v0.1.0/Labee-0.1.0.dmg">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 1.6c0 1.1-.45 2.18-1.18 2.96-.8.86-2.1 1.5-3.18 1.42-.13-1.07.42-2.2 1.1-2.93.78-.84 2.16-1.46 3.26-1.45zM20.5 17.2c-.6 1.38-.9 2-1.66 3.22-1.07 1.7-2.58 3.82-4.45 3.84-1.66.02-2.09-1.08-4.35-1.07-2.26.01-2.73 1.09-4.4 1.07-1.86-.02-3.29-1.94-4.36-3.64C-1.2 15.9-1.5 9.6 1.36 6.26 2.42 5.02 3.97 4.2 5.62 4.18c1.7-.03 2.77 1.08 4.18 1.08 1.37 0 2.2-1.08 4.18-1.08 1.42 0 2.93.78 4 2.12-3.52 1.93-2.95 6.96.52 8.9z"/></svg>
+            <span><span class="pl-name">Download for Mac</span><span class="pl-sub">Intel · .dmg</span></span>
+          </a>
+          <a class="plat" href="https://github.com/mengbingrock/BigSur/releases">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4.6l8-1.1v8.1H3V4.6zM12 3.4L21.5 2v9.6H12V3.4zM3 12.4h8v8.1l-8-1.1v-7zM12 12.4h9.5V22L12 20.6v-8.2z"/></svg>
+            <span><span class="pl-name">Windows</span><span class="pl-sub">build from source</span></span>
+          </a>
         </div>
-        <p class="note">Built with Electron. Unsigned local builds may show an OS warning on first launch.</p>
+        <p class="note">macOS builds are unsigned — on first launch, right-click the app and choose <strong>Open</strong> to get past Gatekeeper. All downloads on the <a href="https://github.com/mengbingrock/BigSur/releases" style="color:inherit;text-decoration:underline">releases page</a>.</p>
       </div>
       <div class="reveal">
         <div class="codeblock"><span class="c"># clone & build the desktop app</span>
