@@ -127,6 +127,9 @@ type CommentData = {
   /** Set once when the node is first added so the renderer can auto-focus
    *  the textarea; cleared immediately after focusing. */
   justCreated?: boolean;
+  /** True after the comment has been submitted to the chat. Reset when the
+   *  user edits the text, so an updated comment can be re-sent. */
+  sent?: boolean;
 } & Record<string, unknown>;
 
 type CommentNode = Node<CommentData, "comment">;
@@ -1061,12 +1064,63 @@ const PendingQuestionNodeComponent = memo(function PendingQuestionNodeComponent(
   );
 });
 
+// Compact, human-readable description of a node, used when a comment is
+// submitted to chat so the LLM knows exactly what content the user is
+// commenting about.
+function describeCanvasNode(n: Node): string {
+  const t = (n.type as string) ?? "default";
+  const d = n.data as Record<string, unknown> | undefined;
+  const str = (v: unknown) =>
+    typeof v === "string" ? v.replace(/\n/g, " ").trim() : "";
+  if (t === "step") {
+    const label = str(d?.label) || "(unlabelled step)";
+    const summary = str(d?.summary);
+    return `step: "${label}"${summary ? ` — ${summary}` : ""}`;
+  }
+  if (t === "singleChoice" || t === "multiChoice") {
+    const label = str(d?.label) || "(no question)";
+    const options = Array.isArray(d?.options) ? (d!.options as string[]) : [];
+    const opts = options
+      .map((o, i) => (o?.trim() ? o.trim() : `Option ${i + 1}`))
+      .join(", ");
+    let picked = "";
+    if (t === "singleChoice" && typeof d?.value === "number") {
+      picked = options[d.value as number] ?? "";
+    }
+    if (t === "multiChoice" && Array.isArray(d?.values)) {
+      picked = (d!.values as number[])
+        .map((i) => options[i])
+        .filter(Boolean)
+        .join(", ");
+    }
+    const kind = t === "multiChoice" ? "multi-choice" : "single-choice";
+    return `${kind}: "${label}" [${opts}]${picked ? ` — picked: ${picked}` : ""}`;
+  }
+  if (t === "pendingQuestion") {
+    const q = str(d?.question);
+    const ans = d?.answer;
+    const ansStr =
+      ans == null
+        ? ""
+        : Array.isArray(ans)
+          ? ` — answered: ${ans.join(", ")}`
+          : ` — answered: ${ans}`;
+    return `question: "${q}"${ansStr}`;
+  }
+  if (t === "comment") {
+    return `another comment: "${str(d?.text)}"`;
+  }
+  const label = str(d?.label);
+  return label ? `node: "${label}"` : `node [${n.id}]`;
+}
+
 const CommentNodeComponent = memo(function CommentNodeComponent({
   id,
   data,
   selected,
 }: NodeProps<CommentNode>) {
-  const { setNodes } = useReactFlow();
+  const { setNodes, getNodes, getEdges } = useReactFlow();
+  const ctx = useContext(CanvasInteractionContext);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   function patch(partial: Partial<CommentData>) {
     setNodes((nds) =>
@@ -1101,6 +1155,43 @@ const CommentNodeComponent = memo(function CommentNodeComponent({
     const i = COMMENT_COLORS.indexOf(color);
     patch({ color: COMMENT_COLORS[(i + 1) % COMMENT_COLORS.length] });
   }
+
+  const text = (data.text ?? "").trim();
+  const canSubmit = text.length > 0 && !data.sent && Boolean(ctx.onSendToChat);
+
+  // Submit the comment as a new chat turn. Gather the nodes this comment is
+  // tethered to (annotation edges, either direction) and describe them so the
+  // LLM responds to the comment with full awareness of what it's about.
+  function onSubmit() {
+    if (!canSubmit || !ctx.onSendToChat) return;
+    const edges = getEdges();
+    const relatedIds = new Set<string>();
+    for (const e of edges) {
+      if (e.source === id) relatedIds.add(e.target);
+      if (e.target === id) relatedIds.add(e.source);
+    }
+    const related = getNodes().filter(
+      (n) => n.id !== id && relatedIds.has(n.id),
+    );
+    const lines: string[] = [];
+    lines.push("The user left a comment on the canvas:");
+    lines.push("");
+    lines.push(`> ${text.replace(/\n/g, "\n> ")}`);
+    if (related.length > 0) {
+      lines.push("");
+      lines.push("The comment is attached to this selected canvas content:");
+      for (const n of related) lines.push(`- ${describeCanvasNode(n)}`);
+    }
+    lines.push("");
+    lines.push(
+      related.length > 0
+        ? "Please respond to the user's comment, taking the attached content into account."
+        : "Please respond to the user's comment.",
+    );
+    ctx.onSendToChat(lines.join("\n"));
+    patch({ sent: true });
+  }
+
   return (
     <div
       className={`relative w-[180px] rounded-md border border-amber-400/70 px-2.5 py-2 text-[12px] text-ink shadow-sm ${
@@ -1132,7 +1223,10 @@ const CommentNodeComponent = memo(function CommentNodeComponent({
         ref={textareaRef}
         className="nodrag w-full resize-none bg-transparent text-[12px] leading-snug text-ink placeholder:text-amber-700/50 focus:outline-none"
         value={data.text ?? ""}
-        onChange={(e) => patch({ text: e.target.value })}
+        // Editing after a send re-enables Submit so the updated comment can go.
+        onChange={(e) =>
+          patch({ text: e.target.value, ...(data.sent ? { sent: false } : {}) })
+        }
         onMouseDown={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
         rows={Math.max(
@@ -1141,6 +1235,30 @@ const CommentNodeComponent = memo(function CommentNodeComponent({
         )}
         placeholder="Write a comment…"
       />
+      <div className="mt-1.5 flex items-center justify-end">
+        <button
+          type="button"
+          className="nodrag inline-flex items-center gap-1 border border-amber-600 bg-amber-600 px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:border-amber-300 disabled:bg-amber-200 disabled:text-amber-700/60"
+          disabled={!canSubmit}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSubmit();
+          }}
+          title={
+            !ctx.onSendToChat
+              ? "Sending is unavailable here"
+              : data.sent
+                ? "Already sent — edit the comment to send an update"
+                : text.length === 0
+                  ? "Write a comment first"
+                  : "Send this comment (and the content it's attached to) to the chat"
+          }
+        >
+          {data.sent ? "Sent ✓" : "Submit ↗"}
+        </button>
+      </div>
     </div>
   );
 });
