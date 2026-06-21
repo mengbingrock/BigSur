@@ -8,3 +8,6 @@ out/
 next-env.d.ts
 tsconfig.tsbuildinfo
 data/
+
+# Electron build output
+release/

@@ -15,7 +15,12 @@ export interface PublicUser {
   createdAt: string;
 }
 
-const DATA_DIR = path.join(process.cwd(), "data");
+// Writable data location. Defaults to ./data relative to the working dir,
+// but can be redirected via MONTEREY_DATA_DIR — the Electron desktop build
+// points this at the OS per-user data folder, since the app bundle itself is
+// read-only.
+const DATA_DIR =
+  process.env.MONTEREY_DATA_DIR || path.join(process.cwd(), "data");
 const USERS_FILE = path.join(DATA_DIR, "users.json");
 
 interface UsersFile {
