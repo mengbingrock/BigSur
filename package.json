@@ -19,8 +19,8 @@
     "dist:dir": "npm run build && npm run electron:prepare && electron-builder --dir"
   },
   "build": {
-    "appId": "com.monterey.desktop",
-    "productName": "Monterey",
+    "appId": "com.labee.desktop",
+    "productName": "Labee",
     "directories": {
       "output": "release",
       "buildResources": "build"

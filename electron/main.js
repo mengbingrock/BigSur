@@ -143,7 +143,7 @@ async function createWindow() {
     height: 900,
     minWidth: 900,
     minHeight: 600,
-    title: "Monterey",
+    title: "Labee",
     backgroundColor: "#ffffff",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
