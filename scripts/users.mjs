@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
-// Backend user-management CLI for the Monterey chatbot.
+// Backend user-management CLI for Labee.
 //
 // Usage:
 //   node scripts/users.mjs list
@@ -10,37 +10,42 @@
 //   node scripts/users.mjs promote <email>
 //   node scripts/users.mjs demote <email>
 //
-// Reads/writes data/users.json (the same file the web app uses).
+// Operates on the same SQLite store the server uses (node:sqlite, no native
+// deps). Override the location with LABEE_DB_PATH or LABEE_DATA_DIR.
 
-import fs from "node:fs/promises";
+import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
+import { DatabaseSync } from "node:sqlite";
 import bcrypt from "bcryptjs";
 
-const DATA_DIR = path.resolve("data");
-const USERS_FILE = path.join(DATA_DIR, "users.json");
+const DATA_DIR =
+  process.env.LABEE_DATA_DIR || process.env.MONTEREY_DATA_DIR || path.resolve("data");
+const DB_PATH = process.env.LABEE_DB_PATH || path.join(DATA_DIR, "labee.sqlite");
 
-async function readUsers() {
-  try {
-    const raw = await fs.readFile(USERS_FILE, "utf8");
-    const parsed = JSON.parse(raw);
-    const users = Array.isArray(parsed.users) ? parsed.users : [];
-    for (const u of users) {
-      if (typeof u.isAdmin !== "boolean") u.isAdmin = false;
-    }
-    return { users };
-  } catch (err) {
-    if (err.code === "ENOENT") return { users: [] };
-    throw err;
-  }
+function openDb() {
+  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+  const db = new DatabaseSync(DB_PATH);
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, password_hash TEXT NOT NULL, " +
+      "is_admin INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);",
+  );
+  return db;
 }
 
-async function writeUsers(file) {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  const tmp = USERS_FILE + ".tmp";
-  await fs.writeFile(tmp, JSON.stringify(file, null, 2), { mode: 0o600 });
-  await fs.rename(tmp, USERS_FILE);
+const db = openDb();
+
+function listUsers() {
+  return db
+    .prepare("SELECT email, is_admin, created_at FROM users ORDER BY created_at ASC")
+    .all()
+    .map((r) => ({ email: r.email, isAdmin: Number(r.is_admin) === 1, createdAt: r.created_at }));
 }
+const userExists = (email) => Boolean(db.prepare("SELECT 1 FROM users WHERE email = ?").get(email));
+const otherAdmins = (email) =>
+  Number(
+    db.prepare("SELECT COUNT(*) AS n FROM users WHERE email != ? AND is_admin = 1").get(email).n,
+  );
 
 function normalize(email) {
   return String(email).trim().toLowerCase();
@@ -48,21 +53,15 @@ function normalize(email) {
 
 function validateEmail(email) {
   const e = normalize(email);
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
-    throw new Error(`Invalid email: ${email}`);
-  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw new Error(`Invalid email: ${email}`);
   return e;
 }
 
-/** Read a password from stdin without echoing characters. Falls back to
- *  visible input if raw mode isn't available (e.g. piped stdin). */
 function readHiddenPassword(promptText = "Password: ") {
   return new Promise((resolve) => {
     process.stdout.write(promptText);
     const stdin = process.stdin;
-    const isTTY = stdin.isTTY;
-    if (!isTTY) {
-      // Non-interactive fallback — read one line.
+    if (!stdin.isTTY) {
       const rl = readline.createInterface({ input: stdin, output: process.stdout });
       rl.question("", (line) => {
         rl.close();
@@ -84,11 +83,10 @@ function readHiddenPassword(promptText = "Password: ") {
           resolve(value);
           return;
         } else if (ch === "") {
-          // Ctrl-C
           stdin.setRawMode(false);
           process.stdout.write("\n");
           process.exit(130);
-        } else if (ch === "" || ch === "") {
+        } else if (ch === "" || ch === "\b") {
           if (value.length > 0) value = value.slice(0, -1);
         } else {
           value += ch;
@@ -120,94 +118,63 @@ function pad(str, len) {
   return s.length >= len ? s : s + " ".repeat(len - s.length);
 }
 
-async function cmdList() {
-  const { users } = await readUsers();
+function cmdList() {
+  const users = listUsers();
   if (users.length === 0) {
     console.log("(no users)");
     return;
   }
-  const sorted = users
-    .slice()
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  const emailW = Math.max(5, ...sorted.map((u) => u.email.length));
+  const emailW = Math.max(5, ...users.map((u) => u.email.length));
   console.log(pad("EMAIL", emailW), " ", pad("ROLE", 6), " ", "CREATED");
   console.log("-".repeat(emailW), " ", "-".repeat(6), " ", "-".repeat(23));
-  for (const u of sorted) {
-    console.log(
-      pad(u.email, emailW),
-      " ",
-      pad(u.isAdmin ? "admin" : "user", 6),
-      " ",
-      formatDate(u.createdAt),
-    );
+  for (const u of users) {
+    console.log(pad(u.email, emailW), " ", pad(u.isAdmin ? "admin" : "user", 6), " ", formatDate(u.createdAt));
   }
-  console.log(`\n${sorted.length} user(s).`);
+  console.log(`\n${users.length} user(s).`);
 }
 
 async function cmdCreate(rawEmail, flags) {
   const email = validateEmail(rawEmail);
-  const file = await readUsers();
-  if (file.users.find((u) => u.email === email)) {
-    throw new Error(`User ${email} already exists.`);
-  }
+  if (userExists(email)) throw new Error(`User ${email} already exists.`);
   const password = await promptPasswordTwice();
-  const isAdmin = flags.has("--admin") || file.users.length === 0;
+  const isAdmin = flags.has("--admin") || listUsers().length === 0;
   const passwordHash = await bcrypt.hash(password, 10);
-  file.users.push({
-    email,
-    passwordHash,
-    isAdmin,
-    createdAt: new Date().toISOString(),
-  });
-  await writeUsers(file);
+  db.prepare(
+    "INSERT INTO users (email, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?)",
+  ).run(email, passwordHash, isAdmin ? 1 : 0, new Date().toISOString());
   console.log(`Created ${email}${isAdmin ? " (admin)" : ""}.`);
 }
 
-async function cmdDelete(rawEmail) {
+function cmdDelete(rawEmail) {
   const email = validateEmail(rawEmail);
-  const file = await readUsers();
-  const before = file.users.length;
-  file.users = file.users.filter((u) => u.email !== email);
-  if (file.users.length === before) throw new Error(`User ${email} not found.`);
-  await writeUsers(file);
+  if (!userExists(email)) throw new Error(`User ${email} not found.`);
+  db.prepare("DELETE FROM users WHERE email = ?").run(email);
   console.log(`Deleted ${email}.`);
 }
 
 async function cmdResetPassword(rawEmail) {
   const email = validateEmail(rawEmail);
-  const file = await readUsers();
-  const user = file.users.find((u) => u.email === email);
-  if (!user) throw new Error(`User ${email} not found.`);
+  if (!userExists(email)) throw new Error(`User ${email} not found.`);
   const password = await promptPasswordTwice();
-  user.passwordHash = await bcrypt.hash(password, 10);
-  await writeUsers(file);
+  const passwordHash = await bcrypt.hash(password, 10);
+  db.prepare("UPDATE users SET password_hash = ? WHERE email = ?").run(passwordHash, email);
   console.log(`Password reset for ${email}.`);
 }
 
-async function cmdSetAdmin(rawEmail, makeAdmin) {
+function cmdSetAdmin(rawEmail, makeAdmin) {
   const email = validateEmail(rawEmail);
-  const file = await readUsers();
-  const user = file.users.find((u) => u.email === email);
-  if (!user) throw new Error(`User ${email} not found.`);
-  if (!makeAdmin) {
-    const otherAdmins = file.users.filter(
-      (u) => u.email !== email && u.isAdmin,
-    ).length;
-    if (otherAdmins === 0) {
-      throw new Error(
-        "Refusing to demote the last admin. Promote another user first.",
-      );
-    }
+  if (!userExists(email)) throw new Error(`User ${email} not found.`);
+  if (!makeAdmin && otherAdmins(email) === 0) {
+    throw new Error("Refusing to demote the last admin. Promote another user first.");
   }
-  user.isAdmin = makeAdmin;
-  await writeUsers(file);
+  db.prepare("UPDATE users SET is_admin = ? WHERE email = ?").run(makeAdmin ? 1 : 0, email);
   console.log(`${email} is now ${makeAdmin ? "an admin" : "a regular user"}.`);
 }
 
 function printUsage() {
   console.log(
     [
-      "Monterey user management",
+      "Labee user management",
       "",
       "Commands:",
       "  list                         list all users",
@@ -217,7 +184,7 @@ function printUsage() {
       "  promote <email>              make the user an admin",
       "  demote <email>               revoke admin",
       "",
-      "Users are stored in data/users.json with bcrypt-hashed passwords.",
+      `Users are stored in ${DB_PATH} with bcrypt-hashed passwords.`,
     ].join("\n"),
   );
 }
@@ -234,7 +201,7 @@ async function main() {
 
   switch (cmd) {
     case "list":
-      await cmdList();
+      cmdList();
       break;
     case "create":
       if (!args[0]) throw new Error("Usage: create <email> [--admin]");
@@ -242,7 +209,7 @@ async function main() {
       break;
     case "delete":
       if (!args[0]) throw new Error("Usage: delete <email>");
-      await cmdDelete(args[0]);
+      cmdDelete(args[0]);
       break;
     case "reset-password":
     case "reset":
@@ -251,11 +218,11 @@ async function main() {
       break;
     case "promote":
       if (!args[0]) throw new Error("Usage: promote <email>");
-      await cmdSetAdmin(args[0], true);
+      cmdSetAdmin(args[0], true);
       break;
     case "demote":
       if (!args[0]) throw new Error("Usage: demote <email>");
-      await cmdSetAdmin(args[0], false);
+      cmdSetAdmin(args[0], false);
       break;
     default:
       printUsage();
