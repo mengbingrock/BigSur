@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "bun run src/bin.ts",
-    "build": "tsdown src/bin.ts --format esm --clean --out-dir dist",
+    "build": "tsdown",
     "start": "node dist/bin.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
