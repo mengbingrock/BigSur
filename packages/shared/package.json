@@ -1,0 +1,36 @@
+{
+  "name": "@labee/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./deck": {
+      "types": "./src/deck.ts",
+      "import": "./src/deck.ts"
+    },
+    "./slug": {
+      "types": "./src/slug.ts",
+      "import": "./src/slug.ts"
+    },
+    "./format": {
+      "types": "./src/format.ts",
+      "import": "./src/format.ts"
+    },
+    "./utils": {
+      "types": "./src/utils.ts",
+      "import": "./src/utils.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@labee/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
