@@ -3,6 +3,7 @@
   "compilerOptions": {
     "noEmit": true,
     "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": false,
     "jsx": "react-jsx",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node", "vite/client"],
