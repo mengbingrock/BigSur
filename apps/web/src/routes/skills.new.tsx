@@ -1,15 +1,22 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import SkillEditor from "~/components/SkillEditor";
+import { useCurrentUser } from "~/lib/auth";
 
 export const Route = createFileRoute("/skills/new")({
   component: NewSkillPage,
 });
 
 function NewSkillPage() {
-  // Placeholder — the artifact editor is ported in a following step.
-  return (
-    <div className="mx-auto max-w-2xl px-6 py-24 text-center text-muted">
-      <h1 className="font-serif text-3xl text-ink">New artifact</h1>
-      <p className="mt-4 text-sm">The artifact editor is being ported.</p>
-    </div>
-  );
+  const navigate = useNavigate();
+  const { data: user, isLoading } = useCurrentUser();
+
+  useEffect(() => {
+    if (!isLoading && !user) navigate({ to: "/login", search: { next: "/skills/new" } });
+  }, [isLoading, user, navigate]);
+
+  if (isLoading || !user) {
+    return <p className="mx-auto max-w-3xl px-6 py-16 text-sm text-muted">Loading…</p>;
+  }
+  return <SkillEditor mode="create" />;
 }

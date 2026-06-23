@@ -51,9 +51,9 @@ export const createUserRoute = HttpRouter.add(
   }),
 );
 
-/** PUT /api/admin/users/:email — update admin flag and/or password. */
+/** POST /api/admin/users/:email — update admin flag and/or password. */
 export const updateUserRoute = HttpRouter.add(
-  "PUT",
+  "POST",
   "/api/admin/users/:email",
   Effect.gen(function* () {
     const guard = yield* requireAdmin;
