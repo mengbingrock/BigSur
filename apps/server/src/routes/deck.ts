@@ -1,5 +1,6 @@
 import { Effect } from "effect";
-import { HttpRouter } from "effect/unstable/http";
+import { HttpRouter, HttpServerResponse } from "effect/unstable/http";
+import Mime from "@effect/platform-node/Mime";
 import { attempt, bodyJson, error, requestUrl, sessionUser } from "../httpKit";
 
 const params = HttpRouter.params;
@@ -9,6 +10,8 @@ import {
   getMaxUploadBytes,
   listDeck,
   listDeckSubdir,
+  readDeckFile,
+  saveDeckFile,
 } from "../services/deck";
 import { createProject, listProjects } from "../services/projects";
 
@@ -44,6 +47,58 @@ export const createDeckDirRoute = HttpRouter.add(
       await createDeckDir(user.email, body.name);
       return { ok: true };
     });
+  }),
+);
+
+/** GET /api/deck/file?path=… — download a deck file (binary). */
+export const downloadDeckFileRoute = HttpRouter.add(
+  "GET",
+  "/api/deck/file",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const url = yield* requestUrl;
+    const rel = url.searchParams.get("path");
+    if (!rel) return yield* error("path is required.", 400);
+    const file = yield* Effect.tryPromise({
+      try: () => readDeckFile(user.email, rel),
+      catch: (e) => e,
+    }).pipe(Effect.map((f) => ({ ok: true as const, f })), Effect.catch(() =>
+      Effect.succeed({ ok: false as const }),
+    ));
+    if (!file.ok) return yield* error("File not found.", 404);
+    const contentType = Mime.getType(rel) ?? "application/octet-stream";
+    return HttpServerResponse.uint8Array(new Uint8Array(file.f.data), {
+      status: 200,
+      contentType,
+    });
+  }),
+);
+
+/** POST /api/deck/upload — JSON { name, contentBase64, subdir? }. The SPA
+ *  controls both ends, so a base64 body avoids multipart parsing. */
+export const uploadDeckFileRoute = HttpRouter.add(
+  "POST",
+  "/api/deck/upload",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const body = yield* safeBody<{ name: string; contentBase64: string; subdir?: string }>();
+    if (!body?.name || typeof body.contentBase64 !== "string") {
+      return yield* error("name and contentBase64 are required.", 400);
+    }
+    const data = Buffer.from(body.contentBase64, "base64");
+    if (data.byteLength > getMaxUploadBytes()) {
+      return yield* error("File exceeds the upload size limit.", 413);
+    }
+    return yield* attempt(async () => ({
+      file: await saveDeckFile(
+        user.email,
+        body.name,
+        data,
+        body.subdir ? { subdir: body.subdir } : undefined,
+      ),
+    }));
   }),
 );
 
@@ -87,6 +142,8 @@ export const createProjectRoute = HttpRouter.add(
 );
 
 export const deckRoutes = [
+  uploadDeckFileRoute,
+  downloadDeckFileRoute,
   createDeckDirRoute,
   listDeckRoute,
   deleteDeckEntryRoute,
