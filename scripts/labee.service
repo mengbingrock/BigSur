@@ -1,19 +1,20 @@
 [Unit]
-Description=Monterey chatbot (Next.js)
+Description=Labee server (Effect HTTP)
 After=network.target
 
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/home/ubuntu/agent-monterey
-EnvironmentFile=/home/ubuntu/agent-monterey/.env.production
+WorkingDirectory=/home/ubuntu/labee
+EnvironmentFile=/home/ubuntu/labee/.env.production
 # Claude CLI is a global npm; ensure /usr/bin and user-local are on PATH.
 Environment=PATH=/home/ubuntu/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=NODE_OPTIONS=--max-old-space-size=384
-ExecStart=/usr/bin/npm run start --silent
+Environment=LABEE_PORT=3000
+# Self-contained bundle; node:sqlite + filesystem state under LABEE_DATA_DIR.
+ExecStart=/usr/bin/node apps/server/dist/bin.mjs
 Restart=on-failure
 RestartSec=5
-# Limit resource leaks if the CLI subprocess gets stuck.
 TimeoutStopSec=30
 KillMode=mixed
 

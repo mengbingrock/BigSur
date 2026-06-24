@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy Monterey to a Lightsail / Ubuntu box.
+# Deploy Labee to a Lightsail / Ubuntu box.
 #
 # Usage:
 #   SSH_HOST=1.2.3.4 ./scripts/deploy.sh # required
@@ -7,7 +7,7 @@
 # Other env vars (with defaults):
 #   SSH_USER=ubuntu
 #   SSH_KEY=$HOME/Downloads/lightsail.pem
-#   REMOTE_DIR=/home/ubuntu/agent-monterey
+#   REMOTE_DIR=/home/ubuntu/labee
 #
 # Requires: rsync, ssh, an SSH key that can log into SSH_HOST.
 #
@@ -27,12 +27,12 @@ set -euo pipefail
 
 # --- Config ---------------------------------------------------------------
 SSH_HOST="${SSH_HOST:-}"
-[ -n "$SSH_HOST" ] || { printf '\033[31mSSH_HOST is required (e.g. SSH_HOST=1.2.3.4 npm run deploy)\033[0m\n' >&2; exit 1; }
+[ -n "$SSH_HOST" ] || { printf '\033[31mSSH_HOST is required (e.g. SSH_HOST=1.2.3.4 bun run deploy)\033[0m\n' >&2; exit 1; }
 SSH_USER="${SSH_USER:-ubuntu}"
 SSH_KEY="${SSH_KEY:-$HOME/Downloads/lightsail.pem}"
-REMOTE_DIR="${REMOTE_DIR:-/home/ubuntu/agent-monterey}"
+REMOTE_DIR="${REMOTE_DIR:-/home/ubuntu/labee}"
 REMOTE_SKILLS_DIR="${REMOTE_SKILLS_DIR:-/home/ubuntu/protocol-skills}"
-REMOTE_DECK_DIR="${REMOTE_DECK_DIR:-/home/ubuntu/monterey-decks}"
+REMOTE_DECK_DIR="${REMOTE_DECK_DIR:-/home/ubuntu/labee-decks}"
 LOCAL_SKILLS_DIR="${LOCAL_SKILLS_DIR:-$HOME/WorkSync/Git/protocol-agent/.claude/skills}"
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -109,7 +109,7 @@ Next steps (one-time):
   3. Create your first admin account (public signup is disabled by default):
        ssh -i $SSH_KEY $SSH_USER@$SSH_HOST
        cd $REMOTE_DIR
-       npm run user create you@example.com --admin
+       bun run user create you@example.com --admin
 
   4. Open http://$SSH_HOST:3000 in a browser, sign in.
 
@@ -117,5 +117,5 @@ Next steps (one-time):
          a personal test, add HTTPS (see DEPLOY.md).
 
 Check service status any time with:
-  ssh -i $SSH_KEY $SSH_USER@$SSH_HOST 'sudo systemctl status monterey --no-pager; sudo journalctl -u monterey -n 30 --no-pager'
+  ssh -i $SSH_KEY $SSH_USER@$SSH_HOST 'sudo systemctl status labee --no-pager; sudo journalctl -u labee -n 30 --no-pager'
 EOF

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Provision an Ubuntu box for Monterey. Idempotent — safe to re-run.
+# Provision an Ubuntu box for Labee. Idempotent — safe to re-run.
 #
 # Runs ON THE SERVER, invoked by scripts/deploy.sh. Don't run this from your
 # laptop.
@@ -59,19 +59,26 @@ sudo apt-get install -y -qq \
 ok "apt packages installed"
 
 # --- Node.js 20 ----------------------------------------------------------
-bold "[3/6] Ensuring Node.js 20"
+bold "[3/6] Ensuring Node.js 24 + Bun"
 if command -v node >/dev/null 2>&1; then
   NODE_MAJOR=$(node -v | sed 's/^v//;s/\..*//')
 else
   NODE_MAJOR=0
 fi
-if [ "$NODE_MAJOR" -ge 20 ]; then
+if [ "$NODE_MAJOR" -ge 24 ]; then
   skip "Node $(node -v) already installed"
 else
-  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - >/dev/null 2>&1
+  curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash - >/dev/null 2>&1
   sudo apt-get install -y -qq nodejs >/dev/null
   ok "installed Node $(node -v)"
 fi
+if command -v bun >/dev/null 2>&1 || [ -x "$HOME/.bun/bin/bun" ]; then
+  skip "Bun already installed"
+else
+  curl -fsSL https://bun.sh/install | bash >/dev/null 2>&1
+  ok "installed Bun"
+fi
+export PATH="$HOME/.bun/bin:$PATH"
 
 # --- Claude CLI ----------------------------------------------------------
 bold "[4/6] Installing @anthropic-ai/claude-code"
@@ -121,11 +128,11 @@ fi
 
 # --- systemd unit --------------------------------------------------------
 bold "[6/6] Installing systemd unit"
-UNIT_PATH=/etc/systemd/system/monterey.service
-if [ ! -f "$UNIT_PATH" ] || ! diff -q "$APP_DIR/scripts/monterey.service" "$UNIT_PATH" >/dev/null 2>&1; then
-  sudo cp "$APP_DIR/scripts/monterey.service" "$UNIT_PATH"
+UNIT_PATH=/etc/systemd/system/labee.service
+if [ ! -f "$UNIT_PATH" ] || ! diff -q "$APP_DIR/scripts/labee.service" "$UNIT_PATH" >/dev/null 2>&1; then
+  sudo cp "$APP_DIR/scripts/labee.service" "$UNIT_PATH"
   sudo systemctl daemon-reload
-  sudo systemctl enable monterey >/dev/null 2>&1
+  sudo systemctl enable labee >/dev/null 2>&1
   ok "systemd unit installed + enabled"
 else
   skip "systemd unit up to date"
