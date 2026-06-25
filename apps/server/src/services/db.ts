@@ -44,6 +44,18 @@ async function openDb(): Promise<SqlDb> {
       "is_admin INTEGER NOT NULL DEFAULT 0, " +
       "created_at TEXT NOT NULL);",
   );
+  // Per-user LLM provider/model selection and (encrypted) own credentials.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS user_llm_settings (" +
+      "email TEXT PRIMARY KEY, " +
+      "provider TEXT NOT NULL DEFAULT 'anthropic', " +
+      "model TEXT NOT NULL DEFAULT 'opus', " +
+      "anthropic_mode TEXT NOT NULL DEFAULT 'provided', " +
+      "openai_mode TEXT NOT NULL DEFAULT 'own_api_key', " +
+      "anthropic_api_key_enc TEXT, " +
+      "openai_api_key_enc TEXT, " +
+      "updated_at TEXT NOT NULL);",
+  );
   importLegacyUsersJson(db);
   return db;
 }

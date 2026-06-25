@@ -5,6 +5,7 @@ import { chatRoute } from "./routes/chat";
 import { deckRoutes } from "./routes/deck";
 import { extractChoicesRoute } from "./routes/extractChoices";
 import { llmEditRoute } from "./routes/llmEdit";
+import { llmRoutes } from "./routes/llmSettings";
 import { skillsRoutes } from "./routes/skills";
 import { staticRoute } from "./routes/static";
 
@@ -14,6 +15,7 @@ export const routesLayer = Layer.mergeAll(
   ...adminRoutes,
   ...skillsRoutes,
   ...deckRoutes,
+  ...llmRoutes,
   chatRoute,
   extractChoicesRoute,
   llmEditRoute,

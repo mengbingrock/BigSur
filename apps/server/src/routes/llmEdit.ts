@@ -1,11 +1,10 @@
-import { spawn } from "node:child_process";
 import { Effect } from "effect";
 import { HttpRouter } from "effect/unstable/http";
 import { bodyJson, error, json, sessionUser } from "../httpKit";
 import { getSkillBySlug } from "../services/skills";
+import { completeText } from "../services/complete";
 
 const params = HttpRouter.params;
-const CLAUDE_BIN = process.env.CLAUDE_BIN || "claude";
 const MAX_INSTRUCTION = 4000;
 const REWRITE_TIMEOUT_MS = 90_000;
 const SUMMARY_SENTINEL = "---END-OF-SUMMARY---";
@@ -36,52 +35,6 @@ function buildRewritePrompt(body: string, instruction: string): string {
   ].join("\n");
 }
 
-interface RunResult {
-  text: string;
-  exitCode: number;
-  stderr: string;
-}
-
-function runClaudeRewrite(prompt: string, systemPrompt: string): Promise<RunResult> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(
-      CLAUDE_BIN,
-      [
-        "-p", prompt,
-        "--system-prompt", systemPrompt,
-        "--model", "haiku",
-        "--tools", "",
-        "--output-format", "text",
-        "--no-session-persistence",
-        "--permission-mode", "bypassPermissions",
-        "--effort", "low",
-      ],
-      { stdio: ["ignore", "pipe", "pipe"] },
-    );
-    let stdout = "";
-    let stderr = "";
-    let killed = false;
-    const timer = setTimeout(() => {
-      killed = true;
-      proc.kill("SIGKILL");
-    }, REWRITE_TIMEOUT_MS);
-    proc.stdout.on("data", (d: Buffer) => (stdout += d.toString("utf8")));
-    proc.stderr.on("data", (d: Buffer) => (stderr += d.toString("utf8")));
-    proc.on("error", (err) => {
-      clearTimeout(timer);
-      reject(err);
-    });
-    proc.on("close", (code) => {
-      clearTimeout(timer);
-      if (killed) {
-        reject(new Error(`LLM rewrite timed out after ${REWRITE_TIMEOUT_MS / 1000} s.`));
-        return;
-      }
-      resolve({ text: stdout, exitCode: code ?? -1, stderr });
-    });
-  });
-}
-
 /** POST /api/artifacts/:slug/llm-edit — propose a rewritten artifact body
  *  (summary + proposed). Persistence stays gated to PUT /api/skills/:slug. */
 export const llmEditRoute = HttpRouter.add(
@@ -110,24 +63,27 @@ export const llmEditRoute = HttpRouter.add(
     }
 
     const result = yield* Effect.tryPromise({
-      try: () => runClaudeRewrite(buildRewritePrompt(skill.body, instruction), REWRITE_SYSTEM_PROMPT),
+      try: () =>
+        completeText({
+          email: user.email,
+          system: REWRITE_SYSTEM_PROMPT,
+          user: buildRewritePrompt(skill.body, instruction),
+          effort: "low",
+          timeoutMs: REWRITE_TIMEOUT_MS,
+          anthropicModel: "haiku",
+          openaiModel: "gpt-4o-mini",
+        }),
       catch: (e) => e,
     }).pipe(
-      Effect.map((r) => ({ ok: true as const, r })),
+      Effect.map((text) => ({ ok: true as const, text })),
       Effect.catch((e) =>
         Effect.succeed({ ok: false as const, message: e instanceof Error ? e.message : String(e) }),
       ),
     );
     if (!result.ok) return yield* error(result.message, 500);
-    if (result.r.exitCode !== 0) {
-      return yield* error(
-        `claude exited ${result.r.exitCode}. ${result.r.stderr.trim().slice(0, 400)}`,
-        502,
-      );
-    }
 
-    const cleaned = result.r.text.replace(/^﻿/, "").replace(/\s+$/, "");
-    if (!cleaned) return yield* error("claude returned an empty rewrite.", 502);
+    const cleaned = result.text.replace(/^﻿/, "").replace(/\s+$/, "");
+    if (!cleaned) return yield* error("The model returned an empty rewrite.", 502);
 
     let summary = "";
     let proposed = cleaned;

@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { Provider } from "./llm";
 
 /** A single turn on the chat wire (no client-only activity/stats). */
 export const ChatMessageWire = Schema.Struct({
@@ -28,6 +29,10 @@ export const ChatRequest = Schema.Struct({
   /** Per-session artifact body overrides keyed by slug (this turn only). */
   artifactNotes: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   edit: Schema.optional(EditPayload),
+  /** Optional per-turn override of the provider/model; falls back to the
+   *  user's saved LLM settings when omitted. */
+  provider: Schema.optional(Provider),
+  model: Schema.optional(Schema.String),
 });
 export type ChatRequest = typeof ChatRequest.Type;
 

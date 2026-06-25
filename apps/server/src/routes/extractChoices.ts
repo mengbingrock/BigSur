@@ -1,9 +1,8 @@
-import { spawn } from "node:child_process";
 import { Effect } from "effect";
 import { HttpRouter } from "effect/unstable/http";
 import { bodyJson, error, json, sessionUser } from "../httpKit";
+import { completeText } from "../services/complete";
 
-const CLAUDE_BIN = process.env.CLAUDE_BIN || "claude";
 const MAX_TEXT_BYTES = 32 * 1024;
 const TIMEOUT_MS = 150_000;
 
@@ -26,48 +25,6 @@ A choice needs >= 2 options. Materials lead with the assistant's pick and list
 2-6 interchangeable alternatives; appliesTo lists the EXACT choice-option labels
 the reagent is used in (verbatim), or is empty when it applies regardless.
 Output ONLY JSON.`;
-
-function runClaude(
-  userPrompt: string,
-): Promise<{ stdout: string; code: number; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(
-      CLAUDE_BIN,
-      [
-        "-p", userPrompt,
-        "--system-prompt", SYSTEM_PROMPT,
-        "--model", "sonnet",
-        "--tools", "",
-        "--output-format", "text",
-        "--no-session-persistence",
-        "--permission-mode", "bypassPermissions",
-        "--effort", "medium",
-      ],
-      { stdio: ["ignore", "pipe", "pipe"] },
-    );
-    let stdout = "";
-    let stderr = "";
-    let killed = false;
-    const timer = setTimeout(() => {
-      killed = true;
-      proc.kill("SIGKILL");
-    }, TIMEOUT_MS);
-    proc.stdout.on("data", (d: Buffer) => (stdout += d.toString("utf8")));
-    proc.stderr.on("data", (d: Buffer) => (stderr += d.toString("utf8")));
-    proc.on("error", (err) => {
-      clearTimeout(timer);
-      reject(err);
-    });
-    proc.on("close", (code) => {
-      clearTimeout(timer);
-      if (killed) {
-        reject(new Error(`extractor timed out after ${TIMEOUT_MS / 1000}s`));
-        return;
-      }
-      resolve({ stdout, code: code ?? -1, stderr });
-    });
-  });
-}
 
 interface ParsedChoice {
   question: string;
@@ -253,13 +210,19 @@ export const extractChoicesRoute = HttpRouter.add(
 
     const structure = yield* Effect.promise(async () => {
       try {
-        const result = await runClaude(
-          `Assistant's most recent reply (between BEGIN/END):\n\n` +
+        const out = await completeText({
+          email: user.email,
+          system: SYSTEM_PROMPT,
+          user:
+            `Assistant's most recent reply (between BEGIN/END):\n\n` +
             `BEGIN\n${truncated}\nEND\n\n` +
             `Return the JSON now.`,
-        );
-        if (result.code !== 0) return empty;
-        return tryParseStructure(result.stdout);
+          effort: "medium",
+          timeoutMs: TIMEOUT_MS,
+          anthropicModel: "sonnet",
+          openaiModel: "gpt-4o-mini",
+        });
+        return tryParseStructure(out);
       } catch {
         return empty;
       }

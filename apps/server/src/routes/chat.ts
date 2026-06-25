@@ -10,6 +10,11 @@ import { HttpRouter, HttpServerResponse } from "effect/unstable/http";
 import { bodyJson, error, sessionUser } from "../httpKit";
 import { getAllSkills } from "../services/skills";
 import { readDeckFile, userDeckDir } from "../services/deck";
+import { getSettings, resolveCredential } from "../services/llmSettings";
+import { claudeEnvForCredential, validModel } from "../services/llm";
+import { openAIChatStream, type OpenAIChatMessage } from "../services/openai";
+import { codexExecStream } from "../services/codex";
+import type { Provider } from "@labee/contracts";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -27,6 +32,8 @@ interface ChatRequest {
   contextFiles?: string[];
   artifactNotes?: Record<string, string>;
   edit?: EditPayload;
+  provider?: Provider;
+  model?: string;
 }
 
 const CLAUDE_BIN = process.env.CLAUDE_BIN || "claude";
@@ -126,6 +133,12 @@ const SYSTEM_PROMPT =
   "When the user asks you to produce a file (Word doc, spreadsheet, PDF, chart), DO produce it — don't claim you can't. " +
   "You may use the AskUserQuestion tool when the user's request has a few clearly distinct interpretations and disambiguating up front would change your approach. The CLI will report a tool error, but the Labee UI surfaces your questions as interactive cards in the chat, and the user's picks come back as a normal follow-up user message — so go ahead and ask, then continue from those answers when they arrive in the next turn. Don't ask if a single reasonable assumption gets you 90% of the way there; only ask when picking the wrong fork would mean substantial rework. " +
   "Be concise in chat responses. Use markdown when it aids clarity.";
+
+const OPENAI_SYSTEM_PROMPT =
+  "You are a helpful chat assistant inside the Labee skills catalog. " +
+  "You are running as a plain chat model: you do NOT have Bash, file, web, or skill tools in this mode, so do not claim to run commands, read/write files, or produce downloadable documents — answer directly with text and markdown instead. " +
+  "If the user attached files as context this turn, their contents are inlined below between ===CONTEXT FILE=== markers; treat them as authoritative reference. " +
+  "Be concise. Use markdown when it aids clarity.";
 
 const EDIT_SYSTEM_PROMPT =
   "You are a passage-rewriting engine. The user has selected a passage from a longer message and wants only that passage rewritten per their instruction. " +
@@ -301,6 +314,7 @@ function buildChatStream(
   cwd: string,
   args: string[],
   linkedSkillNames: string[],
+  extraEnv: NodeJS.ProcessEnv = {},
 ): ReadableStream<Uint8Array> {
   let proc: ChildProcessByStdio<null, Readable, Readable>;
   const encoder = new TextEncoder();
@@ -311,7 +325,7 @@ function buildChatStream(
         proc = spawn(CLAUDE_BIN, args, {
           cwd,
           stdio: ["ignore", "pipe", "pipe"],
-          env: { ...process.env },
+          env: { ...process.env, ...extraEnv },
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to spawn claude.";
@@ -453,38 +467,92 @@ export const chatRoute = HttpRouter.add(
     const cwd = userDeckDir(email);
     const artifactNotes = mode === "edit" || !body.artifactNotes ? {} : body.artifactNotes;
 
-    const linkedSkillNames = yield* Effect.promise(async () => {
+    const built = yield* Effect.promise(async () => {
       await fs.mkdir(cwd, { recursive: true });
       const names = await linkSelectedSkills(cwd, selectedSkills, artifactNotes);
+      let protocolAddendum = "";
+      let contextAddendum = "";
       if (mode !== "edit") {
         const linkedProtocols = await linkSelectedProtocols(cwd, selectedProtocols, artifactNotes);
         const contextReport = await loadContextFiles(
           email,
           Array.isArray(body.contextFiles) ? body.contextFiles : [],
         );
-        systemPrompt =
-          SYSTEM_PROMPT + buildProtocolAddendum(linkedProtocols) + buildContextAddendum(contextReport);
+        protocolAddendum = buildProtocolAddendum(linkedProtocols);
+        contextAddendum = buildContextAddendum(contextReport);
       }
-      return names;
+      return { names, protocolAddendum, contextAddendum };
+    });
+    const linkedSkillNames = built.names;
+
+    // Resolve which provider/model + credential to run this turn with: an
+    // explicit per-request override wins, else the user's saved settings.
+    const { provider, model, cred } = yield* Effect.promise(async () => {
+      const settings = await getSettings(email);
+      const prov: Provider = body.provider ?? settings.provider;
+      const mdl = validModel(prov, body.model ?? settings.model);
+      const credential = await resolveCredential(email, prov);
+      return { provider: prov, model: mdl, cred: credential };
     });
 
-    const args = [
-      "-p", userPrompt,
-      "--system-prompt", systemPrompt,
-      "--model", "opus",
-      "--tools", mode === "edit" ? "" : "default",
-      "--output-format", "stream-json",
-      "--verbose",
-      "--include-partial-messages",
-      "--permission-mode", "bypassPermissions",
-      "--no-session-persistence",
-      "--setting-sources", mode === "edit" ? "project" : "project,user",
-      "--exclude-dynamic-system-prompt-sections",
-      "--effort", mode === "edit" ? "low" : "high",
-    ];
+    // Provider-specific system prompt. Claude runs the agentic toolset; OpenAI
+    // is a plain chat (no Bash/file tools), so it gets a non-agentic prompt and
+    // skips the protocol addendum (which depends on the Read tool), while still
+    // receiving inlined context-file content.
+    if (mode !== "edit") {
+      systemPrompt =
+        provider === "openai"
+          ? OPENAI_SYSTEM_PROMPT + built.contextAddendum
+          : SYSTEM_PROMPT + built.protocolAddendum + built.contextAddendum;
+    }
+
+    if (cred.unavailable) {
+      return HttpServerResponse.stream(
+        Stream.fromReadableStream({
+          evaluate: () => singleErrorStream(cred.reason ?? "No usable LLM credential."),
+          onError: (cause) => cause,
+        }),
+        { contentType: "text/event-stream; charset=utf-8" },
+      );
+    }
+
+    let makeStream: () => ReadableStream<Uint8Array>;
+    if (provider === "openai" && cred.useCodex) {
+      // ChatGPT subscription → run through the codex CLI (agentic, read-only).
+      makeStream = () =>
+        codexExecStream({
+          prompt: `${systemPrompt}\n\n----\n\n${userPrompt}`,
+          cwd,
+          ...(cred.planLabel ? { planLabel: cred.planLabel } : {}),
+        });
+    } else if (provider === "openai") {
+      const oaMessages: OpenAIChatMessage[] =
+        mode === "edit"
+          ? [{ role: "user", content: userPrompt }]
+          : (body.messages ?? []).map((m) => ({ role: m.role, content: m.content }));
+      makeStream = () =>
+        openAIChatStream({ apiKey: cred.apiKey!, model, system: systemPrompt, messages: oaMessages });
+    } else {
+      const args = [
+        "-p", userPrompt,
+        "--system-prompt", systemPrompt,
+        "--model", model,
+        "--tools", mode === "edit" ? "" : "default",
+        "--output-format", "stream-json",
+        "--verbose",
+        "--include-partial-messages",
+        "--permission-mode", "bypassPermissions",
+        "--no-session-persistence",
+        "--setting-sources", mode === "edit" ? "project" : "project,user",
+        "--exclude-dynamic-system-prompt-sections",
+        "--effort", mode === "edit" ? "low" : "high",
+      ];
+      const extraEnv = claudeEnvForCredential(cred);
+      makeStream = () => buildChatStream(cwd, args, linkedSkillNames, extraEnv);
+    }
 
     const sse = Stream.fromReadableStream({
-      evaluate: () => buildChatStream(cwd, args, linkedSkillNames),
+      evaluate: makeStream,
       onError: (cause) => cause,
     });
 
@@ -497,6 +565,17 @@ export const chatRoute = HttpRouter.add(
     });
   }),
 );
+
+/** A one-shot SSE stream that emits a single `error` event then ends. */
+function singleErrorStream(message: string): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ message })}\n\n`));
+      controller.close();
+    },
+  });
+}
 
 function handleEvent(
   evt: Record<string, unknown>,

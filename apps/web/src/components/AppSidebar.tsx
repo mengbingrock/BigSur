@@ -5,6 +5,7 @@ import {
   Loader2,
   LogOut,
   MessagesSquare,
+  Settings,
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
@@ -105,6 +106,20 @@ export function AppSidebar() {
           <SidebarGroupLabel>Resources</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              {user ? (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    size="sm"
+                    className="gap-2 px-2 py-2"
+                    tooltip="Settings"
+                    isActive={pathname.startsWith("/settings")}
+                    onClick={() => void navigate({ to: "/settings" })}
+                  >
+                    <Settings className="size-4" />
+                    <span>Settings</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ) : null}
               <SidebarMenuItem>
                 <SidebarMenuButton
                   size="sm"
