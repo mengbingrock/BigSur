@@ -220,7 +220,7 @@ export const extractChoicesRoute = HttpRouter.add(
           effort: "medium",
           timeoutMs: TIMEOUT_MS,
           anthropicModel: "sonnet",
-          openaiModel: "gpt-4o-mini",
+          openaiModel: "gpt-5.4-mini",
         });
         return tryParseStructure(out);
       } catch {

@@ -71,7 +71,7 @@ export const llmEditRoute = HttpRouter.add(
           effort: "low",
           timeoutMs: REWRITE_TIMEOUT_MS,
           anthropicModel: "haiku",
-          openaiModel: "gpt-4o-mini",
+          openaiModel: "gpt-5.4-mini",
         }),
       catch: (e) => e,
     }).pipe(

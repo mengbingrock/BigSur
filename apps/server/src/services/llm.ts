@@ -6,17 +6,19 @@ import type { ResolvedCredential } from "./llmSettings";
 import { providedAvailable } from "./llmSettings";
 import { codexAvailable } from "./codex";
 
+// The claude CLI's opus/sonnet/haiku aliases always resolve to the latest of
+// each tier, so the id stays an alias (robust) while the label names the
+// current version.
 export const ANTHROPIC_MODELS: ModelInfo[] = [
-  { id: "opus", label: "Claude Opus (most capable)", provider: "anthropic" },
-  { id: "sonnet", label: "Claude Sonnet (balanced)", provider: "anthropic" },
-  { id: "haiku", label: "Claude Haiku (fastest)", provider: "anthropic" },
+  { id: "opus", label: "Claude Opus 4.8 (most capable)", provider: "anthropic" },
+  { id: "sonnet", label: "Claude Sonnet 4.6 (balanced)", provider: "anthropic" },
+  { id: "haiku", label: "Claude Haiku 4.5 (fastest)", provider: "anthropic" },
 ];
 
 export const OPENAI_MODELS: ModelInfo[] = [
-  { id: "gpt-4o", label: "GPT-4o", provider: "openai" },
-  { id: "gpt-4o-mini", label: "GPT-4o mini", provider: "openai" },
-  { id: "gpt-4.1", label: "GPT-4.1", provider: "openai" },
-  { id: "gpt-4.1-mini", label: "GPT-4.1 mini", provider: "openai" },
+  { id: "gpt-5.5", label: "GPT-5.5 (most capable)", provider: "openai" },
+  { id: "gpt-5.4", label: "GPT-5.4 (balanced)", provider: "openai" },
+  { id: "gpt-5.4-mini", label: "GPT-5.4 mini (fastest)", provider: "openai" },
 ];
 
 export function modelsFor(provider: Provider): ModelInfo[] {
@@ -32,7 +34,7 @@ export function validModel(provider: Provider, model: string | undefined): strin
 
 /** Default auxiliary (extract/edit) model per provider — cheap + fast. */
 export function auxModel(provider: Provider): string {
-  return provider === "openai" ? "gpt-4o-mini" : "haiku";
+  return provider === "openai" ? "gpt-5.4-mini" : "haiku";
 }
 
 /** Provider catalog returned by GET /api/llm/providers. */
