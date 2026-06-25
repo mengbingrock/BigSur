@@ -12,7 +12,7 @@ export const Route = createFileRoute("/chat")({
 
 function Loading() {
   return (
-    <div className="flex h-full w-full items-center justify-center py-24 text-sm text-muted">
+    <div className="flex h-full w-full items-center justify-center py-24 text-sm text-ink-light">
       Loading workspace…
     </div>
   );

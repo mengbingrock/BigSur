@@ -4,6 +4,8 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import Fuse from "fuse.js";
 import type { Skill } from "@labee/contracts";
 import { SkillCard } from "~/components/SkillCard";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
 import { useCurrentUser } from "~/lib/auth";
 import { apiGet } from "~/lib/api";
 import { cn } from "~/lib/utils";
@@ -39,29 +41,23 @@ function SkillsPage() {
   }, [q, source, skills, fuse]);
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 py-12 sm:px-8">
+    <div className="mx-auto w-full max-w-[1080px] px-6 py-10 sm:px-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="mb-2 text-xs uppercase tracking-[0.22em] text-muted">Catalog</p>
-          <h1 className="font-serif text-4xl tracking-tight text-ink">Artifacts</h1>
+          <p className="mb-2 text-xs uppercase tracking-[0.22em] text-ink-faint">Catalog</p>
+          <h1 className="font-display text-3xl tracking-tight text-ink">Artifacts</h1>
         </div>
         {user && (
-          <Link
-            to="/skills/new"
-            className="border border-ink bg-ink px-4 py-2 text-sm font-medium text-paper transition hover:opacity-90"
-          >
-            New artifact
-          </Link>
+          <Button render={<Link to="/skills/new" />}>New artifact</Button>
         )}
       </div>
 
       <div className="mt-8 flex flex-col gap-4">
-        <input
+        <Input
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search artifacts…"
-          className="w-full border border-rule bg-paper px-4 py-2.5 text-sm text-ink focus:border-ink focus:outline-none"
         />
         {sources.length > 1 && (
           <div className="flex flex-wrap gap-2">
@@ -78,11 +74,11 @@ function SkillsPage() {
       </div>
 
       {isLoading ? (
-        <p className="mt-12 text-sm text-muted">Loading…</p>
+        <p className="mt-12 text-sm text-ink-light">Loading…</p>
       ) : filtered.length === 0 ? (
-        <p className="mt-12 text-sm text-muted">No artifacts found.</p>
+        <p className="mt-12 text-sm text-ink-light">No artifacts found.</p>
       ) : (
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((skill) => (
             <SkillCard key={skill.slug} skill={skill} />
           ))}
@@ -106,8 +102,10 @@ function FilterChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "border px-3 py-1 text-xs transition",
-        active ? "border-ink bg-ink text-paper" : "border-rule text-muted hover:border-ink hover:text-ink",
+        "rounded-md border px-3 py-1 text-xs transition",
+        active
+          ? "border-brand bg-brand text-white"
+          : "border-border text-ink-light hover:border-ink hover:text-ink",
       )}
     >
       {children}

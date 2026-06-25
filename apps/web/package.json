@@ -11,6 +11,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@base-ui/react": "1.2.0",
     "@labee/contracts": "workspace:*",
     "@labee/shared": "workspace:*",
     "@tanstack/react-query": "^5.90.0",
@@ -24,6 +25,7 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-markdown": "^9.0.1",
+    "react-resizable-panels": "2.1.7",
     "remark-gfm": "^4.0.0",
     "tailwind-merge": "^3.4.0"
   },

@@ -3,6 +3,8 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Loader2, LogIn, UserPlus } from "lucide-react";
 import { ApiError } from "~/lib/api";
 import { useLogin, useSignup } from "~/lib/auth";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
 
 interface Props {
   mode: "login" | "signup";
@@ -42,62 +44,67 @@ export function AuthForm({ mode, next = "/chat", signupEnabled = true }: Props) 
   const Icon = isLogin ? LogIn : UserPlus;
 
   return (
-    <div className="mx-auto w-full max-w-sm px-6 py-16">
-      <p className="mb-3 text-xs uppercase tracking-[0.22em] text-muted">Labee</p>
-      <h1 className="mb-6 font-serif text-4xl leading-tight tracking-tight text-ink">{title}</h1>
+    <div className="mx-auto flex w-full max-w-sm flex-col gap-6 px-6 py-16">
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-medium uppercase tracking-[0.22em] text-ink-faint">
+          Labee
+        </p>
+        <h1 className="font-display text-3xl tracking-tight text-ink">{title}</h1>
+      </div>
 
-      <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs uppercase tracking-[0.16em] text-muted">Email</span>
-          <input
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="border border-rule bg-paper px-3 py-2 text-sm text-ink focus:border-ink focus:outline-none"
-          />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs uppercase tracking-[0.16em] text-muted">
-            Password
-            {!isLogin && (
-              <span className="ml-2 text-[11px] normal-case tracking-normal text-muted">
-                (min 8 chars)
-              </span>
-            )}
-          </span>
-          <input
-            type="password"
-            required
-            minLength={isLogin ? undefined : 8}
-            autoComplete={isLogin ? "current-password" : "new-password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="border border-rule bg-paper px-3 py-2 text-sm text-ink focus:border-ink focus:outline-none"
-          />
-        </label>
+      <div className="rounded-lg border border-border bg-card p-6 shadow-xs">
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-ink">Email</span>
+            <Input
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="flex items-baseline gap-2 text-sm font-medium text-ink">
+              Password
+              {!isLogin && (
+                <span className="text-xs font-normal text-ink-light">
+                  (min 8 chars)
+                </span>
+              )}
+            </span>
+            <Input
+              type="password"
+              required
+              minLength={isLogin ? undefined : 8}
+              autoComplete={isLogin ? "current-password" : "new-password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </label>
 
-        {error && (
-          <div className="border border-rule bg-ink/5 px-3 py-2 text-xs text-ink">{error}</div>
-        )}
+          {error && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          )}
 
-        <button
-          type="submit"
-          disabled={busy}
-          className="mt-2 inline-flex items-center justify-center gap-2 border border-ink bg-ink px-4 py-2.5 text-sm font-medium text-paper transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {busy ? <Loader2 size={14} className="animate-spin" /> : <Icon size={14} />}
-          {submitLabel}
-        </button>
-      </form>
+          <Button type="submit" disabled={busy} className="mt-2 w-full">
+            {busy ? <Loader2 className="animate-spin" /> : <Icon />}
+            {submitLabel}
+          </Button>
+        </form>
+      </div>
 
-      <div className="mt-6 text-xs text-muted">
+      <div className="text-sm text-ink-light">
         {isLogin ? (
           signupEnabled ? (
             <>
               Don&apos;t have an account?{" "}
-              <Link to="/signup" className="text-ink underline underline-offset-2">
+              <Link
+                to="/signup"
+                className="font-medium text-brand underline-offset-4 hover:underline"
+              >
                 Create one
               </Link>
               .
@@ -108,7 +115,10 @@ export function AuthForm({ mode, next = "/chat", signupEnabled = true }: Props) 
         ) : (
           <>
             Already have an account?{" "}
-            <Link to="/login" className="text-ink underline underline-offset-2">
+            <Link
+              to="/login"
+              className="font-medium text-brand underline-offset-4 hover:underline"
+            >
               Sign in
             </Link>
             .

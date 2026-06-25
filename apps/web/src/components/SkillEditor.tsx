@@ -3,6 +3,10 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { ArrowLeft, Plus, Save, Trash2, Upload, Loader2 } from "lucide-react";
 import type { ArtifactKind, Skill } from "@labee/contracts";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Textarea } from "~/components/ui/textarea";
+import { cn } from "~/lib/utils";
 
 interface Props {
   /** Existing skill to edit. Omit (along with mode='create') to create a new one. */
@@ -31,19 +35,19 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Typed-router back/cancel link to the source artifact (or the catalog).
+  // Spreads through props so it can back a Button via its `render` prop.
   const CancelLink = ({
-    className,
     children,
+    ...rest
   }: {
-    className?: string;
     children: React.ReactNode;
-  }) =>
+  } & Record<string, unknown>) =>
     skill ? (
-      <Link to="/skills/$slug" params={{ slug: skill.slug }} className={className}>
+      <Link to="/skills/$slug" params={{ slug: skill.slug }} {...rest}>
         {children}
       </Link>
     ) : (
-      <Link to="/skills" className={className}>
+      <Link to="/skills" {...rest}>
         {children}
       </Link>
     );
@@ -148,68 +152,87 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
   const busy = saving || deleting;
 
   return (
-    <form onSubmit={onSave} className="mx-auto max-w-3xl px-6 pb-24 pt-12">
+    <form onSubmit={onSave} className="mx-auto w-full max-w-[860px] px-6 py-10 sm:px-8">
       <div className="flex items-center justify-between gap-3">
-        <CancelLink className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted transition hover:text-ink">
-          <ArrowLeft size={14} />
-          Back
-        </CancelLink>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="px-2 text-ink-light"
+          render={
+            <CancelLink>
+              <ArrowLeft />
+              Back
+            </CancelLink>
+          }
+        />
         {!isCreate && (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={onDelete}
             disabled={busy}
-            className="inline-flex items-center gap-2 border border-rule px-3 py-1.5 text-xs font-medium text-muted transition hover:border-ink hover:text-ink disabled:opacity-50"
+            className="text-ink-light"
           >
-            <Trash2 size={13} />
+            <Trash2 />
             Delete
-          </button>
+          </Button>
         )}
       </div>
 
-      <header className="mt-8 border-b border-rule pb-6">
-        <p className="mb-2 text-xs uppercase tracking-[0.22em] text-muted">
+      <header className="mt-8 border-b border-border pb-6">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-ink-faint">
           {isCreate
             ? `Create ${kind === "protocol" ? "protocol" : "skill"}`
             : `Edit ${skill!.artifactKind === "protocol" ? "protocol" : "skill"}`}
         </p>
-        <h1 className="font-serif text-3xl leading-tight tracking-tight text-ink">
+        <h1 className="font-display text-3xl leading-tight tracking-tight text-ink">
           {isCreate
             ? name.trim() ||
               (kind === "protocol" ? "New protocol" : "New skill")
             : skill!.name}
         </h1>
         {!isCreate && (
-          <p className="mt-2 font-mono text-xs text-muted">
+          <p className="mt-2 font-mono text-xs text-ink-light">
             {skill!.sourcePath}/SKILL.md
           </p>
         )}
         {isCreate && (
-          <p className="mt-2 text-xs text-muted">
+          <p className="mt-2 text-xs text-ink-light">
             A new directory will be created in your user skills root, derived
             from the name.
           </p>
         )}
       </header>
 
-      <div className="mt-8 space-y-6">
-        <Field label="Name" hint="Used as the skill identifier in YAML frontmatter.">
-          <input
+      <div className="mt-8 space-y-6 rounded-lg border border-border bg-card p-6 shadow-xs">
+        <Field
+          htmlFor="skill-name"
+          label="Name"
+          hint="Used as the skill identifier in YAML frontmatter."
+        >
+          <Input
+            id="skill-name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
             placeholder={isCreate ? "my-skill" : undefined}
-            className="w-full border border-rule bg-paper px-3 py-2 font-mono text-sm text-ink focus:border-ink focus:outline-none"
+            className="font-mono"
           />
         </Field>
 
-        <Field label="Description" hint="One-line summary of when to use this artifact.">
-          <textarea
+        <Field
+          htmlFor="skill-description"
+          label="Description"
+          hint="One-line summary of when to use this artifact."
+        >
+          <Textarea
+            id="skill-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            className="w-full resize-y border border-rule bg-paper px-3 py-2 text-sm leading-relaxed text-ink focus:border-ink focus:outline-none"
+            className="leading-relaxed"
           />
         </Field>
 
@@ -221,33 +244,32 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
             {(["skill", "protocol"] as ArtifactKind[]).map((k) => {
               const on = kind === k;
               return (
-                <button
+                <Button
                   key={k}
                   type="button"
+                  variant={on ? "default" : "outline"}
+                  size="sm"
                   onClick={() => setKind(k)}
-                  className={`border px-3 py-1.5 text-xs transition ${
-                    on
-                      ? "border-ink bg-ink text-paper"
-                      : "border-rule text-muted hover:border-ink hover:text-ink"
-                  }`}
                 >
                   {k === "skill" ? "Skill" : "Protocol"}
-                </button>
+                </Button>
               );
             })}
           </div>
         </Field>
 
         <Field
+          htmlFor="skill-allowed-tools"
           label="Allowed tools"
           hint="Comma- or newline-separated. Leave empty to inherit defaults."
         >
-          <input
+          <Input
+            id="skill-allowed-tools"
             type="text"
             value={allowedTools}
             onChange={(e) => setAllowedTools(e.target.value)}
             placeholder="Read, Write, Bash"
-            className="w-full border border-rule bg-paper px-3 py-2 font-mono text-sm text-ink focus:border-ink focus:outline-none"
+            className="font-mono"
           />
         </Field>
 
@@ -269,61 +291,61 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
                 className="hidden"
                 id="protocol-import-file"
               />
-              <label
-                htmlFor="protocol-import-file"
-                className={`inline-flex cursor-pointer items-center gap-2 border border-rule px-3 py-1.5 text-xs transition ${
-                  importing
-                    ? "opacity-50"
-                    : "hover:border-ink hover:text-ink"
-                }`}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={importing}
+                render={<label htmlFor="protocol-import-file" />}
+                className={cn(importing && "cursor-default")}
               >
                 {importing ? (
                   <>
-                    <Loader2 size={13} className="animate-spin" /> Importing…
+                    <Loader2 className="animate-spin" /> Importing…
                   </>
                 ) : (
                   <>
-                    <Upload size={13} /> Choose file
+                    <Upload /> Choose file
                   </>
                 )}
-              </label>
+              </Button>
               {importedFrom && !importing && (
-                <span className="font-mono text-xs text-muted">
+                <span className="font-mono text-xs text-ink-light">
                   Imported from <span className="text-ink">{importedFrom}</span>
                   . Review the body below.
                 </span>
               )}
             </div>
             {importError && (
-              <p className="mt-2 text-xs text-red-600">{importError}</p>
+              <p className="mt-2 text-xs text-destructive">{importError}</p>
             )}
           </Field>
         )}
 
-        <Field label="Body (markdown)" hint="Everything below the YAML frontmatter.">
-          <textarea
+        <Field
+          htmlFor="skill-body"
+          label="Body (markdown)"
+          hint="Everything below the YAML frontmatter."
+        >
+          <Textarea
+            id="skill-body"
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={24}
             spellCheck={false}
-            className="w-full resize-y border border-rule bg-paper px-3 py-2 font-mono text-[13px] leading-relaxed text-ink focus:border-ink focus:outline-none"
+            className="min-h-[28rem] font-mono text-[13px] leading-relaxed"
           />
         </Field>
       </div>
 
       {error && (
-        <div className="mt-6 border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="mt-6 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      <div className="mt-8 flex items-center gap-3 border-t border-rule pt-6">
-        <button
-          type="submit"
-          disabled={busy}
-          className="inline-flex items-center gap-2 border border-ink bg-ink px-4 py-2 text-sm font-medium text-paper transition hover:bg-paper hover:text-ink disabled:opacity-50"
-        >
-          {isCreate ? <Plus size={14} /> : <Save size={14} />}
+      <div className="mt-8 flex items-center gap-3 border-t border-border pt-6">
+        <Button type="submit" variant="default" disabled={busy}>
+          {isCreate ? <Plus /> : <Save />}
           {saving
             ? isCreate
               ? "Creating…"
@@ -331,10 +353,12 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
             : isCreate
               ? "Create skill"
               : "Save changes"}
-        </button>
-        <CancelLink className="px-4 py-2 text-sm text-muted transition hover:text-ink">
-          Cancel
-        </CancelLink>
+        </Button>
+        <Button
+          variant="ghost"
+          render={<CancelLink>Cancel</CancelLink>}
+          className="text-ink-light"
+        />
       </div>
     </form>
   );
@@ -343,21 +367,23 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
 function Field({
   label,
   hint,
+  htmlFor,
   children,
 }: {
   label: string;
   hint?: string;
+  htmlFor?: string;
   children: React.ReactNode;
 }) {
   return (
-    <label className="block">
-      <div className="mb-1.5 flex items-baseline justify-between gap-3">
-        <span className="text-xs font-medium uppercase tracking-[0.18em] text-ink">
+    <div className="block">
+      <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <label htmlFor={htmlFor} className="text-sm font-medium text-ink">
           {label}
-        </span>
-        {hint && <span className="text-[11px] text-muted">{hint}</span>}
+        </label>
+        {hint && <span className="text-xs text-ink-light">{hint}</span>}
       </div>
       {children}
-    </label>
+    </div>
   );
 }

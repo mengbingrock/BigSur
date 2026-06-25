@@ -52,6 +52,7 @@ import {
 } from "../store/chat-store";
 import { Markdown } from "./Markdown";
 import ChatDeckPanel, { type ChatDeckPanelHandle } from "./ChatDeckPanel";
+import { Button } from "./ui/button";
 
 interface Props {
   skills: Skill[];
@@ -622,7 +623,7 @@ export default function Chat({
 
   return (
     <div
-      className={`grid grid-cols-1 gap-8 lg:grid-cols-[18rem_1fr] ${
+      className={`grid h-full min-h-0 grid-cols-1 gap-4 p-4 lg:grid-cols-[18rem_1fr] ${
         canvasResizing || chatResizing ? "select-none" : ""
       }`}
       style={
@@ -632,8 +633,8 @@ export default function Chat({
         } as React.CSSProperties
       }
     >
-      <aside className="order-2 lg:order-1">
-        <div className="sticky top-6 border border-rule p-5">
+      <aside className="order-2 min-h-0 lg:order-1">
+        <div className="flex h-full flex-col overflow-y-auto rounded-lg border border-border bg-card p-5">
           <ChatDeckPanel
             ref={deckPanelRef}
             initialFiles={initialDeckFiles}
@@ -719,10 +720,10 @@ export default function Chat({
         </div>
       </aside>
 
-      <div className="order-1 flex min-h-[calc(100vh-8rem)] flex-col gap-0 lg:order-2">
+      <div className="order-1 flex h-full min-h-0 flex-col gap-0 lg:order-2">
       <aside className="relative shrink-0" style={{ height: "var(--canvas-h)" }}>
-        <div className="flex h-full flex-col border border-rule">
-          <div className="flex items-center justify-between border-b border-rule px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-muted">
+        <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card">
+          <div className="flex items-center justify-between border-b border-border px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-ink-light">
             <span className="flex items-center gap-2">
               <span>Canvas</span>
               {(() => {
@@ -813,7 +814,7 @@ export default function Chat({
       />
       <section
         ref={chatSectionRef}
-        className="flex flex-1 flex-col border border-rule"
+        className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card"
         style={{ minHeight: "var(--chat-h)" }}
       >
         <SessionHeader
@@ -907,10 +908,10 @@ export default function Chat({
         </div>
         </div>
 
-        <div className="border-t border-rule px-4 py-3 sm:px-6 sm:py-4">
+        <div className="border-t border-border px-4 py-3 sm:px-6 sm:py-4">
           <div className="mx-auto w-full max-w-4xl">
           {error && (
-            <div className="mb-3 border border-rule bg-ink/5 px-3 py-2 text-xs text-ink">
+            <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               {error}
             </div>
           )}
@@ -936,31 +937,22 @@ export default function Chat({
                   : "Ask anything… (type / to pick a skill, Shift+Enter for newline)"
               }
               rows={2}
-              className="flex-1 resize-none border border-rule bg-paper px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-ink focus:outline-none"
+              className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
               disabled={streaming}
             />
             {streaming ? (
-              <button
-                type="button"
-                onClick={cancel}
-                className="inline-flex items-center gap-2 border border-ink bg-ink px-4 py-2 text-sm text-paper transition hover:opacity-90"
-              >
+              <Button type="button" variant="default" onClick={cancel}>
                 <Loader2 size={14} className="animate-spin" />
                 Stop
-              </button>
+              </Button>
             ) : (
-              <button
-                type="button"
-                onClick={send}
-                disabled={!input.trim()}
-                className="inline-flex items-center gap-2 border border-ink bg-ink px-4 py-2 text-sm text-paper transition hover:opacity-90 disabled:cursor-not-allowed disabled:border-rule disabled:bg-paper disabled:text-muted"
-              >
+              <Button type="button" variant="default" onClick={send} disabled={!input.trim()}>
                 Send
                 <Send size={14} />
-              </button>
+              </Button>
             )}
           </div>
-          <p className="mt-2 text-[11px] text-muted">
+          <p className="mt-2 text-[11px] text-ink-light">
             Using your local <code className="font-mono">claude</code> CLI
             (claude.ai OAuth — no API key). Full toolset (Bash, Read, Write,
             Edit, Grep, Glob, WebSearch, WebFetch, Skill) + user-level skills
