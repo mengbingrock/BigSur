@@ -56,6 +56,19 @@ async function openDb(): Promise<SqlDb> {
       "openai_api_key_enc TEXT, " +
       "updated_at TEXT NOT NULL);",
   );
+  // Saved agent presets: skills + working directory + reference folders.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS agents (" +
+      "id TEXT PRIMARY KEY, " +
+      "email TEXT NOT NULL, " +
+      "name TEXT NOT NULL, " +
+      "description TEXT, " +
+      "skill_slugs TEXT NOT NULL DEFAULT '[]', " +
+      "working_dir TEXT NOT NULL DEFAULT '', " +
+      "reference_folders TEXT NOT NULL DEFAULT '[]', " +
+      "created_at TEXT NOT NULL, " +
+      "updated_at TEXT NOT NULL);",
+  );
   importLegacyUsersJson(db);
   return db;
 }

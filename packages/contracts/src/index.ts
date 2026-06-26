@@ -5,3 +5,4 @@ export * from "./user";
 export * from "./extraction";
 export * from "./chat";
 export * from "./llm";
+export * from "./agent";

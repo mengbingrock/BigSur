@@ -11,6 +11,7 @@ import { bodyJson, error, sessionUser } from "../httpKit";
 import { getAllSkills } from "../services/skills";
 import { readDeckFile, userDeckDir } from "../services/deck";
 import { getSettings, resolveCredential } from "../services/llmSettings";
+import { getAgent } from "../services/agents";
 import { claudeEnvForCredential, validModel } from "../services/llm";
 import { openAIChatStream, type OpenAIChatMessage } from "../services/openai";
 import { codexExecStream } from "../services/codex";
@@ -34,6 +35,7 @@ interface ChatRequest {
   edit?: EditPayload;
   provider?: Provider;
   model?: string;
+  agentId?: string;
 }
 
 const CLAUDE_BIN = process.env.CLAUDE_BIN || "claude";
@@ -169,6 +171,20 @@ function buildProtocolAddendum(linked: LinkedProtocol[]): string {
     "or when the question depends on its specific steps, reagents, quantities, or quality checkpoints. " +
     "Cite sections by header when helpful. Flag any deviation between what the user is doing and the protocol they have active. " +
     "Do NOT treat protocols as callable Claude Code skills — they are passive reference text accessed via Read.\n"
+  );
+}
+
+/** Tell the agent about reference-protocol folders it can read from disk. */
+function buildReferenceFoldersAddendum(folders: readonly string[]): string {
+  if (folders.length === 0) return "";
+  const lines = folders.map((f, i) => `${i + 1}. \`${f}\``);
+  return (
+    "\n\nThe user has attached the following folder" +
+    (folders.length === 1 ? "" : "s") +
+    " of reference protocols for this agent. Treat their contents as authoritative reference procedure. " +
+    "Use the Read/Glob/Grep tools on these absolute paths to consult the relevant files when the task depends on them:\n\n" +
+    lines.join("\n") +
+    "\n"
   );
 }
 
@@ -464,7 +480,14 @@ export const chatRoute = HttpRouter.add(
       }
     }
 
-    const cwd = userDeckDir(email);
+    // When an agent is active, run inside its working directory and expose its
+    // reference folders; otherwise use the user's shared deck.
+    const agent =
+      typeof body.agentId === "string" && body.agentId
+        ? yield* Effect.promise(() => getAgent(email, body.agentId!))
+        : null;
+    const cwd = agent?.workingDir ? agent.workingDir : userDeckDir(email);
+    const referenceFolders = agent?.referenceFolders ?? [];
     const artifactNotes = mode === "edit" || !body.artifactNotes ? {} : body.artifactNotes;
 
     const built = yield* Effect.promise(async () => {
@@ -500,10 +523,21 @@ export const chatRoute = HttpRouter.add(
     // skips the protocol addendum (which depends on the Read tool), while still
     // receiving inlined context-file content.
     if (mode !== "edit") {
+      const referenceAddendum = buildReferenceFoldersAddendum(referenceFolders);
+      const agentMemoryHint = agent
+        ? "\n\nThis is the working directory for the saved agent \"" +
+          agent.name +
+          "\". It contains `AGENTS.md` and `agent-memory.md` — an auto-generated digest of the reference protocols. " +
+          "Consult `agent-memory.md` first to answer quickly; open the original reference files only when you need detail beyond the digest.\n"
+        : "";
       systemPrompt =
         provider === "openai"
-          ? OPENAI_SYSTEM_PROMPT + built.contextAddendum
-          : SYSTEM_PROMPT + built.protocolAddendum + built.contextAddendum;
+          ? OPENAI_SYSTEM_PROMPT + built.contextAddendum + referenceAddendum + agentMemoryHint
+          : SYSTEM_PROMPT +
+            built.protocolAddendum +
+            built.contextAddendum +
+            referenceAddendum +
+            agentMemoryHint;
     }
 
     if (cred.unavailable) {

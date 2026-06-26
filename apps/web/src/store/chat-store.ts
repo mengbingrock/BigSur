@@ -238,6 +238,8 @@ export interface SendOptions {
    *  artifact they can't persist). */
   artifactNotes?: Record<string, string>;
   snapshot: SkillSnapshot[];
+  /** When set, run the turn inside this saved agent's working directory. */
+  agentId?: string;
 }
 
 export interface EditOptions {
@@ -537,7 +539,7 @@ class ChatStore {
   };
 
   send = async (opts: SendOptions): Promise<void> => {
-    const { text, skillSlugs, snapshot, contextFiles, artifactNotes } = opts;
+    const { text, skillSlugs, snapshot, contextFiles, artifactNotes, agentId } = opts;
     if (!text || this.state.streaming) return;
 
     const userMsg: ChatMsg = { id: makeId(), role: "user", content: text };
@@ -570,6 +572,7 @@ class ChatStore {
           skillSlugs,
           contextFiles: contextFiles ?? [],
           artifactNotes: artifactNotes ?? {},
+          ...(agentId ? { agentId } : {}),
         }),
         signal: ctrl.signal,
       });

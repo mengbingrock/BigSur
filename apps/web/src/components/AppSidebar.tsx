@@ -1,6 +1,7 @@
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   BookOpen,
+  Bot,
   Boxes,
   Loader2,
   LogOut,
@@ -37,6 +38,12 @@ const WORKSPACE_ITEMS: NavItem[] = [
     to: "/chat",
     icon: MessagesSquare,
     match: (p) => p === "/chat" || p.startsWith("/chat/"),
+  },
+  {
+    label: "Agents",
+    to: "/agents",
+    icon: Bot,
+    match: (p) => p === "/agents" || p.startsWith("/agents"),
   },
   {
     label: "Artifacts",

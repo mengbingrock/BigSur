@@ -36,8 +36,9 @@ import {
   Undo2,
   Trash2,
   Wand2,
+  Bot,
 } from "lucide-react";
-import type { Skill } from "@labee/contracts";
+import type { Agent, Skill } from "@labee/contracts";
 import type { DeckFile } from "@labee/contracts";
 import {
   chatStore,
@@ -52,12 +53,14 @@ import {
 } from "../store/chat-store";
 import { Markdown } from "./Markdown";
 import ChatDeckPanel, { type ChatDeckPanelHandle } from "./ChatDeckPanel";
+import { AgentWorkspacePanel } from "./AgentWorkspacePanel";
 import { Button } from "./ui/button";
 
 interface Props {
   skills: Skill[];
   initialDeckFiles: DeckFile[];
   deckMaxBytes: number;
+  agent?: Agent | null;
 }
 
 interface ActiveSelection {
@@ -112,6 +115,7 @@ export default function Chat({
   skills,
   initialDeckFiles,
   deckMaxBytes,
+  agent = null,
 }: Props) {
   const queryClient = useQueryClient();
   // Chat session state (messages, streaming, error, session) lives in a
@@ -236,6 +240,14 @@ export default function Chat({
       JSON.stringify(Array.from(selected)),
     );
   }, [selected]);
+
+  // When launched with a saved agent, preselect its skills.
+  useEffect(() => {
+    if (!agent) return;
+    const known = new Set(skills.map((s) => s.slug));
+    setSelected(new Set(agent.skillSlugs.filter((s) => known.has(s))));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent?.id, skills]);
 
   // Refresh the working-directory panel as the model writes files. We do
   // three things:
@@ -525,6 +537,7 @@ export default function Chat({
       contextFiles: Array.from(selectedFiles),
       artifactNotes,
       snapshot: buildSkillSnapshot(),
+      ...(agent ? { agentId: agent.id } : {}),
     });
   };
 
@@ -635,20 +648,41 @@ export default function Chat({
     >
       <aside className="order-2 min-h-0 lg:order-1">
         <div className="flex h-full flex-col overflow-y-auto rounded-lg border border-border bg-card p-5">
-          <ChatDeckPanel
-            ref={deckPanelRef}
-            initialFiles={initialDeckFiles}
-            maxBytes={deckMaxBytes}
-            selectedFiles={selectedFiles}
-            onToggleFile={(qualifiedPath) =>
-              setSelectedFiles((cur) => {
-                const next = new Set(cur);
-                if (next.has(qualifiedPath)) next.delete(qualifiedPath);
-                else next.add(qualifiedPath);
-                return next;
-              })
-            }
-          />
+          {agent ? (
+            <>
+              <div className="mb-3 flex items-center gap-2">
+                <Bot size={15} className="shrink-0 text-brand" />
+                <span className="min-w-0 flex-1 truncate font-display text-base text-ink" title={agent.name}>
+                  {agent.name}
+                </span>
+                <a
+                  href={`/agents/${agent.id}/edit`}
+                  className="shrink-0 text-xs text-ink-light underline underline-offset-2 transition hover:text-ink"
+                >
+                  Edit
+                </a>
+              </div>
+              {agent.description ? (
+                <p className="mb-3 text-xs text-ink-light">{agent.description}</p>
+              ) : null}
+              <AgentWorkspacePanel agent={agent} streaming={streaming} />
+            </>
+          ) : (
+            <ChatDeckPanel
+              ref={deckPanelRef}
+              initialFiles={initialDeckFiles}
+              maxBytes={deckMaxBytes}
+              selectedFiles={selectedFiles}
+              onToggleFile={(qualifiedPath) =>
+                setSelectedFiles((cur) => {
+                  const next = new Set(cur);
+                  if (next.has(qualifiedPath)) next.delete(qualifiedPath);
+                  else next.add(qualifiedPath);
+                  return next;
+                })
+              }
+            />
+          )}
 
           <hr className="my-5 border-rule" />
 
@@ -768,6 +802,7 @@ export default function Chat({
                   contextFiles: Array.from(selectedFiles),
                   artifactNotes,
                   snapshot: buildSkillSnapshot(),
+                  ...(agent ? { agentId: agent.id } : {}),
                 });
               }}
               onAnswer={async (messageId, toolUseId, raw) => {

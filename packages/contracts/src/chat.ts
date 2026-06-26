@@ -33,6 +33,9 @@ export const ChatRequest = Schema.Struct({
    *  user's saved LLM settings when omitted. */
   provider: Schema.optional(Provider),
   model: Schema.optional(Schema.String),
+  /** When set, run inside this saved agent's working directory and expose its
+   *  reference folders. The server validates the agent belongs to the user. */
+  agentId: Schema.optional(Schema.String),
 });
 export type ChatRequest = typeof ChatRequest.Type;
 

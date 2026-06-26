@@ -15,10 +15,13 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SkillsIndexRouteImport } from './routes/skills.index'
+import { Route as AgentsIndexRouteImport } from './routes/agents.index'
 import { Route as SkillsNewRouteImport } from './routes/skills.new'
 import { Route as SkillsSlugRouteImport } from './routes/skills.$slug'
+import { Route as AgentsNewRouteImport } from './routes/agents.new'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as SkillsSlugEditRouteImport } from './routes/skills.$slug.edit'
+import { Route as AgentsIdEditRouteImport } from './routes/agents.$id.edit'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -50,6 +53,11 @@ const SkillsIndexRoute = SkillsIndexRouteImport.update({
   path: '/skills/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AgentsIndexRoute = AgentsIndexRouteImport.update({
+  id: '/agents/',
+  path: '/agents/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SkillsNewRoute = SkillsNewRouteImport.update({
   id: '/skills/new',
   path: '/skills/new',
@@ -58,6 +66,11 @@ const SkillsNewRoute = SkillsNewRouteImport.update({
 const SkillsSlugRoute = SkillsSlugRouteImport.update({
   id: '/skills/$slug',
   path: '/skills/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentsNewRoute = AgentsNewRouteImport.update({
+  id: '/agents/new',
+  path: '/agents/new',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
@@ -70,6 +83,11 @@ const SkillsSlugEditRoute = SkillsSlugEditRouteImport.update({
   path: '/edit',
   getParentRoute: () => SkillsSlugRoute,
 } as any)
+const AgentsIdEditRoute = AgentsIdEditRouteImport.update({
+  id: '/agents/$id/edit',
+  path: '/agents/$id/edit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -78,9 +96,12 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
+  '/agents/new': typeof AgentsNewRoute
   '/skills/$slug': typeof SkillsSlugRouteWithChildren
   '/skills/new': typeof SkillsNewRoute
+  '/agents/': typeof AgentsIndexRoute
   '/skills/': typeof SkillsIndexRoute
+  '/agents/$id/edit': typeof AgentsIdEditRoute
   '/skills/$slug/edit': typeof SkillsSlugEditRoute
 }
 export interface FileRoutesByTo {
@@ -90,9 +111,12 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
+  '/agents/new': typeof AgentsNewRoute
   '/skills/$slug': typeof SkillsSlugRouteWithChildren
   '/skills/new': typeof SkillsNewRoute
+  '/agents': typeof AgentsIndexRoute
   '/skills': typeof SkillsIndexRoute
+  '/agents/$id/edit': typeof AgentsIdEditRoute
   '/skills/$slug/edit': typeof SkillsSlugEditRoute
 }
 export interface FileRoutesById {
@@ -103,9 +127,12 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
+  '/agents/new': typeof AgentsNewRoute
   '/skills/$slug': typeof SkillsSlugRouteWithChildren
   '/skills/new': typeof SkillsNewRoute
+  '/agents/': typeof AgentsIndexRoute
   '/skills/': typeof SkillsIndexRoute
+  '/agents/$id/edit': typeof AgentsIdEditRoute
   '/skills/$slug/edit': typeof SkillsSlugEditRoute
 }
 export interface FileRouteTypes {
@@ -117,9 +144,12 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/admin/users'
+    | '/agents/new'
     | '/skills/$slug'
     | '/skills/new'
+    | '/agents/'
     | '/skills/'
+    | '/agents/$id/edit'
     | '/skills/$slug/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -129,9 +159,12 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/admin/users'
+    | '/agents/new'
     | '/skills/$slug'
     | '/skills/new'
+    | '/agents'
     | '/skills'
+    | '/agents/$id/edit'
     | '/skills/$slug/edit'
   id:
     | '__root__'
@@ -141,9 +174,12 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/admin/users'
+    | '/agents/new'
     | '/skills/$slug'
     | '/skills/new'
+    | '/agents/'
     | '/skills/'
+    | '/agents/$id/edit'
     | '/skills/$slug/edit'
   fileRoutesById: FileRoutesById
 }
@@ -154,9 +190,12 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
   AdminUsersRoute: typeof AdminUsersRoute
+  AgentsNewRoute: typeof AgentsNewRoute
   SkillsSlugRoute: typeof SkillsSlugRouteWithChildren
   SkillsNewRoute: typeof SkillsNewRoute
+  AgentsIndexRoute: typeof AgentsIndexRoute
   SkillsIndexRoute: typeof SkillsIndexRoute
+  AgentsIdEditRoute: typeof AgentsIdEditRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -203,6 +242,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SkillsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/agents/': {
+      id: '/agents/'
+      path: '/agents'
+      fullPath: '/agents/'
+      preLoaderRoute: typeof AgentsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/skills/new': {
       id: '/skills/new'
       path: '/skills/new'
@@ -215,6 +261,13 @@ declare module '@tanstack/react-router' {
       path: '/skills/$slug'
       fullPath: '/skills/$slug'
       preLoaderRoute: typeof SkillsSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agents/new': {
+      id: '/agents/new'
+      path: '/agents/new'
+      fullPath: '/agents/new'
+      preLoaderRoute: typeof AgentsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/users': {
@@ -230,6 +283,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/skills/$slug/edit'
       preLoaderRoute: typeof SkillsSlugEditRouteImport
       parentRoute: typeof SkillsSlugRoute
+    }
+    '/agents/$id/edit': {
+      id: '/agents/$id/edit'
+      path: '/agents/$id/edit'
+      fullPath: '/agents/$id/edit'
+      preLoaderRoute: typeof AgentsIdEditRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -253,9 +313,12 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
   AdminUsersRoute: AdminUsersRoute,
+  AgentsNewRoute: AgentsNewRoute,
   SkillsSlugRoute: SkillsSlugRouteWithChildren,
   SkillsNewRoute: SkillsNewRoute,
+  AgentsIndexRoute: AgentsIndexRoute,
   SkillsIndexRoute: SkillsIndexRoute,
+  AgentsIdEditRoute: AgentsIdEditRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
