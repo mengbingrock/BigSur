@@ -42,8 +42,10 @@ async function openDb(): Promise<SqlDb> {
       "email TEXT PRIMARY KEY, " +
       "password_hash TEXT NOT NULL, " +
       "is_admin INTEGER NOT NULL DEFAULT 0, " +
-      "created_at TEXT NOT NULL);",
+      "created_at TEXT NOT NULL, " +
+      "google_id TEXT);",
   );
+  ensureColumn(db, "users", "google_id", "TEXT");
   // Per-user LLM provider/model selection and (encrypted) own credentials.
   db.exec(
     "CREATE TABLE IF NOT EXISTS user_llm_settings (" +
@@ -71,6 +73,15 @@ async function openDb(): Promise<SqlDb> {
   );
   importLegacyUsersJson(db);
   return db;
+}
+
+/** Add a column to an existing table if it isn't present yet. SQLite has no
+ *  `ADD COLUMN IF NOT EXISTS`, so we check pragma table_info first. Lets us
+ *  evolve the runtime schema for DBs created before a column existed. */
+function ensureColumn(db: SqlDb, table: string, column: string, decl: string): void {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (cols.some((c) => c.name === column)) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${decl};`);
 }
 
 /** One-time migration: if the table is empty and a legacy data/users.json

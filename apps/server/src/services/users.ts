@@ -6,6 +6,7 @@ export interface User {
   passwordHash: string;
   isAdmin: boolean;
   createdAt: string;
+  googleId: string | null;
 }
 
 export interface PublicUser {
@@ -20,6 +21,7 @@ function rowToUser(r: Record<string, unknown>): User {
     passwordHash: String(r.password_hash),
     isAdmin: Number(r.is_admin) === 1,
     createdAt: String(r.created_at),
+    googleId: r.google_id == null ? null : String(r.google_id),
   };
 }
 
@@ -81,7 +83,43 @@ export async function createUser(
   (await stmt(
     "INSERT INTO users (email, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?)",
   )).run(e, passwordHash, isAdmin ? 1 : 0, createdAt);
-  return { email: e, passwordHash, isAdmin, createdAt };
+  return { email: e, passwordHash, isAdmin, createdAt, googleId: null };
+}
+
+export async function findUserByGoogleId(googleId: string): Promise<User | null> {
+  const row = (await stmt("SELECT * FROM users WHERE google_id = ?")).get(googleId);
+  return row ? rowToUser(row) : null;
+}
+
+/** Sign in (or register) a user via verified Google identity. Accounts are
+ *  linked by email: an existing password account with the same email gains the
+ *  Google link; otherwise a new, password-less account is created. The first
+ *  account on a fresh instance is promoted to admin, matching password signup. */
+export async function upsertGoogleUser(profile: {
+  googleId: string;
+  email: string;
+}): Promise<User> {
+  const e = validateEmailOrThrow(profile.email);
+  const googleId = profile.googleId.trim();
+  if (!googleId) throw new Error("Missing Google account id.");
+
+  const existing = await findUser(e);
+  if (existing) {
+    // Link the Google id on first Google sign-in for this email (idempotent).
+    if (existing.googleId !== googleId) {
+      (await stmt("UPDATE users SET google_id = ? WHERE email = ?")).run(googleId, e);
+    }
+    return { ...existing, googleId };
+  }
+
+  // New Google-only account: store an empty password hash so password login is
+  // impossible (bcrypt.compare against "" never succeeds).
+  const isAdmin = (await userCount()) === 0;
+  const createdAt = new Date().toISOString();
+  (await stmt(
+    "INSERT INTO users (email, password_hash, is_admin, created_at, google_id) VALUES (?, ?, ?, ?, ?)",
+  )).run(e, "", isAdmin ? 1 : 0, createdAt, googleId);
+  return { email: e, passwordHash: "", isAdmin, createdAt, googleId };
 }
 
 export async function deleteUser(email: string): Promise<boolean> {
@@ -118,6 +156,8 @@ export async function setAdmin(email: string, isAdmin: boolean): Promise<boolean
 export async function verifyCredentials(email: string, password: string): Promise<User | null> {
   const user = await findUser(email);
   if (!user) return null;
+  // Google-only accounts carry an empty hash and cannot be reached by password.
+  if (!user.passwordHash) return null;
   const ok = await bcrypt.compare(password, user.passwordHash);
   return ok ? user : null;
 }

@@ -6,6 +6,15 @@ export interface CurrentUser {
   isAdmin: boolean;
 }
 
+/** Which third-party sign-in providers the server has configured. */
+export function useAuthProviders() {
+  return useQuery({
+    queryKey: ["auth", "providers"],
+    queryFn: () => apiGet<{ google: boolean }>("/api/auth/providers"),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 /** Current signed-in user (null when logged out). */
 export function useCurrentUser() {
   return useQuery({

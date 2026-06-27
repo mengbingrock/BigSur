@@ -2,23 +2,26 @@ import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Loader2, LogIn, UserPlus } from "lucide-react";
 import { ApiError } from "~/lib/api";
-import { useLogin, useSignup } from "~/lib/auth";
+import { useAuthProviders, useLogin, useSignup } from "~/lib/auth";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { GoogleButton } from "~/components/GoogleButton";
 
 interface Props {
   mode: "login" | "signup";
   next?: string;
   signupEnabled?: boolean;
+  initialError?: string;
 }
 
-export function AuthForm({ mode, next = "/chat", signupEnabled = true }: Props) {
+export function AuthForm({ mode, next = "/chat", signupEnabled = true, initialError }: Props) {
   const navigate = useNavigate();
   const login = useLogin();
   const signup = useSignup();
+  const providers = useAuthProviders();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
 
   const isLogin = mode === "login";
   const busy = login.isPending || signup.isPending;
@@ -53,6 +56,16 @@ export function AuthForm({ mode, next = "/chat", signupEnabled = true }: Props) 
       </div>
 
       <div className="rounded-lg border border-border bg-card p-6 shadow-xs">
+        {providers.data?.google && (
+          <div className="mb-5 flex flex-col gap-4">
+            <GoogleButton next={next} label={isLogin ? "Sign in with Google" : "Sign up with Google"} />
+            <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-ink-faint">
+              <span className="h-px flex-1 bg-border" />
+              or
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          </div>
+        )}
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-medium text-ink">Email</span>

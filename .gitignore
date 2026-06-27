@@ -11,6 +11,7 @@ dist-electron/
 .env
 .env.local
 .env.*
+!.env.example
 build/
 release/
 release-mock/
