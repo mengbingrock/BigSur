@@ -21,9 +21,15 @@ const arch = flag("arch");
 
 const platformFlag = platform === "mac" ? "--mac" : platform === "win" ? "--win" : "--linux";
 
-function step(label: string, command: string, args: string[], cwd = ROOT) {
+function step(
+  label: string,
+  command: string,
+  args: string[],
+  cwd = ROOT,
+  env: NodeJS.ProcessEnv = process.env,
+) {
   console.log(`\n[artifact] ${label}: ${command} ${args.join(" ")}`);
-  const res = spawnSync(command, args, { cwd, stdio: "inherit", env: process.env });
+  const res = spawnSync(command, args, { cwd, stdio: "inherit", env });
   if (res.status !== 0) {
     console.error(`[artifact] step failed: ${label}`);
     process.exit(res.status ?? 1);
@@ -37,10 +43,17 @@ step(
   ["run", "turbo", "run", "build", "--filter=@labee/web", "--filter=@labee/server", "--filter=@labee/desktop"],
 );
 
-// 2. Package with electron-builder.
+// 2. Package with electron-builder. Run the local bin directly (not via `bun x`)
+// and strip npm_* env vars: under bun, npm_execpath points at the bun *binary*,
+// and electron-builder runs `node $npm_execpath` to drive the package manager —
+// which fails because the bun binary isn't a JS file.
 const builderArgs = [platformFlag];
 if (target) builderArgs.push(`${platformFlag === "--mac" ? "--config.mac.target" : platformFlag === "--win" ? "--config.win.target" : "--config.linux.target"}`, target);
 if (arch) builderArgs.push(`--${arch}`);
-step("electron-builder", "bun", ["x", "electron-builder", ...builderArgs], path.join(ROOT, "apps/desktop"));
+const builderBin = path.join(ROOT, "node_modules", ".bin", "electron-builder");
+const cleanEnv: NodeJS.ProcessEnv = { ...process.env };
+delete cleanEnv.npm_execpath;
+delete cleanEnv.npm_config_user_agent;
+step("electron-builder", builderBin, builderArgs, path.join(ROOT, "apps/desktop"), cleanEnv);
 
 console.log("\n[artifact] Done. See apps/desktop/release/");
