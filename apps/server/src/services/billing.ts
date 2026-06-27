@@ -47,6 +47,19 @@ function csv(v: string | undefined): string[] {
   return v ? v.split(",").map((s) => s.trim()).filter(Boolean) : [];
 }
 
+/** Global free-trial length (days) applied to subscription checkouts that don't
+ *  already carry a trial on the Stripe price. 0 = no global trial. */
+function globalTrialDays(): number {
+  const n = Number.parseInt(process.env.STRIPE_TRIAL_DAYS ?? "", 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/** Effective trial days for a subscription price: the price's own trial, else
+ *  the global env default. */
+function trialDaysFor(price: Stripe.Price | null): number {
+  return price?.recurring?.trial_period_days ?? globalTrialDays();
+}
+
 /** The configured price references (no Stripe call — just env). */
 function configuredPrices(): PriceRef[] {
   const out: PriceRef[] = [];
@@ -133,6 +146,7 @@ async function buildCatalog(): Promise<BillingProduct[]> {
         : null;
     // A price with custom_unit_amount lets the buyer choose the amount at Checkout.
     const customAmount = price.unit_amount == null && Boolean(price.custom_unit_amount);
+    const trialDays = ref.kind === "subscription" ? trialDaysFor(price) : 0;
     out.push({
       id: price.id,
       kind: ref.kind,
@@ -143,6 +157,7 @@ async function buildCatalog(): Promise<BillingProduct[]> {
       ...(price.recurring?.interval ? { interval: price.recurring.interval } : {}),
       ...(ref.plan ? { plan: ref.plan } : {}),
       ...(customAmount ? { customAmount: true } : {}),
+      ...(trialDays > 0 ? { trialDays } : {}),
     });
   }
   return out;
@@ -279,6 +294,10 @@ export async function createCheckout(
   const customer = await getOrCreateCustomer(email);
   const base = origin.replace(/\/+$/, "");
 
+  // Honor a free trial on subscription checkouts (price trial or global default).
+  const trialDays =
+    ref.kind === "subscription" ? trialDaysFor(await fetchPrice(ref.priceId)) : 0;
+
   const session = await s.checkout.sessions.create({
     customer,
     mode: ref.kind === "subscription" ? "subscription" : "payment",
@@ -288,7 +307,12 @@ export async function createCheckout(
     metadata: { labee_email: email, product_id: ref.priceId, kind: ref.kind },
     ...(ref.kind === "credits"
       ? { payment_intent_data: { metadata: { labee_email: email } } }
-      : { subscription_data: { metadata: { labee_email: email } } }),
+      : {
+          subscription_data: {
+            metadata: { labee_email: email },
+            ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
+          },
+        }),
   });
   if (!session.url) throw invalid("Stripe did not return a checkout URL.");
   return session.url;

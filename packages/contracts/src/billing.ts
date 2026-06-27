@@ -18,6 +18,8 @@ export const BillingProduct = Schema.Struct({
   /** Subscriptions only: billing interval (day/week/month/year) + plan granted. */
   interval: Schema.optional(Schema.String),
   plan: Schema.optional(PlanTier),
+  /** Subscriptions only: free-trial length in days, when one applies. */
+  trialDays: Schema.optional(Schema.Number),
   /** Credits only: true when the buyer chooses the amount at Checkout
    *  (pay-what-you-want price with custom_unit_amount). */
   customAmount: Schema.optional(Schema.Boolean),

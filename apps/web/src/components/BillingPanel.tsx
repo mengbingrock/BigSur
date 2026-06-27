@@ -118,10 +118,18 @@ export function BillingPanel({ checkout }: { checkout?: "success" | "cancel" }) 
               {billing.subscriptionStatus ? (
                 <div>
                   <span className="text-ink-faint">Subscription: </span>
-                  <span className="text-ink">{billing.subscriptionStatus}</span>
+                  <span className="text-ink">
+                    {billing.subscriptionStatus === "trialing"
+                      ? "Free trial"
+                      : billing.subscriptionStatus}
+                  </span>
                   {billing.currentPeriodEnd ? (
                     <span className="text-ink-faint">
-                      {billing.cancelAtPeriodEnd ? " · ends " : " · renews "}
+                      {billing.subscriptionStatus === "trialing"
+                        ? " · ends "
+                        : billing.cancelAtPeriodEnd
+                          ? " · ends "
+                          : " · renews "}
                       {new Date(billing.currentPeriodEnd).toLocaleDateString()}
                     </span>
                   ) : null}
@@ -211,10 +219,13 @@ function ProductCard({
   disabled: boolean;
   onBuy: () => void;
 }) {
+  const trialDays = product.trialDays ?? 0;
   const buyLabel = current
     ? "Current plan"
     : product.kind === "subscription"
-      ? "Subscribe"
+      ? trialDays > 0
+        ? "Start free trial"
+        : "Subscribe"
       : product.customAmount
         ? "Choose amount"
         : "Buy";
@@ -235,6 +246,11 @@ function ProductCard({
           )}
         </span>
       </div>
+      {trialDays > 0 ? (
+        <Badge variant="secondary" className="w-fit">
+          {trialDays}-day free trial
+        </Badge>
+      ) : null}
       <p className="flex-1 text-xs text-ink-light">
         {product.description ||
           (product.customAmount ? "Top up your balance by any amount." : "")}
