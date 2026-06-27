@@ -71,6 +71,27 @@ async function openDb(): Promise<SqlDb> {
       "created_at TEXT NOT NULL, " +
       "updated_at TEXT NOT NULL);",
   );
+  // Per-user billing: Stripe customer/subscription + a credit balance (cents).
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS billing (" +
+      "email TEXT PRIMARY KEY, " +
+      "customer_id TEXT, " +
+      "plan TEXT NOT NULL DEFAULT 'free', " +
+      "subscription_id TEXT, " +
+      "subscription_status TEXT, " +
+      "current_period_end TEXT, " +
+      "cancel_at_period_end INTEGER NOT NULL DEFAULT 0, " +
+      "credits INTEGER NOT NULL DEFAULT 0, " +
+      "updated_at TEXT NOT NULL);",
+  );
+  // Processed Stripe webhook events — gives webhook handling idempotency.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS billing_events (" +
+      "id TEXT PRIMARY KEY, " +
+      "type TEXT NOT NULL, " +
+      "email TEXT, " +
+      "created_at TEXT NOT NULL);",
+  );
   importLegacyUsersJson(db);
   return db;
 }

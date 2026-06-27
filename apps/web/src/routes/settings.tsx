@@ -1,14 +1,24 @@
 import { useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { BillingPanel } from "~/components/BillingPanel";
 import { LlmSettingsPanel } from "~/components/LlmSettingsPanel";
 import { useCurrentUser } from "~/lib/auth";
 
+interface SettingsSearch {
+  checkout?: "success" | "cancel";
+}
+
 export const Route = createFileRoute("/settings")({
   component: SettingsPage,
+  validateSearch: (search: Record<string, unknown>): SettingsSearch => {
+    const c = search.checkout;
+    return c === "success" || c === "cancel" ? { checkout: c } : {};
+  },
 });
 
 function SettingsPage() {
   const navigate = useNavigate();
+  const { checkout } = Route.useSearch();
   const { data: user, isLoading: authLoading } = useCurrentUser();
 
   useEffect(() => {
@@ -30,6 +40,7 @@ function SettingsPage() {
       </header>
       <div className="p-6">
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+          <BillingPanel checkout={checkout} />
           <LlmSettingsPanel />
         </div>
       </div>

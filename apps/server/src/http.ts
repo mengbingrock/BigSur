@@ -2,6 +2,7 @@ import { Layer } from "effect";
 import { adminRoutes } from "./routes/admin";
 import { agentRoutes } from "./routes/agents";
 import { authRoutes } from "./routes/auth";
+import { billingRoutes } from "./routes/billing";
 import { chatRoute } from "./routes/chat";
 import { deckRoutes } from "./routes/deck";
 import { fsRoutes } from "./routes/fs";
@@ -20,6 +21,7 @@ export const routesLayer = Layer.mergeAll(
   ...skillsRoutes,
   ...deckRoutes,
   ...llmRoutes,
+  ...billingRoutes,
   ...agentRoutes,
   ...fsRoutes,
   chatRoute,
