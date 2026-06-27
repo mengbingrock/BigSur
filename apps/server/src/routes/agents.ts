@@ -11,7 +11,7 @@ import {
   updateAgent,
 } from "../services/agents";
 import { agentRoots, listAgentDir, readAgentFile } from "../services/agentFiles";
-import { initializeAgent } from "../services/agentInit";
+import { initializeAgent, rebuildAgentMemory } from "../services/agentInit";
 
 const params = HttpRouter.params;
 const safeBody = <T>() =>
@@ -83,8 +83,11 @@ export const initializeAgentRoute = HttpRouter.add(
     const { id } = yield* params;
     const agent = yield* Effect.promise(() => getAgent(user.email, id ?? ""));
     if (!agent) return yield* error("Agent not found.", 404);
+    // Do the fast work (sync skills + scaffold) synchronously; defer the slow
+    // LLM memory digest to the background so this response returns promptly and
+    // doesn't trip the proxy/client idle timeout.
     const result = yield* Effect.tryPromise({
-      try: () => initializeAgent(user.email, agent),
+      try: () => initializeAgent(user.email, agent, { buildMemory: false }),
       catch: (e) => e,
     }).pipe(
       Effect.map((r) => ({ ok: true as const, r })),
@@ -94,6 +97,7 @@ export const initializeAgentRoute = HttpRouter.add(
       const { status, message } = statusForError(result.e);
       return yield* error(message, status);
     }
+    void rebuildAgentMemory(user.email, agent).catch(() => {});
     return yield* json(result.r);
   }),
 );

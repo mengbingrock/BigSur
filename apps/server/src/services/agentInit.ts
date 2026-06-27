@@ -7,6 +7,8 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import type { Agent } from "@labee/contracts";
 import { completeText } from "./complete";
+import { getAllSkills } from "./skills";
+import { syncSkillsFromServer } from "./remoteSkills";
 
 export const AGENT_MEMORY_FILE = "agent-memory.md";
 const AGENTS_FILE = "AGENTS.md";
@@ -164,15 +166,59 @@ function agentsMarkdown(agent: Agent): string {
   );
 }
 
+/** Copy the agent's selected skills into its working-dir `.skill` folder so the
+ *  workspace carries its own skills. Returns the names synced. */
+async function syncAgentSkills(email: string, agent: Agent, dir: string): Promise<string[]> {
+  const skillDir = path.join(dir, ".skill");
+  await fsp.mkdir(skillDir, { recursive: true });
+  if (agent.skillSlugs.length === 0) return [];
+  const bySlug = new Map(getAllSkills(email).map((s) => [s.slug, s]));
+  const synced: string[] = [];
+  for (const slug of agent.skillSlugs) {
+    const skill = bySlug.get(slug);
+    if (!skill?.sourcePath) continue;
+    const src = path.resolve(skill.sourcePath);
+    // Skip a skill that already lives inside this agent's .skill folder.
+    const rel = path.relative(skillDir, src);
+    if (rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel))) continue;
+    const dest = path.join(skillDir, path.basename(src));
+    try {
+      await fsp.rm(dest, { recursive: true, force: true });
+      await fsp.cp(src, dest, { recursive: true, dereference: true });
+      synced.push(skill.name);
+    } catch {
+      /* skip unreadable skill */
+    }
+  }
+  return synced;
+}
+
 export interface InitResult {
   workingDir: string;
   written: string[];
+  syncedSkills: string[];
+  /** True when the memory digest was deferred and is still building in the background. */
+  memoryPending: boolean;
 }
 
-/** Ensure the working dir exists, scaffold init files, and build memory. */
-export async function initializeAgent(email: string, agent: Agent): Promise<InitResult> {
+export interface InitOptions {
+  /** When false, skip the slow LLM memory digest — the caller rebuilds it
+   *  separately (e.g. in the background) so the HTTP response returns fast. */
+  buildMemory?: boolean;
+}
+
+/** Ensure the working dir exists, scaffold init files, and (optionally) build memory. */
+export async function initializeAgent(
+  email: string,
+  agent: Agent,
+  opts: InitOptions = {},
+): Promise<InitResult> {
   const dir = path.resolve(agent.workingDir);
   await fsp.mkdir(dir, { recursive: true });
+  // Refresh the local catalog from the central Labee server first (best effort),
+  // then copy the agent's selected skills into its workspace `.skill` folder.
+  await syncSkillsFromServer(email).catch(() => {});
+  const syncedSkills = await syncAgentSkills(email, agent, dir);
 
   const written: string[] = [];
   const write = async (name: string, content: string) => {
@@ -184,9 +230,20 @@ export async function initializeAgent(email: string, agent: Agent): Promise<Init
   await write(PROFILE_FILE, profileMarkdown(agent));
   await write(AGENTS_FILE, agentsMarkdown(agent));
 
-  // Memory digest (LLM) — slower; best-effort.
+  // The memory digest is an LLM call and can take far longer than a proxy/client
+  // idle timeout. When deferred, the caller rebuilds it in the background.
+  if (opts.buildMemory === false) {
+    return { workingDir: dir, written, syncedSkills, memoryPending: true };
+  }
   const memory = await buildMemory(email, agent);
   await write(AGENT_MEMORY_FILE, memory);
+  return { workingDir: dir, written, syncedSkills, memoryPending: false };
+}
 
-  return { workingDir: dir, written };
+/** Rebuild just the reference-protocol memory digest (slow; LLM, best-effort). */
+export async function rebuildAgentMemory(email: string, agent: Agent): Promise<void> {
+  const dir = path.resolve(agent.workingDir);
+  await fsp.mkdir(dir, { recursive: true });
+  const memory = await buildMemory(email, agent);
+  await fsp.writeFile(path.join(dir, AGENT_MEMORY_FILE), memory, "utf8");
 }

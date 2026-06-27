@@ -448,6 +448,14 @@ export const chatRoute = HttpRouter.add(
     const selectedSkills: Skill[] = [];
     const selectedProtocols: Skill[] = [];
 
+    // When an agent is active, run inside its working directory, expose its
+    // reference folders, and source skills from its `.skill` folder too.
+    const agent =
+      typeof body.agentId === "string" && body.agentId
+        ? yield* Effect.promise(() => getAgent(email, body.agentId!))
+        : null;
+    const extraSkillDirs = agent?.workingDir ? [path.join(agent.workingDir, ".skill")] : [];
+
     if (mode === "edit") {
       const edit = body.edit;
       if (
@@ -470,7 +478,7 @@ export const chatRoute = HttpRouter.add(
         return yield* error("`messages` must be a non-empty array.", 400);
       }
       userPrompt = buildUserPrompt(body.messages);
-      const allSkills = getAllSkills(email);
+      const allSkills = getAllSkills(email, { extraSkillDirs });
       const bySlug = new Map(allSkills.map((s) => [s.slug, s]));
       for (const slug of body.skillSlugs) {
         const artifact = bySlug.get(slug);
@@ -480,12 +488,6 @@ export const chatRoute = HttpRouter.add(
       }
     }
 
-    // When an agent is active, run inside its working directory and expose its
-    // reference folders; otherwise use the user's shared deck.
-    const agent =
-      typeof body.agentId === "string" && body.agentId
-        ? yield* Effect.promise(() => getAgent(email, body.agentId!))
-        : null;
     const cwd = agent?.workingDir ? agent.workingDir : userDeckDir(email);
     const referenceFolders = agent?.referenceFolders ?? [];
     const artifactNotes = mode === "edit" || !body.artifactNotes ? {} : body.artifactNotes;

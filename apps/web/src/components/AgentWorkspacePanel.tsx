@@ -41,12 +41,25 @@ export function AgentWorkspacePanel({
   const references = roots.filter((r) => r.kind === "reference");
 
   const rebuild = useMutation({
-    mutationFn: () => apiSend<{ written: string[] }>("POST", `/api/agents/${agent.id}/initialize`),
-    onSuccess: () => {
+    mutationFn: () =>
+      apiSend<{ written: string[]; syncedSkills: string[]; memoryPending: boolean }>(
+        "POST",
+        `/api/agents/${agent.id}/initialize`,
+      ),
+    onSuccess: (data) => {
       // Refresh the working-directory listing so the regenerated files show.
       qc.invalidateQueries({ queryKey: ["agent-files", agent.id] });
+      qc.invalidateQueries({ queryKey: ["agent-roots", agent.id] });
+      // The memory digest finishes in the background a few seconds later;
+      // refresh again so agent-memory.md appears once it's written.
+      if (data.memoryPending) {
+        setTimeout(() => {
+          qc.invalidateQueries({ queryKey: ["agent-files", agent.id] });
+        }, 6000);
+      }
     },
   });
+  const syncedCount = rebuild.data?.syncedSkills.length ?? 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -68,20 +81,27 @@ export function AgentWorkspacePanel({
             variant="outline"
             disabled={rebuild.isPending}
             onClick={() => rebuild.mutate()}
-            title="Re-read the reference folders, summarize them, and rewrite agent-memory.md"
+            title="Sync the selected skills into .skill, re-read the reference folders, and rebuild agent-memory.md"
           >
             {rebuild.isPending ? (
               <Loader2 className="size-3.5 animate-spin" />
             ) : (
               <BrainCircuit className="size-3.5" />
             )}
-            {rebuild.isPending ? "Building memory…" : "Rebuild memory"}
+            {rebuild.isPending ? "Rebuilding…" : "Sync skills + memory"}
           </Button>
           {rebuild.isSuccess ? (
-            <span className="text-[11px] text-ink-faint">Memory updated</span>
+            <span className="text-[11px] text-ink-faint">
+              {syncedCount > 0
+                ? `${syncedCount} skill${syncedCount === 1 ? "" : "s"} synced`
+                : "Skills synced"}
+              {rebuild.data?.memoryPending ? " · rebuilding memory…" : ""}
+            </span>
           ) : null}
           {rebuild.isError ? (
-            <span className="text-[11px] text-destructive">Failed</span>
+            <span className="text-[11px] text-destructive">
+              {rebuild.error instanceof Error ? rebuild.error.message : "Failed"}
+            </span>
           ) : null}
         </div>
       </div>
