@@ -6,11 +6,15 @@
 // at it.
 //
 // Modes:
-//   - dev  (ELECTRON_DEV=1): the dev-runner already serves Vite on :5733
-//          (which proxies /api to the server); the window loads that and no
-//          server is forked here.
-//   - prod (default): fork the bundled server on a free port, wait for it,
-//          then load it. Used for packaged apps and `electron .` on a build.
+//   - dev    (ELECTRON_DEV=1): the dev-runner already serves Vite on :5733
+//            (which proxies /api to the server); the window loads that and no
+//            server is forked here.
+//   - remote (default for packaged builds): load a hosted server directly
+//            (LABEE_REMOTE_URL, default https://labee.online). No local server;
+//            all data/billing live on the host. Google sign-in uses the normal
+//            in-window web redirect (with a Chrome UA so Google allows it).
+//   - embedded (LABEE_EMBEDDED=1): fork the bundled server on a free port and
+//            load it. Self-contained, local SQLite/file storage.
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import { fork, type ChildProcess } from "node:child_process";
 import * as path from "node:path";
@@ -20,6 +24,11 @@ import * as crypto from "node:crypto";
 
 const isDev = process.env.ELECTRON_DEV === "1";
 const DEV_URL = process.env.VITE_DEV_SERVER_URL ?? "http://localhost:5733";
+// Packaged builds point at the hosted server by default; opt into the bundled
+// local server with LABEE_EMBEDDED=1.
+const REMOTE_URL = (process.env.LABEE_REMOTE_URL ?? "https://labee.online").replace(/\/+$/, "");
+const useEmbedded = !isDev && process.env.LABEE_EMBEDDED === "1";
+const useRemote = !isDev && !useEmbedded;
 
 // Keep in sync with apps/server session.ts (COOKIE_NAME, SESSION_TTL_SECONDS).
 const SESSION_COOKIE = "monterey_session";
@@ -222,7 +231,8 @@ async function applyGoogleSession(msg: { value: string; next?: string }): Promis
 }
 
 /** True for URLs that must open in the system browser, not the app window:
- *  Google's consent pages and our own OAuth start route (which 302s to Google). */
+ *  Google's consent pages and our own OAuth start route (which 302s to Google).
+ *  Only relevant in embedded mode, where Google sign-in uses the loopback flow. */
 function openAuthExternally(target: string): boolean {
   return (
     target.startsWith("https://accounts.google.com/") ||
@@ -230,8 +240,36 @@ function openAuthExternally(target: string): boolean {
   );
 }
 
+function sameOrigin(a: string, b: string): boolean {
+  try {
+    return new URL(a).origin === new URL(b).origin;
+  } catch {
+    return false;
+  }
+}
+
+function isLoopback(u: string): boolean {
+  return u.startsWith("http://localhost") || u.startsWith("http://127.0.0.1");
+}
+
+/** A Chrome-like UA with the Electron/app tokens stripped, so the hosted site's
+ *  Google OAuth (which refuses to load in "Electron") runs in-window. */
+function chromeUserAgent(): string {
+  return app.userAgentFallback
+    .replace(/ Electron\/[\d.]+/g, "")
+    .replace(/ Labee\/[\d.]+/g, "");
+}
+
 async function createWindow(): Promise<void> {
-  const url = isDev ? DEV_URL : await startServer();
+  let url: string;
+  if (isDev) {
+    url = DEV_URL;
+  } else if (useRemote) {
+    serverBaseUrl = REMOTE_URL;
+    url = REMOTE_URL;
+  } else {
+    url = await startServer();
+  }
 
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -244,38 +282,50 @@ async function createWindow(): Promise<void> {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
+      // Tell the preload to use the web Google-redirect (not the loopback bridge).
+      ...(useRemote ? { additionalArguments: ["--labee-remote"] } : {}),
     },
   });
 
+  // Remote mode: present as a normal browser so the hosted Google OAuth allows
+  // the in-window redirect flow.
+  if (useRemote) mainWindow.webContents.setUserAgent(chromeUserAgent());
+
   mainWindow.webContents.setWindowOpenHandler(({ url: openUrl }) => {
-    if (openAuthExternally(openUrl)) {
+    // Embedded loopback Google flow must open in the system browser.
+    if (!useRemote && openAuthExternally(openUrl)) {
       void shell.openExternal(openUrl);
       return { action: "deny" };
     }
-    if (openUrl.startsWith("http://localhost") || openUrl.startsWith("http://127.0.0.1")) {
+    // Keep same-origin (and dev/embedded loopback) navigations in the app window.
+    if (sameOrigin(openUrl, serverBaseUrl) || (!useRemote && isLoopback(openUrl))) {
       return { action: "allow" };
     }
     void shell.openExternal(openUrl);
     return { action: "deny" };
   });
 
-  // Never let the Google OAuth flow load inside the app window — Google blocks
-  // embedded webviews and the user expects their real browser (saved logins).
-  // This catches both the preload-bridge path and any in-window navigation
-  // (e.g. the web fallback that assigns window.location to the start route).
-  mainWindow.webContents.on("will-navigate", (event, target) => {
-    if (openAuthExternally(target)) {
-      event.preventDefault();
-      void shell.openExternal(target);
-    }
-  });
-  mainWindow.webContents.on("will-redirect", (event, target) => {
-    if (target.startsWith("https://accounts.google.com/")) {
-      event.preventDefault();
-      void shell.openExternal(target);
-    }
-  });
+  // In embedded mode Google sign-in uses the system browser (Google blocks
+  // embedded webviews); intercept any in-window attempt to reach it. In remote
+  // mode the flow runs in-window under a Chrome UA, so don't intercept.
+  if (!useRemote) {
+    mainWindow.webContents.on("will-navigate", (event, target) => {
+      if (openAuthExternally(target)) {
+        event.preventDefault();
+        void shell.openExternal(target);
+      }
+    });
+    mainWindow.webContents.on("will-redirect", (event, target) => {
+      if (target.startsWith("https://accounts.google.com/")) {
+        event.preventDefault();
+        void shell.openExternal(target);
+      }
+    });
+  }
 
+  console.log(
+    `[labee] loading ${url} (${isDev ? "dev" : useRemote ? "remote" : "embedded"})`,
+  );
   void mainWindow.loadURL(url);
   if (isDev) mainWindow.webContents.openDevTools({ mode: "detach" });
   mainWindow.on("closed", () => {
@@ -287,7 +337,8 @@ async function createWindow(): Promise<void> {
 // browser (Google blocks embedded webviews). The loopback callback hands the
 // session back over IPC (see applyGoogleSession).
 ipcMain.handle("labee:google-sign-in", (_event, next?: string) => {
-  if (!serverBaseUrl) return;
+  // Remote mode uses the in-window web redirect, not the loopback bridge.
+  if (useRemote || !serverBaseUrl) return;
   const target = next && next.startsWith("/") ? next : "/chat";
   void shell.openExternal(
     `${serverBaseUrl}/api/auth/google?next=${encodeURIComponent(target)}`,
