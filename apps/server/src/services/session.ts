@@ -51,9 +51,18 @@ export async function readSession(cookieHeader: string | undefined): Promise<Ses
   }
 }
 
+/** Seal a session into the raw token value (no cookie attributes). Used by the
+ *  desktop OAuth handoff, which injects the value into Electron's cookie jar. */
+export async function sealSession(data: SessionData): Promise<string> {
+  return sealData(data, { password: getPassword(), ttl: TTL_SECONDS });
+}
+
+/** How long a sealed session stays valid, in seconds. */
+export const SESSION_TTL_SECONDS = TTL_SECONDS;
+
 /** Build a `Set-Cookie` header value carrying the sealed session. */
 export async function sealSessionCookie(data: SessionData): Promise<string> {
-  const sealed = await sealData(data, { password: getPassword(), ttl: TTL_SECONDS });
+  const sealed = await sealSession(data);
   return cookieAttrs(`${COOKIE_NAME}=${encodeURIComponent(sealed)}`, TTL_SECONDS);
 }
 

@@ -47,6 +47,26 @@ Accounts are linked by email: signing in with Google for an existing email
 attaches the Google identity to that account; otherwise a new, password-less
 account is created (the first account on a fresh instance becomes admin).
 
+### Google sign-in in the desktop app
+
+The desktop app embeds the server on a random loopback port, so it uses a
+separate **Desktop app** OAuth client (loopback + PKCE) and opens the consent
+screen in the system browser (Google blocks embedded webviews):
+
+1. In the Google console, **Create Credentials → OAuth client ID → Application
+   type: Desktop app**. Loopback redirect URIs (`http://127.0.0.1:<any port>`)
+   are allowed automatically — nothing to register.
+2. Put the new client id **and secret** in `apps/desktop/.env` for dev
+   (`GOOGLE_DESKTOP_CLIENT_ID=…`, `GOOGLE_DESKTOP_CLIENT_SECRET=…`), or in
+   `<userData>/oauth.env` for a packaged install. Google issues a secret even for
+   desktop clients and the token endpoint requires it (PKCE is layered on top);
+   it isn't confidential — it ships in the app. The button appears once set.
+
+The flow: the renderer asks the Electron main process to open the system
+browser; the loopback callback completes the exchange and hands the sealed
+session back over IPC, which the main process injects into the window's cookie
+jar before navigating to the app.
+
 ## Deploy
 
 ```sh

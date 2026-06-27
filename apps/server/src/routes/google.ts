@@ -6,14 +6,26 @@ import {
   clearStateCookie,
   exchangeCode,
   fetchProfile,
+  generatePkce,
   isGoogleEnabled,
   readStateCookie,
   resolveRedirectUri,
   sealStateCookie,
   type OAuthState,
 } from "../services/google";
-import { sealSessionCookie } from "../services/session";
+import { sealSession, sealSessionCookie } from "../services/session";
 import { upsertGoogleUser } from "../services/users";
+
+/** In the desktop app the server is a forked child with an IPC channel; the
+ *  OAuth callback runs in the system browser, so we can't set the session
+ *  cookie on the Electron window directly. Instead we hand the sealed session
+ *  back to the main process, which injects it into the window's cookie jar. */
+const desktopHandoff = (): boolean =>
+  process.env.LABEE_MODE === "desktop" && typeof process.send === "function";
+
+const DONE_HTML = `<!doctype html><meta charset="utf-8"><title>Signed in</title>
+<style>body{font:16px -apple-system,system-ui,sans-serif;display:grid;place-items:center;height:100vh;margin:0;color:#1c1c1c;background:#fafaf7}div{text-align:center}</style>
+<div><h1>You're signed in to Labee</h1><p>You can close this tab and return to the app.</p></div>`;
 
 /** Only allow same-site relative redirect targets (guards against open
  *  redirects via the `next` query param). */
@@ -54,11 +66,15 @@ export const googleStartRoute = HttpRouter.add(
     const redirectUri = resolveRedirectUri(origin);
     const state = crypto.randomUUID();
     const next = safeNext(url.searchParams.get("next"));
+    const { verifier, challenge } = generatePkce();
 
     const cookie = yield* Effect.promise(() =>
-      sealStateCookie({ state, next, redirectUri } satisfies OAuthState),
+      sealStateCookie({ state, next, redirectUri, codeVerifier: verifier } satisfies OAuthState),
     );
-    return yield* redirectTo(buildAuthUrl({ state, redirectUri }), cookie);
+    return yield* redirectTo(
+      buildAuthUrl({ state, redirectUri, codeChallenge: challenge }),
+      cookie,
+    );
   }),
 );
 
@@ -88,6 +104,7 @@ export const googleCallbackRoute = HttpRouter.add(
         const { accessToken } = await exchangeCode({
           code,
           redirectUri: saved.redirectUri,
+          codeVerifier: saved.codeVerifier,
         });
         const profile = await fetchProfile(accessToken);
         if (!profile.emailVerified) {
@@ -109,10 +126,21 @@ export const googleCallbackRoute = HttpRouter.add(
 
     if (!result.ok) return yield* loginError(result.message);
 
-    const sessionCookie = yield* Effect.promise(() =>
-      sealSessionCookie({ email: result.user.email, isAdmin: result.user.isAdmin }),
-    );
-    return yield* redirectTo(safeNext(saved.next), sessionCookie);
+    const next = safeNext(saved.next);
+    const session = { email: result.user.email, isAdmin: result.user.isAdmin };
+
+    // Desktop: hand the sealed session to the Electron main process over IPC and
+    // show a "return to the app" page in the system browser.
+    if (desktopHandoff()) {
+      const value = yield* Effect.promise(() => sealSession(session));
+      yield* Effect.sync(() => process.send?.({ type: "labee:google-session", value, next }));
+      return HttpServerResponse.text(DONE_HTML, {
+        contentType: "text/html; charset=utf-8",
+      });
+    }
+
+    const sessionCookie = yield* Effect.promise(() => sealSessionCookie(session));
+    return yield* redirectTo(next, sessionCookie);
   }),
 );
 

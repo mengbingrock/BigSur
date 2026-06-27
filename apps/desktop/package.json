@@ -63,7 +63,7 @@
   "devDependencies": {
     "@labee/server": "workspace:*",
     "@types/node": "catalog:",
-    "electron": "^33.2.0",
+    "electron": "^38.8.6",
     "electron-builder": "^25.1.8",
     "tsdown": "catalog:",
     "typescript": "catalog:",

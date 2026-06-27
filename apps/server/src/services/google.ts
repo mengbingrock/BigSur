@@ -4,6 +4,7 @@
 // JWT-verification dependency is needed. CSRF is covered by a short-lived,
 // iron-session-sealed `state` cookie that we compare against the callback's
 // `state` query parameter.
+import crypto from "node:crypto";
 import { sealData, unsealData } from "iron-session";
 
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -15,7 +16,11 @@ export const OAUTH_STATE_COOKIE = "monterey_oauth_state";
 const STATE_TTL_SECONDS = 60 * 10; // 10 minutes to complete the round-trip
 
 export function isGoogleEnabled(): boolean {
-  return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+  if (!process.env.GOOGLE_CLIENT_ID) return false;
+  // Confidential client (web deployment) needs a secret. The desktop app uses a
+  // public "Desktop app" client with PKCE and no secret.
+  if (process.env.GOOGLE_CLIENT_SECRET) return true;
+  return process.env.LABEE_MODE === "desktop";
 }
 
 function clientId(): string {
@@ -24,10 +29,13 @@ function clientId(): string {
   return v;
 }
 
-function clientSecret(): string {
-  const v = process.env.GOOGLE_CLIENT_SECRET;
-  if (!v) throw new Error("GOOGLE_CLIENT_SECRET is not configured.");
-  return v;
+/** Generate a PKCE verifier/challenge pair (RFC 7636, S256). Used for every
+ *  flow — harmless for confidential clients, required for the public desktop
+ *  client. The verifier travels (sealed) in the state cookie. */
+export function generatePkce(): { verifier: string; challenge: string } {
+  const verifier = crypto.randomBytes(32).toString("base64url");
+  const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
+  return { verifier, challenge };
 }
 
 // Reuse the session password for sealing the state cookie. Imported lazily to
@@ -62,6 +70,7 @@ export interface OAuthState {
   state: string;
   next: string;
   redirectUri: string;
+  codeVerifier: string;
 }
 
 /** Build the `Set-Cookie` value carrying the sealed OAuth state. */
@@ -103,7 +112,11 @@ export async function readStateCookie(cookieHeader: string | undefined): Promise
 }
 
 /** Build the Google authorization URL the browser is redirected to. */
-export function buildAuthUrl(opts: { state: string; redirectUri: string }): string {
+export function buildAuthUrl(opts: {
+  state: string;
+  redirectUri: string;
+  codeChallenge: string;
+}): string {
   const params = new URLSearchParams({
     client_id: clientId(),
     redirect_uri: opts.redirectUri,
@@ -112,28 +125,46 @@ export function buildAuthUrl(opts: { state: string; redirectUri: string }): stri
     state: opts.state,
     access_type: "online",
     prompt: "select_account",
+    code_challenge: opts.codeChallenge,
+    code_challenge_method: "S256",
   });
   return `${AUTH_ENDPOINT}?${params.toString()}`;
 }
 
-/** Exchange an authorization code for an access token. */
+/** Exchange an authorization code for an access token. Includes the PKCE
+ *  verifier; the client secret is sent only when configured (confidential
+ *  web client) and omitted for the public desktop client. */
 export async function exchangeCode(opts: {
   code: string;
   redirectUri: string;
+  codeVerifier: string;
 }): Promise<{ accessToken: string }> {
+  const body = new URLSearchParams({
+    code: opts.code,
+    client_id: clientId(),
+    redirect_uri: opts.redirectUri,
+    grant_type: "authorization_code",
+    code_verifier: opts.codeVerifier,
+  });
+  const secret = process.env.GOOGLE_CLIENT_SECRET;
+  if (secret) body.set("client_secret", secret);
+
   const res = await fetch(TOKEN_ENDPOINT, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      code: opts.code,
-      client_id: clientId(),
-      client_secret: clientSecret(),
-      redirect_uri: opts.redirectUri,
-      grant_type: "authorization_code",
-    }),
+    body,
   });
   if (!res.ok) {
-    throw new Error(`Google token exchange failed (${res.status}).`);
+    const detail = await res.text().catch(() => "");
+    let message = `Google token exchange failed (${res.status}).`;
+    try {
+      const parsed = JSON.parse(detail) as { error?: string; error_description?: string };
+      const reason = parsed.error_description || parsed.error;
+      if (reason) message = `Google sign-in failed: ${reason}.`;
+    } catch {
+      /* non-JSON body */
+    }
+    throw new Error(message);
   }
   const data = (await res.json()) as { access_token?: string };
   if (!data.access_token) throw new Error("Google token exchange returned no access token.");

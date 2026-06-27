@@ -5,15 +5,28 @@ interface Props {
   label: string;
 }
 
-/** Full-page navigation to the server-side Google OAuth start route. This is a
- *  redirect flow (not a fetch), so we hand the browser straight to the server. */
+interface LabeeDesktop {
+  isDesktop?: boolean;
+  signInWithGoogle?: (next?: string) => Promise<void>;
+}
+
+/** Start the Google OAuth flow. In the browser this is a full-page redirect to
+ *  the server start route. In the desktop app Google blocks embedded webviews,
+ *  so we ask the Electron main process to open the system browser instead. */
 export function GoogleButton({ next, label }: Props) {
-  const href = next
-    ? `/api/auth/google?next=${encodeURIComponent(next)}`
-    : "/api/auth/google";
+  const target = next ?? "/chat";
+  const desktop = (window as unknown as { labeeDesktop?: LabeeDesktop }).labeeDesktop;
+
+  const onClick = () => {
+    if (desktop?.isDesktop && desktop.signInWithGoogle) {
+      void desktop.signInWithGoogle(target);
+      return;
+    }
+    window.location.assign(`/api/auth/google?next=${encodeURIComponent(target)}`);
+  };
 
   return (
-    <Button variant="outline" className="w-full" onClick={() => window.location.assign(href)}>
+    <Button variant="outline" className="w-full" onClick={onClick}>
       <GoogleLogo />
       {label}
     </Button>
