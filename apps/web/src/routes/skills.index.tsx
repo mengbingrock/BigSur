@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { Loader2, RefreshCw } from "lucide-react";
 import Fuse from "fuse.js";
 import type { Skill } from "@labee/contracts";
 import { SkillCard } from "~/components/SkillCard";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { useCurrentUser } from "~/lib/auth";
-import { apiGet } from "~/lib/api";
+import { apiGet, apiSend } from "~/lib/api";
 import { cn } from "~/lib/utils";
 
 export const Route = createFileRoute("/skills/")({
@@ -16,9 +17,15 @@ export const Route = createFileRoute("/skills/")({
 
 function SkillsPage() {
   const { data: user } = useCurrentUser();
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["skills"],
     queryFn: () => apiGet<{ skills: Skill[]; sources: string[] }>("/api/skills"),
+  });
+  const sync = useMutation({
+    mutationFn: () =>
+      apiSend<{ server: string; synced: number; skills: string[] }>("POST", "/api/skills/sync"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["skills"] }),
   });
   const [q, setQ] = useState("");
   const [source, setSource] = useState<string | null>(null);
@@ -48,9 +55,33 @@ function SkillsPage() {
           <h1 className="font-display text-3xl tracking-tight text-ink">Artifacts</h1>
         </div>
         {user && (
-          <Button render={<Link to="/skills/new" />}>New artifact</Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              disabled={sync.isPending}
+              onClick={() => sync.mutate()}
+              title="Pull the latest skills from the Labee server"
+            >
+              {sync.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <RefreshCw className="size-4" />
+              )}
+              Sync from server
+            </Button>
+            <Button render={<Link to="/skills/new" />}>New artifact</Button>
+          </div>
         )}
       </div>
+      {sync.isError ? (
+        <p className="mt-2 text-sm text-destructive">
+          {sync.error instanceof Error ? sync.error.message : "Sync failed."}
+        </p>
+      ) : sync.isSuccess ? (
+        <p className="mt-2 text-sm text-ink-light">
+          Synced {sync.data.synced} skill{sync.data.synced === 1 ? "" : "s"} from {sync.data.server}.
+        </p>
+      ) : null}
 
       <div className="mt-8 flex flex-col gap-4">
         <Input

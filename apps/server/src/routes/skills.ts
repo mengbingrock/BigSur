@@ -1,6 +1,7 @@
+import path from "node:path";
 import { Effect } from "effect";
 import { HttpRouter } from "effect/unstable/http";
-import { attempt, bodyJson, error, sessionUser } from "../httpKit";
+import { attempt, bodyJson, error, requestUrl, sessionUser } from "../httpKit";
 import {
   createSkill,
   deleteSkill,
@@ -13,20 +14,32 @@ import {
   saveSkillFile,
   type SkillUpdate,
 } from "../services/skills";
+import { getAgent } from "../services/agents";
+import { syncSkillsFromServer } from "../services/remoteSkills";
 
 const params = HttpRouter.params;
 
 const safeBody = <T>() =>
   bodyJson<T>().pipe(Effect.catch(() => Effect.succeed(null as T | null)));
 
-/** GET /api/skills — every artifact visible to the caller + source labels. */
+/** GET /api/skills — every artifact visible to the caller + source labels.
+ *  `?agent=<id>` also includes skills from that agent's working-dir `.skill`. */
 export const listSkillsRoute = HttpRouter.add(
   "GET",
   "/api/skills",
   Effect.gen(function* () {
     const user = yield* sessionUser;
+    const url = yield* requestUrl;
+    const agentId = url.searchParams.get("agent");
+    const extraSkillDirs =
+      user && agentId
+        ? yield* Effect.promise(async () => {
+            const agent = await getAgent(user.email, agentId);
+            return agent?.workingDir ? [path.join(agent.workingDir, ".skill")] : [];
+          })
+        : [];
     return yield* attempt(() => {
-      const skills = getAllSkills(user?.email);
+      const skills = getAllSkills(user?.email, { extraSkillDirs });
       return { skills, sources: getAllSources(skills) };
     });
   }),
@@ -123,8 +136,32 @@ export const importSkillRoute = HttpRouter.add(
   }),
 );
 
+/** POST /api/skills/sync — pull skills from the central Labee server into the
+ *  local catalog (then agents copy the selected ones into their `.skill`). */
+export const syncSkillsRoute = HttpRouter.add(
+  "POST",
+  "/api/skills/sync",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const result = yield* Effect.tryPromise({
+      try: () => syncSkillsFromServer(user.email),
+      catch: (e) => e,
+    }).pipe(
+      Effect.map((r) => ({ ok: true as const, r })),
+      Effect.catch((e) => Effect.succeed({ ok: false as const, e })),
+    );
+    if (!result.ok) {
+      const msg = result.e instanceof Error ? result.e.message : String(result.e);
+      return yield* error(msg, 502);
+    }
+    return yield* attempt(() => result.r);
+  }),
+);
+
 // Longer/static paths before parametric ones so exact matches win.
 export const skillsRoutes = [
+  syncSkillsRoute,
   importSkillRoute,
   saveSkillFileRoute,
   listSkillsRoute,

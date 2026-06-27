@@ -43,6 +43,23 @@ export function userSlug(email: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
+/** Deck (workspace) root — kept in sync with services/deck.ts without importing
+ *  it (deck.ts imports userSlug from here, so a back-import would cycle). */
+function deckRoot(): string {
+  return process.env.DECK_ROOT || path.join(os.homedir(), "monterey-decks");
+}
+
+/** A user's workspace skills live in a `.skill` folder at their deck root. */
+export function userWorkspaceSkillDir(email: string): string {
+  return path.join(deckRoot(), userSlug(email), ".skill");
+}
+
+/** The first user-source skills root (where synced/created skills are written). */
+export function userSkillsRootPath(): string {
+  const root = getRoots().find((r) => r.kind === "user");
+  return root ? root.path : path.join(os.homedir(), "WorkSync/Git/protocol-agent/.claude/skills");
+}
+
 /**
  * Absolute path to the directory holding `email`'s personal skills inside a
  * user-source root. Plugin roots return their own path unchanged.
@@ -167,7 +184,10 @@ function parseSkillFile(
  *
  * Without `email`, user skills are skipped. Public + plugin still load.
  */
-export function getAllSkills(email?: string): Skill[] {
+export function getAllSkills(
+  email?: string,
+  opts?: { extraSkillDirs?: readonly string[] },
+): Skill[] {
   const roots = getRoots();
   const collected: Array<Omit<Skill, "slug">> = [];
 
@@ -205,9 +225,34 @@ export function getAllSkills(email?: string): Skill[] {
     }
   }
 
+  // Workspace `.skill` folders: the user's deck workspace + any extra dirs
+  // (e.g. the active agent's working directory). These are user-owned.
+  const workspaceDirs: string[] = [];
+  if (email) workspaceDirs.push(userWorkspaceSkillDir(email));
+  for (const d of opts?.extraSkillDirs ?? []) workspaceDirs.push(d);
+  const seenWs = new Set<string>();
+  for (const dir of workspaceDirs) {
+    if (!dir || seenWs.has(dir) || !fs.existsSync(dir)) continue;
+    seenWs.add(dir);
+    for (const file of findSkillFiles(dir)) {
+      const parsed = parseSkillFile(file, { kind: "user" }, "workspace");
+      if (parsed) collected.push(parsed);
+    }
+  }
+
+  // Drop workspace skills that merely duplicate a catalog skill by name (e.g.
+  // an agent's `.skill` folder holding synced copies of selected skills), so
+  // they don't appear twice. Unique workspace skills are kept.
+  const catalogNames = new Set(
+    collected.filter((s) => s.sourceLabel !== "workspace").map((s) => s.name.toLowerCase()),
+  );
+  const deduped = collected.filter(
+    (s) => s.sourceLabel !== "workspace" || !catalogNames.has(s.name.toLowerCase()),
+  );
+
   // Assign unique slugs (collisions get a numeric suffix).
   const seenSlugs = new Set<string>();
-  const skills: Skill[] = collected.map((s) => {
+  const skills: Skill[] = deduped.map((s) => {
     let slug = slugify(s.name, s.source);
     let suffix = 2;
     while (seenSlugs.has(slug)) {
@@ -468,17 +513,8 @@ export function createSkill(input: SkillUpdate, email: string): Skill {
     throw err;
   }
 
-  const userRoot = getRoots().find((r) => r.kind === "user");
-  if (!userRoot) {
-    const err = new Error(
-      "No user-source skills root is configured. Set SKILLS_ROOTS to include " +
-        "at least one path without 'plugins'/'marketplaces' in the name.",
-    );
-    (err as Error & { code: string }).code = "NO_ROOT";
-    throw err;
-  }
-
-  const ownFolder = scopedRootPath(userRoot, email);
+  // New skills are written into the user's workspace `.skill` folder.
+  const ownFolder = userWorkspaceSkillDir(email);
   fs.mkdirSync(ownFolder, { recursive: true });
   const targetDir = path.join(ownFolder, dirName);
   if (fs.existsSync(targetDir)) {
