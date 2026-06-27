@@ -71,6 +71,21 @@ export interface OAuthState {
   next: string;
   redirectUri: string;
   codeVerifier: string;
+  /** Desktop (remote mode): a loopback URL to hand the sealed session back to,
+   *  so system-browser sign-in can return the session to the app. */
+  desktop?: string;
+}
+
+/** A safe desktop handoff target: an http loopback URL (127.0.0.1/localhost).
+ *  Guards against the session being redirected anywhere off the local machine. */
+export function isLoopbackCallback(u: string | null | undefined): boolean {
+  if (!u) return false;
+  try {
+    const url = new URL(u);
+    return url.protocol === "http:" && (url.hostname === "127.0.0.1" || url.hostname === "localhost");
+  } catch {
+    return false;
+  }
 }
 
 /** Build the `Set-Cookie` value carrying the sealed OAuth state. */

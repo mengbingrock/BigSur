@@ -8,6 +8,7 @@ import {
   fetchProfile,
   generatePkce,
   isGoogleEnabled,
+  isLoopbackCallback,
   readStateCookie,
   resolveRedirectUri,
   sealStateCookie,
@@ -67,9 +68,18 @@ export const googleStartRoute = HttpRouter.add(
     const state = crypto.randomUUID();
     const next = safeNext(url.searchParams.get("next"));
     const { verifier, challenge } = generatePkce();
+    // Desktop remote mode: a loopback URL to deliver the session back to the app.
+    const desktopParam = url.searchParams.get("desktop");
+    const desktop = isLoopbackCallback(desktopParam) ? desktopParam! : undefined;
 
     const cookie = yield* Effect.promise(() =>
-      sealStateCookie({ state, next, redirectUri, codeVerifier: verifier } satisfies OAuthState),
+      sealStateCookie({
+        state,
+        next,
+        redirectUri,
+        codeVerifier: verifier,
+        ...(desktop ? { desktop } : {}),
+      } satisfies OAuthState),
     );
     return yield* redirectTo(
       buildAuthUrl({ state, redirectUri, codeChallenge: challenge }),
@@ -129,8 +139,20 @@ export const googleCallbackRoute = HttpRouter.add(
     const next = safeNext(saved.next);
     const session = { email: result.user.email, isAdmin: result.user.isAdmin };
 
-    // Desktop: hand the sealed session to the Electron main process over IPC and
-    // show a "return to the app" page in the system browser.
+    // Desktop remote mode: the OAuth ran in the system browser; redirect the
+    // sealed session to the app's one-shot loopback listener (validated as a
+    // loopback URL when the flow started).
+    if (saved.desktop && isLoopbackCallback(saved.desktop)) {
+      const value = yield* Effect.promise(() => sealSession(session));
+      const sep = saved.desktop.includes("?") ? "&" : "?";
+      const location = `${saved.desktop}${sep}session=${encodeURIComponent(
+        value,
+      )}&next=${encodeURIComponent(next)}`;
+      return yield* redirectTo(location, clearStateCookie());
+    }
+
+    // Desktop (embedded): hand the sealed session to the Electron main process
+    // over IPC and show a "return to the app" page in the system browser.
     if (desktopHandoff()) {
       const value = yield* Effect.promise(() => sealSession(session));
       yield* Effect.sync(() => process.send?.({ type: "labee:google-session", value, next }));

@@ -20,6 +20,7 @@ import { fork, type ChildProcess } from "node:child_process";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as net from "node:net";
+import * as http from "node:http";
 import * as crypto from "node:crypto";
 
 const isDev = process.env.ELECTRON_DEV === "1";
@@ -37,6 +38,13 @@ const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 let serverProcess: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
 let serverBaseUrl = "";
+// Remote-mode Google sign-in: a one-shot loopback listener the hosted server
+// redirects the session back to.
+let googleLoopback: http.Server | null = null;
+
+const GOOGLE_DONE_HTML = `<!doctype html><meta charset="utf-8"><title>Signed in</title>
+<style>body{font:16px -apple-system,system-ui,sans-serif;display:grid;place-items:center;height:100vh;margin:0;color:#1c1c1c;background:#fafaf7}div{text-align:center}</style>
+<div><h1>You're signed in to Labee</h1><p>You can close this tab and return to the app.</p></div>`;
 
 function getFreePort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -217,7 +225,8 @@ async function applyGoogleSession(msg: { value: string; next?: string }): Promis
     name: SESSION_COOKIE,
     value: msg.value,
     httpOnly: true,
-    secure: false,
+    // Must match the origin: the hosted server is https, the embedded one http.
+    secure: serverBaseUrl.startsWith("https"),
     sameSite: "lax",
     expirationDate: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS,
   });
@@ -282,13 +291,11 @@ async function createWindow(): Promise<void> {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
-      // Tell the preload to use the web Google-redirect (not the loopback bridge).
-      ...(useRemote ? { additionalArguments: ["--labee-remote"] } : {}),
     },
   });
 
-  // Remote mode: present as a normal browser so the hosted Google OAuth allows
-  // the in-window redirect flow.
+  // Remote mode: present as a normal browser (some sites — and any embedded
+  // third-party content — refuse to load under an "Electron" user agent).
   if (useRemote) mainWindow.webContents.setUserAgent(chromeUserAgent());
 
   mainWindow.webContents.setWindowOpenHandler(({ url: openUrl }) => {
@@ -333,16 +340,74 @@ async function createWindow(): Promise<void> {
   });
 }
 
-// Renderer asks to start Google sign-in: open the OAuth flow in the system
-// browser (Google blocks embedded webviews). The loopback callback hands the
-// session back over IPC (see applyGoogleSession).
-ipcMain.handle("labee:google-sign-in", (_event, next?: string) => {
-  // Remote mode uses the in-window web redirect, not the loopback bridge.
-  if (useRemote || !serverBaseUrl) return;
-  const target = next && next.startsWith("/") ? next : "/chat";
-  void shell.openExternal(
-    `${serverBaseUrl}/api/auth/google?next=${encodeURIComponent(target)}`,
+/** Remote mode: open Google sign-in in the system browser (so the user's saved
+ *  Google accounts are available), with a one-shot loopback listener the hosted
+ *  server redirects the sealed session back to. */
+function startGoogleSignInRemote(next: string): void {
+  if (googleLoopback) {
+    try {
+      googleLoopback.close();
+    } catch {
+      /* already closed */
+    }
+    googleLoopback = null;
+  }
+  const server = http.createServer((req, res) => {
+    let value: string | null = null;
+    let nx = next;
+    try {
+      const u = new URL(req.url ?? "/", "http://127.0.0.1");
+      if (!u.pathname.startsWith("/cb")) {
+        res.writeHead(404);
+        res.end();
+        return;
+      }
+      value = u.searchParams.get("session");
+      nx = u.searchParams.get("next") || next;
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      res.end(GOOGLE_DONE_HTML);
+    } finally {
+      server.close();
+      if (googleLoopback === server) googleLoopback = null;
+    }
+    if (value) void applyGoogleSession({ value, next: nx });
+  });
+  googleLoopback = server;
+  server.listen(0, "127.0.0.1", () => {
+    const addr = server.address();
+    const port = typeof addr === "object" && addr ? addr.port : 0;
+    const cb = `http://127.0.0.1:${port}/cb`;
+    void shell.openExternal(
+      `${REMOTE_URL}/api/auth/google?next=${encodeURIComponent(next)}&desktop=${encodeURIComponent(cb)}`,
+    );
+  });
+  // Auto-close if the user never finishes the flow.
+  setTimeout(
+    () => {
+      if (googleLoopback === server) {
+        try {
+          server.close();
+        } catch {
+          /* already closed */
+        }
+        googleLoopback = null;
+      }
+    },
+    5 * 60 * 1000,
   );
+}
+
+// Renderer asks to start Google sign-in: always open the system browser (so
+// saved Google accounts are available). The session is relayed back to the
+// window — via a loopback listener in remote mode, or server IPC in embedded.
+ipcMain.handle("labee:google-sign-in", (_event, next?: string) => {
+  const target = next && next.startsWith("/") ? next : "/chat";
+  if (useRemote) {
+    startGoogleSignInRemote(target);
+    return;
+  }
+  if (!serverBaseUrl) return;
+  void shell.openExternal(`${serverBaseUrl}/api/auth/google?next=${encodeURIComponent(target)}`);
 });
 
 if (!app.requestSingleInstanceLock()) {
@@ -368,6 +433,14 @@ function stopServer(): void {
   if (serverProcess) {
     serverProcess.kill();
     serverProcess = null;
+  }
+  if (googleLoopback) {
+    try {
+      googleLoopback.close();
+    } catch {
+      /* already closed */
+    }
+    googleLoopback = null;
   }
 }
 app.on("before-quit", stopServer);
