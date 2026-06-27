@@ -15,9 +15,12 @@ export const BillingProduct = Schema.Struct({
   /** Display amount in the smallest currency unit (cents). */
   amount: Schema.Number,
   currency: Schema.String,
-  /** Subscriptions only: billing interval + the plan it grants. */
-  interval: Schema.optional(Schema.Literals(["month", "year"])),
+  /** Subscriptions only: billing interval (day/week/month/year) + plan granted. */
+  interval: Schema.optional(Schema.String),
   plan: Schema.optional(PlanTier),
+  /** Credits only: true when the buyer chooses the amount at Checkout
+   *  (pay-what-you-want price with custom_unit_amount). */
+  customAmount: Schema.optional(Schema.Boolean),
 });
 export type BillingProduct = typeof BillingProduct.Type;
 

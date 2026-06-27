@@ -29,65 +29,47 @@ interface BillingRow {
   updated_at: string;
 }
 
-/** A catalog entry's static display metadata; the Stripe price id comes from env. */
-interface ProductDef {
-  id: string;
+// The catalog is driven by Stripe price IDs from env; display metadata (name,
+// amount, interval) is fetched live from Stripe so it always matches the
+// account. Configure with comma-separated price IDs:
+//   STRIPE_SUBSCRIPTION_PRICES        recurring price IDs → "pro" plan
+//   STRIPE_SUBSCRIPTION_PRICES_MAX    recurring price IDs → "max" plan (optional)
+//   STRIPE_CREDIT_PRICES              one-time price IDs (fixed or pay-what-you-want)
+// Back-compat: STRIPE_PRICE_PRO / STRIPE_PRICE_MAX / STRIPE_PRICE_CREDITS_* are
+// used when the *_PRICES lists above are absent.
+interface PriceRef {
+  priceId: string;
   kind: "subscription" | "credits";
-  envVar: string;
-  label: string;
-  description: string;
-  /** Display amount in cents (should match the configured Stripe price). */
-  amount: number;
-  interval?: "month";
   plan?: PlanTier;
 }
 
-const CATALOG: ProductDef[] = [
-  {
-    id: "pro",
-    kind: "subscription",
-    envVar: "STRIPE_PRICE_PRO",
-    label: "Pro",
-    description: "Labee-provided models, higher limits. Billed monthly.",
-    amount: 2000,
-    interval: "month",
-    plan: "pro",
-  },
-  {
-    id: "max",
-    kind: "subscription",
-    envVar: "STRIPE_PRICE_MAX",
-    label: "Max",
-    description: "Everything in Pro with the highest limits. Billed monthly.",
-    amount: 5000,
-    interval: "month",
-    plan: "max",
-  },
-  {
-    id: "credits_10",
-    kind: "credits",
-    envVar: "STRIPE_PRICE_CREDITS_10",
-    label: "$10 credits",
-    description: "One-time top-up added to your balance.",
-    amount: 1000,
-  },
-  {
-    id: "credits_25",
-    kind: "credits",
-    envVar: "STRIPE_PRICE_CREDITS_25",
-    label: "$25 credits",
-    description: "One-time top-up added to your balance.",
-    amount: 2500,
-  },
-  {
-    id: "credits_50",
-    kind: "credits",
-    envVar: "STRIPE_PRICE_CREDITS_50",
-    label: "$50 credits",
-    description: "One-time top-up added to your balance.",
-    amount: 5000,
-  },
-];
+function csv(v: string | undefined): string[] {
+  return v ? v.split(",").map((s) => s.trim()).filter(Boolean) : [];
+}
+
+/** The configured price references (no Stripe call — just env). */
+function configuredPrices(): PriceRef[] {
+  const out: PriceRef[] = [];
+  const subPro = csv(process.env.STRIPE_SUBSCRIPTION_PRICES);
+  const subMax = csv(process.env.STRIPE_SUBSCRIPTION_PRICES_MAX);
+  if (subPro.length || subMax.length) {
+    for (const p of subPro) out.push({ priceId: p, kind: "subscription", plan: "pro" });
+    for (const p of subMax) out.push({ priceId: p, kind: "subscription", plan: "max" });
+  } else {
+    if (process.env.STRIPE_PRICE_PRO)
+      out.push({ priceId: process.env.STRIPE_PRICE_PRO, kind: "subscription", plan: "pro" });
+    if (process.env.STRIPE_PRICE_MAX)
+      out.push({ priceId: process.env.STRIPE_PRICE_MAX, kind: "subscription", plan: "max" });
+  }
+  const creditList = csv(process.env.STRIPE_CREDIT_PRICES);
+  const credits = creditList.length
+    ? creditList
+    : ["STRIPE_PRICE_CREDITS_10", "STRIPE_PRICE_CREDITS_25", "STRIPE_PRICE_CREDITS_50"]
+        .map((v) => process.env[v])
+        .filter((v): v is string => Boolean(v));
+  for (const p of credits) out.push({ priceId: p, kind: "credits" });
+  return out;
+}
 
 // ── Stripe client ───────────────────────────────────────────────────────────
 
@@ -118,23 +100,49 @@ function requireStripe(): Stripe {
   return s;
 }
 
-/** Build the catalog of purchasable products that actually have a price id set. */
-function catalog(): Array<BillingProduct & { priceId: string; def: ProductDef }> {
-  const out: Array<BillingProduct & { priceId: string; def: ProductDef }> = [];
-  for (const def of CATALOG) {
-    const priceId = process.env[def.envVar];
-    if (!priceId) continue;
+// Short-lived cache of fetched prices so GET /api/billing doesn't hit Stripe
+// on every request.
+const priceCache = new Map<string, { price: Stripe.Price; at: number }>();
+const PRICE_TTL_MS = 5 * 60 * 1000;
+
+async function fetchPrice(id: string): Promise<Stripe.Price | null> {
+  const cached = priceCache.get(id);
+  if (cached && Date.now() - cached.at < PRICE_TTL_MS) return cached.price;
+  const s = stripe();
+  if (!s) return null;
+  try {
+    const price = await s.prices.retrieve(id, { expand: ["product"] });
+    priceCache.set(id, { price, at: Date.now() });
+    return price;
+  } catch {
+    return null; // unknown id / wrong mode / inactive — skip it
+  }
+}
+
+/** Build the purchasable catalog from the configured price IDs, fetching each
+ *  price's display metadata (name/amount/interval) live from Stripe. */
+async function buildCatalog(): Promise<BillingProduct[]> {
+  if (!billingConfigured()) return [];
+  const out: BillingProduct[] = [];
+  for (const ref of configuredPrices()) {
+    const price = await fetchPrice(ref.priceId);
+    if (!price || price.active === false) continue;
+    const product =
+      price.product && typeof price.product === "object" && !("deleted" in price.product)
+        ? (price.product as Stripe.Product)
+        : null;
+    // A price with custom_unit_amount lets the buyer choose the amount at Checkout.
+    const customAmount = price.unit_amount == null && Boolean(price.custom_unit_amount);
     out.push({
-      id: def.id,
-      kind: def.kind,
-      label: def.label,
-      description: def.description,
-      amount: def.amount,
-      currency: CURRENCY,
-      ...(def.interval ? { interval: def.interval } : {}),
-      ...(def.plan ? { plan: def.plan } : {}),
-      priceId,
-      def,
+      id: price.id,
+      kind: ref.kind,
+      label: product?.name ?? (ref.kind === "subscription" ? "Subscription" : "Credits"),
+      description: product?.description ?? "",
+      amount: price.unit_amount ?? 0,
+      currency: price.currency ?? CURRENCY,
+      ...(price.recurring?.interval ? { interval: price.recurring.interval } : {}),
+      ...(ref.plan ? { plan: ref.plan } : {}),
+      ...(customAmount ? { customAmount: true } : {}),
     });
   }
   return out;
@@ -143,12 +151,8 @@ function catalog(): Array<BillingProduct & { priceId: string; def: ProductDef }>
 /** Map a Stripe (subscription) price id back to the plan it grants. */
 function planForPriceId(priceId: string | null | undefined): PlanTier | null {
   if (!priceId) return null;
-  for (const def of CATALOG) {
-    if (def.kind === "subscription" && process.env[def.envVar] === priceId) {
-      return def.plan ?? null;
-    }
-  }
-  return null;
+  const ref = configuredPrices().find((r) => r.priceId === priceId && r.kind === "subscription");
+  return ref?.plan ?? null;
 }
 
 // ── Local billing row ───────────────────────────────────────────────────────
@@ -203,7 +207,7 @@ function coercePlan(v: string | undefined | null): PlanTier {
 /** The user's billing state + the purchasable catalog (GET /api/billing). */
 export async function getBillingState(email: string): Promise<BillingState> {
   const row = await readRow(email);
-  const products = catalog().map(({ def: _def, priceId: _priceId, ...p }) => p);
+  const products = await buildCatalog();
   return {
     configured: billingConfigured(),
     plan: coercePlan(row?.plan),
@@ -269,19 +273,20 @@ export async function createCheckout(
   origin: string,
 ): Promise<string> {
   const s = requireStripe();
-  const product = catalog().find((p) => p.id === productId);
-  if (!product) throw invalid("Unknown or unavailable product.");
+  // productId is the Stripe price id (the dynamic catalog uses price ids as ids).
+  const ref = configuredPrices().find((r) => r.priceId === productId);
+  if (!ref) throw invalid("Unknown or unavailable product.");
   const customer = await getOrCreateCustomer(email);
   const base = origin.replace(/\/+$/, "");
 
   const session = await s.checkout.sessions.create({
     customer,
-    mode: product.kind === "subscription" ? "subscription" : "payment",
-    line_items: [{ price: product.priceId, quantity: 1 }],
+    mode: ref.kind === "subscription" ? "subscription" : "payment",
+    line_items: [{ price: ref.priceId, quantity: 1 }],
     success_url: `${base}/settings?checkout=success`,
     cancel_url: `${base}/settings?checkout=cancel`,
-    metadata: { labee_email: email, product_id: product.id, kind: product.kind },
-    ...(product.kind === "credits"
+    metadata: { labee_email: email, product_id: ref.priceId, kind: ref.kind },
+    ...(ref.kind === "credits"
       ? { payment_intent_data: { metadata: { labee_email: email } } }
       : { subscription_data: { metadata: { labee_email: email } } }),
   });

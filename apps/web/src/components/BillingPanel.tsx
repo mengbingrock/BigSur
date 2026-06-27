@@ -211,18 +211,34 @@ function ProductCard({
   disabled: boolean;
   onBuy: () => void;
 }) {
+  const buyLabel = current
+    ? "Current plan"
+    : product.kind === "subscription"
+      ? "Subscribe"
+      : product.customAmount
+        ? "Choose amount"
+        : "Buy";
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-border bg-background/60 p-4">
       <div className="flex items-baseline justify-between gap-2">
         <span className="font-medium text-ink">{product.label}</span>
         <span className="text-sm text-ink">
-          {money(product.amount, product.currency)}
-          {product.interval ? (
-            <span className="text-ink-faint">/{product.interval}</span>
-          ) : null}
+          {product.customAmount ? (
+            <span className="text-ink-faint">Custom</span>
+          ) : (
+            <>
+              {money(product.amount, product.currency)}
+              {product.interval ? (
+                <span className="text-ink-faint">/{product.interval}</span>
+              ) : null}
+            </>
+          )}
         </span>
       </div>
-      <p className="flex-1 text-xs text-ink-light">{product.description}</p>
+      <p className="flex-1 text-xs text-ink-light">
+        {product.description ||
+          (product.customAmount ? "Top up your balance by any amount." : "")}
+      </p>
       <Button
         size="sm"
         variant={current ? "outline" : "default"}
@@ -238,7 +254,7 @@ function ProductCard({
         ) : (
           <CreditCard className="size-3.5" />
         )}
-        {current ? "Current plan" : product.kind === "subscription" ? "Subscribe" : "Buy"}
+        {buyLabel}
       </Button>
     </div>
   );
