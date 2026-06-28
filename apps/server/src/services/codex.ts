@@ -205,12 +205,11 @@ export function codexExecStream(opts: {
       enqueue("status", { status: "thinking" });
 
       try {
-        // workspace-write lets codex edit files in cwd and never prompts for
-        // approval (autonomous, like the claude bypassPermissions path).
+        // workspace-write lets codex edit files in cwd. `codex exec` is already
+        // non-interactive (no approval prompts), so the sandbox flag is all we
+        // need — there is no -a/--ask-for-approval flag on `exec`.
         const sandboxArgs =
-          mode === "workspace-write"
-            ? ["-s", "workspace-write", "-a", "never"]
-            : ["-s", "read-only"];
+          mode === "workspace-write" ? ["-s", "workspace-write"] : ["-s", "read-only"];
         proc = spawn(
           bin,
           [
