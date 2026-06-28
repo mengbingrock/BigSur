@@ -68,9 +68,11 @@ async function openDb(): Promise<SqlDb> {
       "skill_slugs TEXT NOT NULL DEFAULT '[]', " +
       "working_dir TEXT NOT NULL DEFAULT '', " +
       "reference_folders TEXT NOT NULL DEFAULT '[]', " +
+      "engine TEXT NOT NULL DEFAULT 'claude', " +
       "created_at TEXT NOT NULL, " +
       "updated_at TEXT NOT NULL);",
   );
+  ensureColumn(db, "agents", "engine", "TEXT NOT NULL DEFAULT 'claude'");
   // Per-user billing: Stripe customer/subscription + a credit balance (cents).
   db.exec(
     "CREATE TABLE IF NOT EXISTS billing (" +

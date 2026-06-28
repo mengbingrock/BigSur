@@ -1,5 +1,9 @@
 import { Schema } from "effect";
 
+/** Which locally-installed CLI runs this agent. */
+export const AgentEngine = Schema.Literals(["claude", "codex"]);
+export type AgentEngine = typeof AgentEngine.Type;
+
 /**
  * A saved agent preset: a named bundle of selected skills, a working artifact
  * directory (where the agent runs and writes outputs), and folders on the
@@ -15,6 +19,8 @@ export const Agent = Schema.Struct({
   workingDir: Schema.String,
   /** Absolute paths to folders holding reference protocols / docs. */
   referenceFolders: Schema.Array(Schema.String),
+  /** Which local CLI runs the agent (defaults to "claude"). */
+  engine: Schema.optional(AgentEngine),
   createdAt: Schema.optional(Schema.String),
   updatedAt: Schema.optional(Schema.String),
 });
@@ -27,6 +33,7 @@ export const AgentUpdate = Schema.Struct({
   skillSlugs: Schema.Array(Schema.String),
   workingDir: Schema.String,
   referenceFolders: Schema.Array(Schema.String),
+  engine: Schema.optional(AgentEngine),
 });
 export type AgentUpdate = typeof AgentUpdate.Type;
 

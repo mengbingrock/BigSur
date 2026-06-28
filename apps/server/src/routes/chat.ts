@@ -455,6 +455,9 @@ export const chatRoute = HttpRouter.add(
         ? yield* Effect.promise(() => getAgent(email, body.agentId!))
         : null;
     const extraSkillDirs = agent?.workingDir ? [path.join(agent.workingDir, ".skill")] : [];
+    // The agent preset can pin a local engine. "codex" runs the user's codex CLI
+    // (its own auth, agentic + workspace-write); otherwise we use the claude path.
+    const codexEngine = mode !== "edit" && agent?.engine === "codex";
 
     if (mode === "edit") {
       const edit = body.edit;
@@ -533,7 +536,7 @@ export const chatRoute = HttpRouter.add(
           "Consult `agent-memory.md` first to answer quickly; open the original reference files only when you need detail beyond the digest.\n"
         : "";
       systemPrompt =
-        provider === "openai"
+        provider === "openai" && !codexEngine
           ? OPENAI_SYSTEM_PROMPT + built.contextAddendum + referenceAddendum + agentMemoryHint
           : SYSTEM_PROMPT +
             built.protocolAddendum +
@@ -542,7 +545,9 @@ export const chatRoute = HttpRouter.add(
             agentMemoryHint;
     }
 
-    if (cred.unavailable) {
+    // The codex engine uses codex's own local auth, so it doesn't need an
+    // Anthropic/OpenAI credential configured.
+    if (!codexEngine && cred.unavailable) {
       return HttpServerResponse.stream(
         Stream.fromReadableStream({
           evaluate: () => singleErrorStream(cred.reason ?? "No usable LLM credential."),
@@ -553,7 +558,15 @@ export const chatRoute = HttpRouter.add(
     }
 
     let makeStream: () => ReadableStream<Uint8Array>;
-    if (provider === "openai" && cred.useCodex) {
+    if (codexEngine) {
+      // Local codex agent: workspace-write so it can edit files in cwd.
+      makeStream = () =>
+        codexExecStream({
+          prompt: `${systemPrompt}\n\n----\n\n${userPrompt}`,
+          cwd,
+          mode: "workspace-write",
+        });
+    } else if (provider === "openai" && cred.useCodex) {
       // ChatGPT subscription → run through the codex CLI (agentic, read-only).
       makeStream = () =>
         codexExecStream({

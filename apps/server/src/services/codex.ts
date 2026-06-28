@@ -178,8 +178,12 @@ export function codexExecStream(opts: {
   prompt: string;
   cwd: string;
   planLabel?: string;
+  /** "read-only" (default) for chat answers; "workspace-write" lets the agent
+   *  edit files in its working directory (used by the codex agent engine). */
+  mode?: "read-only" | "workspace-write";
 }): ReadableStream<Uint8Array> {
   const { prompt, cwd, planLabel } = opts;
+  const mode = opts.mode ?? "read-only";
   const bin = codexBin();
   const aborted = { v: false };
   let proc: ReturnType<typeof spawn> | null = null;
@@ -192,7 +196,7 @@ export function codexExecStream(opts: {
         if (aborted.v) return;
         controller.enqueue(sse(event, data));
       };
-      enqueue("init", { model: planLabel ?? "ChatGPT", api_key_source: "chatgpt", permission_mode: "read-only" });
+      enqueue("init", { model: planLabel ?? "ChatGPT", api_key_source: "chatgpt", permission_mode: mode });
       if (!bin) {
         enqueue("error", { message: "The codex CLI is not installed on this server." });
         controller.close();
@@ -201,12 +205,18 @@ export function codexExecStream(opts: {
       enqueue("status", { status: "thinking" });
 
       try {
+        // workspace-write lets codex edit files in cwd and never prompts for
+        // approval (autonomous, like the claude bypassPermissions path).
+        const sandboxArgs =
+          mode === "workspace-write"
+            ? ["-s", "workspace-write", "-a", "never"]
+            : ["-s", "read-only"];
         proc = spawn(
           bin,
           [
             "exec",
             "--skip-git-repo-check",
-            "-s", "read-only",
+            ...sandboxArgs,
             "-C", cwd,
             "-o", outFile,
             prompt,

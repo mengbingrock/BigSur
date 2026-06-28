@@ -1,7 +1,7 @@
 // Saved agent presets (per user): selected skills + a working artifact
 // directory + folders of reference protocols. Backed by the `agents` table.
 import crypto from "node:crypto";
-import type { Agent, AgentUpdate } from "@labee/contracts";
+import type { Agent, AgentEngine, AgentUpdate } from "@labee/contracts";
 import { getDb } from "./db";
 
 interface AgentRow {
@@ -12,8 +12,13 @@ interface AgentRow {
   skill_slugs: string;
   working_dir: string;
   reference_folders: string;
+  engine: string | null;
   created_at: string;
   updated_at: string;
+}
+
+function parseEngine(raw: string | null | undefined): AgentEngine {
+  return raw === "codex" ? "codex" : "claude";
 }
 
 function parseJsonArray(raw: string): string[] {
@@ -33,6 +38,7 @@ function toAgent(row: AgentRow): Agent {
     skillSlugs: parseJsonArray(row.skill_slugs),
     workingDir: row.working_dir,
     referenceFolders: parseJsonArray(row.reference_folders),
+    engine: parseEngine(row.engine),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -44,6 +50,7 @@ function sanitize(patch: AgentUpdate): {
   skillSlugs: string[];
   workingDir: string;
   referenceFolders: string[];
+  engine: AgentEngine;
 } {
   const name = (patch.name ?? "").trim();
   if (!name) {
@@ -69,6 +76,7 @@ function sanitize(patch: AgentUpdate): {
     skillSlugs,
     workingDir,
     referenceFolders,
+    engine: patch.engine === "codex" ? "codex" : "claude",
   };
 }
 
@@ -94,8 +102,8 @@ export async function createAgent(email: string, patch: AgentUpdate): Promise<Ag
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
   db.prepare(
-    "INSERT INTO agents (id, email, name, description, skill_slugs, working_dir, reference_folders, created_at, updated_at) " +
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO agents (id, email, name, description, skill_slugs, working_dir, reference_folders, engine, created_at, updated_at) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   ).run(
     id,
     email,
@@ -104,6 +112,7 @@ export async function createAgent(email: string, patch: AgentUpdate): Promise<Ag
     JSON.stringify(fields.skillSlugs),
     fields.workingDir,
     JSON.stringify(fields.referenceFolders),
+    fields.engine,
     now,
     now,
   );
@@ -127,13 +136,14 @@ export async function updateAgent(
   const fields = sanitize(patch);
   db.prepare(
     "UPDATE agents SET name = ?, description = ?, skill_slugs = ?, working_dir = ?, " +
-      "reference_folders = ?, updated_at = ? WHERE email = ? AND id = ?",
+      "reference_folders = ?, engine = ?, updated_at = ? WHERE email = ? AND id = ?",
   ).run(
     fields.name,
     fields.description,
     JSON.stringify(fields.skillSlugs),
     fields.workingDir,
     JSON.stringify(fields.referenceFolders),
+    fields.engine,
     new Date().toISOString(),
     email,
     id,

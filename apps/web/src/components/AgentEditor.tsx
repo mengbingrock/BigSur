@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { Agent, AgentUpdate, Skill } from "@labee/contracts";
+import type { Agent, AgentEngine, AgentUpdate, Skill } from "@labee/contracts";
 import { Folder, FolderOpen, Loader2, Plus, X } from "lucide-react";
 
 import { apiGet, apiSend } from "~/lib/api";
@@ -28,6 +28,14 @@ export function AgentEditor({ initial, onSaved }: AgentEditorProps) {
   const [referenceFolders, setReferenceFolders] = useState<string[]>(
     initial?.referenceFolders ? [...initial.referenceFolders] : [],
   );
+  const [engine, setEngine] = useState<AgentEngine>(initial?.engine ?? "claude");
+
+  const enginesQ = useQuery({
+    queryKey: ["agent-engines"],
+    queryFn: () => apiGet<{ claude: boolean; codex: boolean }>("/api/agents/engines"),
+    staleTime: 60_000,
+  });
+  const engines = enginesQ.data;
 
   const [showWorkingPicker, setShowWorkingPicker] = useState(!initial?.workingDir);
   const [showRefPicker, setShowRefPicker] = useState(false);
@@ -87,6 +95,7 @@ export function AgentEditor({ initial, onSaved }: AgentEditorProps) {
       skillSlugs,
       workingDir: workingDir.trim(),
       referenceFolders,
+      engine,
     };
     mutation.mutate(payload);
   };
@@ -117,6 +126,43 @@ export function AgentEditor({ initial, onSaved }: AgentEditorProps) {
             placeholder="What this agent is for (optional)."
             onChange={(e) => setDescription((e.target as HTMLTextAreaElement).value)}
           />
+        </div>
+      </section>
+
+      {/* Engine */}
+      <section className="flex flex-col gap-2">
+        <h2 className="font-display text-ink text-lg">Engine</h2>
+        <p className="text-ink-light text-sm">
+          Which locally-installed CLI runs this agent.
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {(
+            [
+              { id: "claude", label: "Claude Code", hint: "Anthropic Claude Code CLI", available: engines?.claude },
+              { id: "codex", label: "Codex", hint: "OpenAI Codex CLI", available: engines?.codex },
+            ] as const
+          ).map((opt) => {
+            const selected = engine === opt.id;
+            const unavailable = engines != null && !opt.available;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                disabled={unavailable}
+                onClick={() => setEngine(opt.id)}
+                className={cn(
+                  "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition",
+                  selected ? "border-brand bg-brand/5" : "border-border bg-card hover:bg-surface",
+                  unavailable && "cursor-not-allowed opacity-50",
+                )}
+              >
+                <span className="font-medium text-ink text-sm">{opt.label}</span>
+                <span className="text-ink-faint text-xs">
+                  {unavailable ? "Not installed" : opt.hint}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </section>
 

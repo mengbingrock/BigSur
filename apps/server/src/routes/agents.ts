@@ -12,6 +12,7 @@ import {
 } from "../services/agents";
 import { agentRoots, listAgentDir, readAgentFile } from "../services/agentFiles";
 import { initializeAgent, rebuildAgentMemory } from "../services/agentInit";
+import { availableEngines } from "../services/engines";
 
 const params = HttpRouter.params;
 const safeBody = <T>() =>
@@ -26,6 +27,17 @@ export const listAgentsRoute = HttpRouter.add(
     if (!user) return yield* error("Authentication required.", 401);
     const agents = yield* Effect.promise(() => listAgents(user.email));
     return yield* json({ agents });
+  }),
+);
+
+/** GET /api/agents/engines — which local agent CLIs are installed. */
+export const agentEnginesRoute = HttpRouter.add(
+  "GET",
+  "/api/agents/engines",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    return yield* json(availableEngines());
   }),
 );
 
@@ -217,6 +229,7 @@ export const agentDownloadRoute = HttpRouter.add(
 
 export const agentRoutes = [
   listAgentsRoute,
+  agentEnginesRoute,
   getAgentRoute,
   createAgentRoute,
   updateAgentRoute,
