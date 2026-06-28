@@ -16,7 +16,7 @@
 //   - remote (LABEE_REMOTE=1): load a hosted server directly (LABEE_REMOTE_URL,
 //            default https://labee.online); all data/billing live on the host.
 //            Google sign-in runs in-window under a Chrome UA.
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { execFileSync, fork, type ChildProcess } from "node:child_process";
 import * as path from "node:path";
 import * as fs from "node:fs";
@@ -498,6 +498,19 @@ ipcMain.handle("labee:google-sign-in", (_event, next?: string) => {
   }
   if (!serverBaseUrl) return;
   void shell.openExternal(`${serverBaseUrl}/api/auth/google?next=${encodeURIComponent(target)}`);
+});
+
+// Renderer asks for a native folder picker (used to choose the agent's working
+// directory / reference folders). Returns the absolute path, or null.
+ipcMain.handle("labee:pick-folder", async (_event, defaultPath?: string) => {
+  if (!mainWindow) return null;
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Choose a folder",
+    buttonLabel: "Use folder",
+    properties: ["openDirectory", "createDirectory"],
+    ...(defaultPath ? { defaultPath } : {}),
+  });
+  return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0];
 });
 
 if (!app.requestSingleInstanceLock()) {

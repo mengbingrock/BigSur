@@ -16,4 +16,7 @@ contextBridge.exposeInMainWorld("labeeDesktop", {
   // IPC in embedded mode, or via a one-shot loopback listener in remote mode.
   signInWithGoogle: (next?: string): Promise<void> =>
     ipcRenderer.invoke("labee:google-sign-in", next),
+  // Native OS folder picker; resolves to the chosen absolute path or null.
+  pickFolder: (defaultPath?: string): Promise<string | null> =>
+    ipcRenderer.invoke("labee:pick-folder", defaultPath),
 });

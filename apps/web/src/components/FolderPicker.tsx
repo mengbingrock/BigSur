@@ -7,11 +7,13 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
+  FolderSearch,
   Loader2,
   Plus,
 } from "lucide-react";
 
 import { apiGet, apiSend } from "~/lib/api";
+import { desktopBridge } from "~/lib/desktop";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { cn } from "~/lib/utils";
@@ -79,6 +81,14 @@ export function FolderPicker({
 
   const currentPath = data?.path ?? path ?? "";
 
+  // In the desktop app, prefer the native OS folder dialog (can reach anywhere,
+  // not just under home). Falls back to the inline browser below.
+  const nativePick = desktopBridge()?.pickFolder;
+  const pickNative = async () => {
+    const picked = await nativePick?.(currentPath || value || undefined);
+    if (picked) onSelect(picked);
+  };
+
   return (
     <div className={cn("rounded-lg border border-border bg-card", className)}>
       {title ? (
@@ -109,6 +119,12 @@ export function FolderPicker({
         <Button size="sm" variant="outline" onClick={() => pathInput.trim() && setPath(pathInput.trim())}>
           Go
         </Button>
+        {nativePick ? (
+          <Button size="sm" variant="outline" onClick={() => void pickNative()} title="Open the native folder picker">
+            <FolderSearch className="size-4" />
+            Browse…
+          </Button>
+        ) : null}
       </div>
 
       <div className="flex items-center gap-2 border-border border-b px-3 py-1.5">
