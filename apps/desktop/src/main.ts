@@ -9,27 +9,30 @@
 //   - dev    (ELECTRON_DEV=1): the dev-runner already serves Vite on :5733
 //            (which proxies /api to the server); the window loads that and no
 //            server is forked here.
-//   - remote (default for packaged builds): load a hosted server directly
-//            (LABEE_REMOTE_URL, default https://labee.online). No local server;
-//            all data/billing live on the host. Google sign-in uses the normal
-//            in-window web redirect (with a Chrome UA so Google allows it).
-//   - embedded (LABEE_EMBEDDED=1): fork the bundled server on a free port and
-//            load it. Self-contained, local SQLite/file storage.
+//   - embedded (default for packaged builds): fork the bundled server on a free
+//            port and load it. The agent runs locally on the user's machine,
+//            using their own installed claude/codex CLI. Self-contained local
+//            SQLite/file storage. Google sign-in uses the loopback flow.
+//   - remote (LABEE_REMOTE=1): load a hosted server directly (LABEE_REMOTE_URL,
+//            default https://labee.online); all data/billing live on the host.
+//            Google sign-in runs in-window under a Chrome UA.
 import { app, BrowserWindow, ipcMain, shell } from "electron";
-import { fork, type ChildProcess } from "node:child_process";
+import { execFileSync, fork, type ChildProcess } from "node:child_process";
 import * as path from "node:path";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as net from "node:net";
 import * as http from "node:http";
 import * as crypto from "node:crypto";
 
 const isDev = process.env.ELECTRON_DEV === "1";
 const DEV_URL = process.env.VITE_DEV_SERVER_URL ?? "http://localhost:5733";
-// Packaged builds point at the hosted server by default; opt into the bundled
-// local server with LABEE_EMBEDDED=1.
+// The desktop app runs the bundled local server by default, so the agent runs
+// on the user's machine against local folders. Opt into a hosted server with
+// LABEE_REMOTE=1 (target via LABEE_REMOTE_URL).
 const REMOTE_URL = (process.env.LABEE_REMOTE_URL ?? "https://labee.online").replace(/\/+$/, "");
-const useEmbedded = !isDev && process.env.LABEE_EMBEDDED === "1";
-const useRemote = !isDev && !useEmbedded;
+const useRemote = !isDev && process.env.LABEE_REMOTE === "1";
+const useEmbedded = !isDev && !useRemote;
 
 // Keep in sync with apps/server session.ts (COOKIE_NAME, SESSION_TTL_SECONDS).
 const SESSION_COOKIE = "monterey_session";
@@ -152,6 +155,79 @@ function serverEntry(): string {
     : path.join(__dirname, "..", "..", "server", "dist", "bin.mjs");
 }
 
+let cachedUserPath: string | null = null;
+
+/** The user's *real* PATH. A GUI app launched from Finder/Dock inherits a
+ *  minimal PATH (/usr/bin:/bin:…), so CLIs installed in ~/.local/bin, Homebrew,
+ *  nvm, bun, etc. aren't found. We resolve the login shell's PATH and merge the
+ *  usual install dirs. We never bundle the agent CLIs — we locate the user's
+ *  own install. */
+function resolveUserPath(): string {
+  if (cachedUserPath) return cachedUserPath;
+  const parts: string[] = [];
+
+  // 1) Ask the login shell for its PATH (captures brew, nvm, asdf, pyenv, …).
+  if (process.platform !== "win32") {
+    const shell = process.env.SHELL || "/bin/zsh";
+    try {
+      const out = execFileSync(shell, ["-ilc", 'printf "%s" "$PATH"'], {
+        encoding: "utf8",
+        timeout: 5000,
+        stdio: ["ignore", "pipe", "ignore"],
+      });
+      // A noisy .zshrc may print before our value; keep only PATH-looking parts.
+      for (const seg of out.split(/[\n:]/)) {
+        if (seg.startsWith("/")) parts.push(seg.trim());
+      }
+    } catch {
+      /* shell probe failed — the common dirs below still cover most installs */
+    }
+  }
+
+  // 2) Common locations the shell probe might miss.
+  const home = os.homedir();
+  if (process.platform !== "win32") {
+    parts.push(
+      path.join(home, ".local/bin"),
+      path.join(home, ".bun/bin"),
+      path.join(home, ".npm-global/bin"),
+      path.join(home, ".deno/bin"),
+      "/opt/homebrew/bin",
+      "/usr/local/bin",
+      "/usr/bin",
+      "/bin",
+    );
+  }
+
+  // 3) Whatever PATH this process already has.
+  if (process.env.PATH) parts.push(...process.env.PATH.split(path.delimiter));
+
+  const seen = new Set<string>();
+  cachedUserPath = parts
+    .filter((p) => p && !seen.has(p) && seen.add(p))
+    .join(path.delimiter);
+  return cachedUserPath;
+}
+
+/** Locate an executable by name across `searchPath` (absolute path, or null).
+ *  Never bundles — finds the user's own install of claude/codex. */
+function findBinary(name: string, searchPath: string): string | null {
+  const exts = process.platform === "win32" ? [".cmd", ".exe", ".bat", ""] : [""];
+  for (const dir of searchPath.split(path.delimiter)) {
+    if (!dir) continue;
+    for (const ext of exts) {
+      const candidate = path.join(dir, name + ext);
+      try {
+        fs.accessSync(candidate, fs.constants.X_OK);
+        return candidate;
+      } catch {
+        /* not executable / not here */
+      }
+    }
+  }
+  return null;
+}
+
 async function startServer(): Promise<string> {
   const port = await getFreePort();
   const host = "127.0.0.1";
@@ -173,6 +249,20 @@ async function startServer(): Promise<string> {
     SESSION_PASSWORD: getOrCreateSessionSecret(),
     COOKIE_SECURE: "false",
   };
+
+  // The agent runs locally: the server spawns the user's own claude/codex CLI.
+  // Give it the real user PATH (Finder-launched apps get a stripped one) and the
+  // resolved absolute binary paths so spawns work regardless of how the app was
+  // started. We never bundle these CLIs.
+  const userPath = resolveUserPath();
+  env.PATH = userPath;
+  const claudeBin = findBinary("claude", userPath);
+  const codexBin = findBinary("codex", userPath);
+  if (claudeBin) env.CLAUDE_BIN = claudeBin;
+  if (codexBin) env.CODEX_BIN = codexBin;
+  console.log(
+    `[labee] agent CLIs — claude: ${claudeBin ?? "not found"}, codex: ${codexBin ?? "not found"}`,
+  );
 
   // Google sign-in: wire a "Desktop app" OAuth client (loopback + PKCE) to the
   // embedded server. Google allows any loopback port, so no redirect URI needs

@@ -18,6 +18,8 @@ const common = {
 } as const;
 
 export default defineConfig([
-  { ...common, entry: { main: "src/main.ts" }, clean: true },
-  { ...common, entry: { preload: "src/preload.ts" }, clean: false },
+  // Re-specify `external` as a mutable array (the `as const` above makes it
+  // readonly, which tsdown's config type rejects).
+  { ...common, external: ["electron"], entry: { main: "src/main.ts" }, clean: true },
+  { ...common, external: ["electron"], entry: { preload: "src/preload.ts" }, clean: false },
 ]);
