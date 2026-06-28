@@ -325,6 +325,16 @@ async function linkSelectedProtocols(
   return linked;
 }
 
+const CLAUDE_NOT_FOUND =
+  "Claude Code isn't installed (or wasn't found on your PATH). Install it with " +
+  "`npm i -g @anthropic-ai/claude-code`, then restart the app. To use OpenAI " +
+  "Codex instead, set the agent's engine to Codex.";
+
+/** True when a spawn failure means the claude binary couldn't be found. */
+function isMissingClaude(err: unknown): boolean {
+  return (err as NodeJS.ErrnoException | undefined)?.code === "ENOENT";
+}
+
 /** Build the SSE ReadableStream that spawns the claude CLI and forwards events. */
 function buildChatStream(
   cwd: string,
@@ -344,7 +354,11 @@ function buildChatStream(
           env: { ...process.env, ...extraEnv },
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to spawn claude.";
+        const message = isMissingClaude(err)
+          ? CLAUDE_NOT_FOUND
+          : err instanceof Error
+            ? err.message
+            : "Failed to spawn claude.";
         controller.enqueue(
           encoder.encode(`event: error\ndata: ${JSON.stringify({ message })}\n\n`),
         );
@@ -400,7 +414,7 @@ function buildChatStream(
       });
 
       proc.on("error", (err) => {
-        send("error", { message: err.message });
+        send("error", { message: isMissingClaude(err) ? CLAUDE_NOT_FOUND : err.message });
         close();
       });
 

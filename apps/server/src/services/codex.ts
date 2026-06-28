@@ -235,7 +235,11 @@ export function codexExecStream(opts: {
         if (stderr.length > 8192) stderr = stderr.slice(-8192);
       });
       proc.on("error", (e) => {
-        enqueue("error", { message: e.message });
+        const message =
+          (e as NodeJS.ErrnoException).code === "ENOENT"
+            ? "The codex CLI isn't installed (or wasn't found on your PATH). Install it and restart the app."
+            : e.message;
+        enqueue("error", { message });
         controller.close();
       });
       proc.on("close", (code) => {
