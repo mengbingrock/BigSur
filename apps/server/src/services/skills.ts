@@ -9,6 +9,22 @@ interface Root {
   kind: "user" | "plugins";
 }
 
+/** The app's internal data directory (matches services/db.ts). App-managed state
+ *  — skills, the SQLite DB, etc. — lives here. On desktop this is under the OS
+ *  app-data folder (LABEE_DATA_DIR); in dev it's ./data. */
+function appDataDir(): string {
+  return (
+    process.env.LABEE_DATA_DIR ||
+    process.env.MONTEREY_DATA_DIR ||
+    path.join(process.cwd(), "data")
+  );
+}
+
+/** Default skills root — an app-internal folder, not an ad-hoc external path. */
+function defaultSkillsRoot(): string {
+  return path.join(appDataDir(), "skills");
+}
+
 function getRoots(): Root[] {
   const override = process.env.SKILLS_ROOTS;
   if (override) {
@@ -17,13 +33,7 @@ function getRoots(): Root[] {
       kind: inferKind(p),
     }));
   }
-  const home = os.homedir();
-  return [
-    {
-      path: path.join(home, "WorkSync/Git/protocol-agent/.claude/skills"),
-      kind: "user",
-    },
-  ];
+  return [{ path: defaultSkillsRoot(), kind: "user" }];
 }
 
 function inferKind(p: string): "user" | "plugins" {
@@ -57,7 +67,7 @@ export function userWorkspaceSkillDir(email: string): string {
 /** The first user-source skills root (where synced/created skills are written). */
 export function userSkillsRootPath(): string {
   const root = getRoots().find((r) => r.kind === "user");
-  return root ? root.path : path.join(os.homedir(), "WorkSync/Git/protocol-agent/.claude/skills");
+  return root ? root.path : defaultSkillsRoot();
 }
 
 /**
