@@ -37,6 +37,8 @@ import {
   Trash2,
   Wand2,
   Bot,
+  PanelRightOpen,
+  PanelRightClose,
 } from "lucide-react";
 import type { Agent, Skill } from "@labee/contracts";
 import type { DeckFile } from "@labee/contracts";
@@ -219,6 +221,18 @@ export default function Chat({
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const deckPanelRef = useRef<ChatDeckPanelHandle | null>(null);
   const setError = (e: string | null) => chatStore.setError(e);
+
+  // Files panel (working dir / deck tree) lives to the right of the chat and is
+  // collapsible, like Codex's Outputs panel. Remember the choice across reloads.
+  const [filesVisible, setFilesVisible] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem("labee:files-panel") !== "hidden";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("labee:files-panel", filesVisible ? "shown" : "hidden");
+    }
+  }, [filesVisible]);
 
   useEffect(() => {
     const raw =
@@ -618,9 +632,9 @@ export default function Chat({
 
   return (
     <div
-      className={`grid h-full min-h-0 grid-cols-1 gap-4 p-4 lg:grid-cols-[18rem_1fr] ${
-        canvasResizing || chatResizing ? "select-none" : ""
-      }`}
+      className={`grid h-full min-h-0 grid-cols-1 gap-4 p-4 ${
+        filesVisible ? "lg:grid-cols-[1fr_18rem]" : "lg:grid-cols-1"
+      } ${canvasResizing || chatResizing ? "select-none" : ""}`}
       style={
         {
           "--canvas-h": `${canvasHeight}px`,
@@ -628,7 +642,8 @@ export default function Chat({
         } as React.CSSProperties
       }
     >
-      <aside className="order-2 min-h-0 lg:order-1">
+      {filesVisible && (
+      <aside className="order-2 min-h-0 lg:order-2">
         <div className="flex h-full flex-col overflow-y-auto rounded-lg border border-border bg-card p-5">
           {agent ? (
             <>
@@ -677,8 +692,9 @@ export default function Chat({
           )}
         </div>
       </aside>
+      )}
 
-      <div className="order-1 flex h-full min-h-0 flex-col gap-0 lg:order-2">
+      <div className="order-1 flex h-full min-h-0 flex-col gap-0 lg:order-1">
       <aside className="relative shrink-0" style={{ height: "var(--canvas-h)" }}>
         <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-ink-light">
@@ -782,6 +798,8 @@ export default function Chat({
           selectedFileCount={selectedFiles.size}
           hasMessages={messages.length > 0}
           streaming={streaming}
+          filesVisible={filesVisible}
+          onToggleFiles={() => setFilesVisible((v) => !v)}
           onClear={() => {
             if (streaming) return;
             if (
@@ -1163,6 +1181,8 @@ function SessionHeader({
   selectedFileCount,
   hasMessages,
   streaming,
+  filesVisible,
+  onToggleFiles,
   onClear,
 }: {
   session: SessionInfo | null;
@@ -1170,6 +1190,8 @@ function SessionHeader({
   selectedFileCount: number;
   hasMessages: boolean;
   streaming: boolean;
+  filesVisible: boolean;
+  onToggleFiles: () => void;
   onClear: () => void;
 }) {
   const skillsActive = selectedSkills.filter(
@@ -1203,13 +1225,23 @@ function SessionHeader({
             sess {session.session_id.slice(0, 8)}
           </span>
         )}
+        <button
+          type="button"
+          onClick={onToggleFiles}
+          aria-pressed={filesVisible}
+          title={filesVisible ? "Hide the files panel" : "Show the files panel"}
+          className="ml-auto inline-flex items-center gap-1 normal-case tracking-normal text-muted transition hover:text-ink"
+        >
+          {filesVisible ? <PanelRightClose size={13} /> : <PanelRightOpen size={13} />}
+          Files
+        </button>
         {hasMessages && (
           <button
             type="button"
             onClick={onClear}
             disabled={streaming}
             title="Clear the chat history (your deck files are unaffected)"
-            className="ml-auto inline-flex items-center gap-1 normal-case tracking-normal text-muted underline underline-offset-2 transition hover:text-ink disabled:no-underline disabled:opacity-50"
+            className="inline-flex items-center gap-1 normal-case tracking-normal text-muted underline underline-offset-2 transition hover:text-ink disabled:no-underline disabled:opacity-50"
           >
             <Trash2 size={11} />
             Clear chat
