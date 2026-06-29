@@ -459,6 +459,12 @@ export const chatRoute = HttpRouter.add(
     }
 
     const mode = body.mode ?? "chat";
+    // Composer access controls. Edit mode is a tightly scoped rewrite, so it
+    // ignores them. Plan mode runs read-only (claude --permission-mode plan /
+    // codex read-only): the agent presents a plan and the user approves it,
+    // which sends a follow-up turn with plan mode off to execute.
+    const planMode = mode !== "edit" && body.planMode === true;
+    const fullAccess = body.fullAccess !== false; // default: full access
     let userPrompt: string;
     let systemPrompt = SYSTEM_PROMPT;
     const selectedSkills: Skill[] = [];
@@ -551,14 +557,21 @@ export const chatRoute = HttpRouter.add(
           "\". It contains `AGENTS.md` and `agent-memory.md` — an auto-generated digest of the reference protocols. " +
           "Consult `agent-memory.md` first to answer quickly; open the original reference files only when you need detail beyond the digest.\n"
         : "";
+      const planAddendum = planMode
+        ? "\n\n## PLAN MODE (read-only)\n" +
+          "You are in plan mode. Investigate as needed (read files, search), then present a clear, " +
+          "numbered step-by-step plan as your final message. Do NOT edit files or run commands — those " +
+          "tools are disabled until the user approves. Do not claim you have built, created, or changed " +
+          "anything; you are only proposing a plan. The user will review it and approve to execute.\n"
+        : "";
       systemPrompt =
-        provider === "openai" && !codexEngine
+        (provider === "openai" && !codexEngine
           ? OPENAI_SYSTEM_PROMPT + built.contextAddendum + referenceAddendum + agentMemoryHint
           : SYSTEM_PROMPT +
             built.protocolAddendum +
             built.contextAddendum +
             referenceAddendum +
-            agentMemoryHint;
+            agentMemoryHint) + planAddendum;
     }
 
     // The codex engine uses codex's own local auth, so it doesn't need an
@@ -573,10 +586,6 @@ export const chatRoute = HttpRouter.add(
       );
     }
 
-    // Per-turn access controls from the composer. Edit mode is always a tightly
-    // scoped rewrite, so it ignores them.
-    const planMode = mode !== "edit" && body.planMode === true;
-    const fullAccess = body.fullAccess !== false; // default: full access
     const claudePermissionMode =
       mode === "edit"
         ? "bypassPermissions"
@@ -627,7 +636,8 @@ export const chatRoute = HttpRouter.add(
         "--permission-mode", claudePermissionMode,
         "--no-session-persistence",
         "--setting-sources", mode === "edit" ? "project" : "project,user",
-        "--exclude-dynamic-system-prompt-sections",
+        // Keep the built-in plan-mode guidance in plan turns; trim it otherwise.
+        ...(planMode ? [] : ["--exclude-dynamic-system-prompt-sections"]),
         "--effort", mode === "edit" ? "low" : "high",
       ];
       const extraEnv = claudeEnvForCredential(cred);

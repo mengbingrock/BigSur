@@ -556,6 +556,23 @@ export default function Chat({
     });
   };
 
+  // Exit plan mode: approve the plan the agent just presented and run it. Turns
+  // plan mode off and sends a follow-up execute turn (the plan is in history).
+  const approvePlan = async () => {
+    if (streaming) return;
+    setPlanMode(false);
+    await chatStore.send({
+      text: "The plan above is approved. Implement it now.",
+      skillSlugs: Array.from(selected),
+      contextFiles: Array.from(selectedFiles),
+      artifactNotes,
+      snapshot: buildSkillSnapshot(),
+      planMode: false,
+      fullAccess,
+      ...(agent ? { agentId: agent.id } : {}),
+    });
+  };
+
   const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (slashOpen) {
       if (e.key === "ArrowDown") {
@@ -908,6 +925,21 @@ export default function Chat({
 
         <div className="border-t border-border px-4 py-3 sm:px-6 sm:py-4">
           <div className="mx-auto w-full max-w-4xl">
+          {planMode &&
+            !streaming &&
+            messages.length > 0 &&
+            messages[messages.length - 1]?.role === "assistant" && (
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink/30 bg-ink/5 px-3 py-2 text-xs">
+                <span className="flex items-center gap-1.5 text-ink">
+                  <ClipboardList size={13} />
+                  Plan ready — review it above, then approve to exit plan mode and run it.
+                </span>
+                <Button type="button" variant="default" onClick={approvePlan}>
+                  <Send size={13} />
+                  Approve &amp; run
+                </Button>
+              </div>
+            )}
           {error && (
             <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               {error}
