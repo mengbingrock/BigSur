@@ -44,12 +44,16 @@ function assertWithin(roots: AgentRoot[], target: string): string {
   throw e;
 }
 
+// Only hide genuine noise. Agent-internal entries (.skill/, .claude/,
+// agent-memory.md, AGENTS.md) are shown so users can see the full working dir.
+const HIDDEN_ENTRIES = new Set([".git", ".DS_Store", "node_modules"]);
+
 async function readEntries(dir: string): Promise<DeckFile[]> {
   if (!fs.existsSync(dir)) return [];
   const entries = await fsp.readdir(dir, { withFileTypes: true });
   const out: DeckFile[] = [];
   for (const entry of entries) {
-    if (entry.name.startsWith(".")) continue;
+    if (HIDDEN_ENTRIES.has(entry.name)) continue;
     if (!entry.isFile() && !entry.isDirectory()) continue;
     try {
       const stat = await fsp.stat(path.join(dir, entry.name));

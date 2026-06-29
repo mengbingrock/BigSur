@@ -33,10 +33,22 @@ export function AgentWorkspacePanel({
     queryFn: () => apiGet<{ roots: Root[] }>(`/api/agents/${agent.id}/roots`),
   });
   const roots = rootsQ.data?.roots ?? [];
+  const working = roots.find((r) => r.kind === "working");
   const references = roots.filter((r) => r.kind === "reference");
 
   return (
     <div className="flex flex-col gap-4">
+      <div>
+        <h3 className="mb-1 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-light">
+          Working directory
+        </h3>
+        {working ? (
+          <RootFiles agentId={agent.id} root={working} defaultOpen streaming={streaming} />
+        ) : (
+          <p className="text-xs text-ink-faint">No working directory configured.</p>
+        )}
+      </div>
+
       {references.length > 0 ? (
         <div>
           <h3 className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink-light">
