@@ -235,10 +235,10 @@ export default function Chat({
     }
   }, [filesVisible]);
 
-  // Operating mode (Plan / Build / Chat). PER-SESSION: always starts at "build"
-  // on load, so a stale Plan/Chat selection can never silently block execution
-  // in a later session. It stays as set for the rest of this session.
-  const [runMode, setRunMode] = useState<"chat" | "plan" | "build">("build");
+  // Operating mode (Plan / Build / Chat). PER-SESSION: starts at "plan" on load
+  // (safe, read-only default — the user switches to Build to execute). Stays as
+  // set for the rest of this session.
+  const [runMode, setRunMode] = useState<"chat" | "plan" | "build">("plan");
   // Full access (whole computer + internet vs. limited to the working dir) is a
   // standing trust preference, remembered across reloads.
   const [fullAccess, setFullAccess] = useState<boolean>(

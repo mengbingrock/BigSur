@@ -365,6 +365,10 @@ class ChatStore {
   private listeners = new Set<() => void>();
   private abort: AbortController | null = null;
   private hydrated = false;
+  // Remember the last operating mode / access the user sent with, so follow-up
+  // turns (AskUserQuestion answers, extracted choices) reuse the same mode.
+  private lastRunMode: "chat" | "plan" | "build" = "plan";
+  private lastFullAccess = true;
   /**
    * Set to true when the browser is about to unload (refresh, navigation
    * to a different origin, tab close). Used in the fetch catch block to
@@ -546,6 +550,9 @@ class ChatStore {
     const { text, skillSlugs, snapshot, contextFiles, artifactNotes, agentId, runMode, fullAccess } =
       opts;
     if (!text || this.state.streaming) return;
+    // Remember the user's choice so follow-up turns that omit it reuse it.
+    if (runMode) this.lastRunMode = runMode;
+    if (fullAccess !== undefined) this.lastFullAccess = fullAccess;
 
     const userMsg: ChatMsg = { id: makeId(), role: "user", content: text };
     const assistantMsg: ChatMsg = {
@@ -578,8 +585,8 @@ class ChatStore {
           contextFiles: contextFiles ?? [],
           artifactNotes: artifactNotes ?? {},
           ...(agentId ? { agentId } : {}),
-          runMode: runMode ?? "build",
-          fullAccess: fullAccess ?? true,
+          runMode: runMode ?? this.lastRunMode,
+          fullAccess: fullAccess ?? this.lastFullAccess,
         }),
         signal: ctrl.signal,
       });

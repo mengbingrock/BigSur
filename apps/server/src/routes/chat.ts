@@ -466,11 +466,11 @@ export const chatRoute = HttpRouter.add(
     const runMode: "chat" | "plan" | "build" =
       mode === "edit"
         ? "build"
-        : body.runMode === "plan"
-          ? "plan"
+        : body.runMode === "build"
+          ? "build"
           : body.runMode === "chat"
             ? "chat"
-            : "build";
+            : "plan"; // default to Plan for normal chat turns
     const readOnly = runMode === "plan" || runMode === "chat";
     const fullAccess = body.fullAccess !== false; // default: full access
     let userPrompt: string;
@@ -579,7 +579,9 @@ export const chatRoute = HttpRouter.add(
               "You are in chat mode: answer conversationally and help the user think. You MAY read files " +
               "and search the web, but you may NOT edit files or run shell commands (Write/Edit/Bash are " +
               "disabled). Do not claim you have changed anything. The user will switch to Build to make changes.\n"
-            : "";
+            : "\n\n## BUILD MODE\n" +
+              "You are in build mode: implement the work directly. You may read, create, and edit files " +
+              "and run shell commands to complete the task.\n";
       systemPrompt =
         (provider === "openai" && !codexEngine
           ? OPENAI_SYSTEM_PROMPT + built.contextAddendum + referenceAddendum + agentMemoryHint
