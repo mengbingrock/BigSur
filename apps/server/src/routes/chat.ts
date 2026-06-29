@@ -559,9 +559,11 @@ export const chatRoute = HttpRouter.add(
         : "";
       const planAddendum = planMode
         ? "\n\n## PLAN MODE (read-only)\n" +
-          "You are in plan mode. Investigate as needed (read files, search), then present a clear, " +
-          "numbered step-by-step plan as your final message. Do NOT edit files or run commands — those " +
-          "tools are disabled until the user approves. Do not claim you have built, created, or changed " +
+          "You are in plan mode. You MAY read files, search the web, and load any relevant Skill for " +
+          "methodology, and you SHOULD use the AskUserQuestion tool to confirm any decisions that " +
+          "materially change the plan before finalizing it. Then present a clear, numbered step-by-step " +
+          "plan as your final message. You may NOT edit files or run shell commands — Write/Edit/Bash " +
+          "are disabled until the user approves. Do not claim you have built, created, or changed " +
           "anything; you are only proposing a plan. The user will review it and approve to execute.\n"
         : "";
       systemPrompt =
@@ -586,14 +588,13 @@ export const chatRoute = HttpRouter.add(
       );
     }
 
+    // Plan mode is a SOFT read-only: we keep tools un-gated (bypassPermissions)
+    // so the agent can still load Skills, call AskUserQuestion, and research —
+    // and instead block only the mutating tools via --disallowedTools below.
+    // Claude's hard `--permission-mode plan` would gate Skill + AskUserQuestion,
+    // which is exactly what we don't want during protocol planning.
     const claudePermissionMode =
-      mode === "edit"
-        ? "bypassPermissions"
-        : planMode
-          ? "plan"
-          : fullAccess
-            ? "bypassPermissions"
-            : "default";
+      mode === "edit" || planMode || fullAccess ? "bypassPermissions" : "default";
     const codexSandbox: "read-only" | "workspace-write" | "danger-full-access" = planMode
       ? "read-only"
       : fullAccess
@@ -636,8 +637,12 @@ export const chatRoute = HttpRouter.add(
         "--permission-mode", claudePermissionMode,
         "--no-session-persistence",
         "--setting-sources", mode === "edit" ? "project" : "project,user",
-        // Keep the built-in plan-mode guidance in plan turns; trim it otherwise.
-        ...(planMode ? [] : ["--exclude-dynamic-system-prompt-sections"]),
+        "--exclude-dynamic-system-prompt-sections",
+        // Plan mode: keep Skill / AskUserQuestion / Read / WebSearch available,
+        // but remove the tools that change things or run commands.
+        ...(planMode
+          ? ["--disallowedTools", "Write", "Edit", "MultiEdit", "NotebookEdit", "Bash"]
+          : []),
         "--effort", mode === "edit" ? "low" : "high",
       ];
       const extraEnv = claudeEnvForCredential(cred);
