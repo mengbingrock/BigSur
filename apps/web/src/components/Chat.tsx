@@ -236,19 +236,16 @@ export default function Chat({
     }
   }, [filesVisible]);
 
-  // Composer access controls (persisted). Plan mode = research/plan without
-  // editing or running; Full access = whole computer + internet vs. limited to
-  // the working directory.
-  const [planMode, setPlanMode] = useState<boolean>(
-    () => typeof window !== "undefined" && window.localStorage.getItem("labee:plan-mode") === "on",
-  );
+  // Plan mode (research/plan without editing or running) is PER-SESSION: it
+  // always starts off on load, so a forgotten "plan only" toggle can never
+  // silently block execution in a later session. It stays toggled for the rest
+  // of this session until the user flips it or reloads.
+  const [planMode, setPlanMode] = useState(false);
+  // Full access (whole computer + internet vs. limited to the working dir) is a
+  // standing trust preference, remembered across reloads.
   const [fullAccess, setFullAccess] = useState<boolean>(
     () => typeof window === "undefined" || window.localStorage.getItem("labee:full-access") !== "off",
   );
-  useEffect(() => {
-    if (typeof window !== "undefined")
-      window.localStorage.setItem("labee:plan-mode", planMode ? "on" : "off");
-  }, [planMode]);
   useEffect(() => {
     if (typeof window !== "undefined")
       window.localStorage.setItem("labee:full-access", fullAccess ? "on" : "off");
