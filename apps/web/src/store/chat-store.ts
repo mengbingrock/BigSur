@@ -240,8 +240,8 @@ export interface SendOptions {
   snapshot: SkillSnapshot[];
   /** When set, run the turn inside this saved agent's working directory. */
   agentId?: string;
-  /** Plan mode: research + propose a plan without editing/running. */
-  planMode?: boolean;
+  /** Operating mode: "build" (execute), "plan" (read-only plan), "chat" (read-only answer). */
+  runMode?: "chat" | "plan" | "build";
   /** Full machine + internet access (vs. limited to the working directory). */
   fullAccess?: boolean;
 }
@@ -543,7 +543,7 @@ class ChatStore {
   };
 
   send = async (opts: SendOptions): Promise<void> => {
-    const { text, skillSlugs, snapshot, contextFiles, artifactNotes, agentId, planMode, fullAccess } =
+    const { text, skillSlugs, snapshot, contextFiles, artifactNotes, agentId, runMode, fullAccess } =
       opts;
     if (!text || this.state.streaming) return;
 
@@ -578,7 +578,7 @@ class ChatStore {
           contextFiles: contextFiles ?? [],
           artifactNotes: artifactNotes ?? {},
           ...(agentId ? { agentId } : {}),
-          ...(planMode ? { planMode: true } : {}),
+          runMode: runMode ?? "build",
           fullAccess: fullAccess ?? true,
         }),
         signal: ctrl.signal,

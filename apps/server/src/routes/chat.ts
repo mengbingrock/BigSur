@@ -36,7 +36,7 @@ interface ChatRequest {
   provider?: Provider;
   model?: string;
   agentId?: string;
-  planMode?: boolean;
+  runMode?: "chat" | "plan" | "build";
   fullAccess?: boolean;
 }
 
@@ -459,11 +459,19 @@ export const chatRoute = HttpRouter.add(
     }
 
     const mode = body.mode ?? "chat";
-    // Composer access controls. Edit mode is a tightly scoped rewrite, so it
-    // ignores them. Plan mode runs read-only (claude --permission-mode plan /
-    // codex read-only): the agent presents a plan and the user approves it,
-    // which sends a follow-up turn with plan mode off to execute.
-    const planMode = mode !== "edit" && body.planMode === true;
+    // Operating mode from the composer (Plan / Build / Chat). Edit is a tightly
+    // scoped rewrite and always builds. Plan and Chat are read-only (no file
+    // edits or commands); Plan also asks for a step-by-step plan. The user
+    // switches to Build to execute.
+    const runMode: "chat" | "plan" | "build" =
+      mode === "edit"
+        ? "build"
+        : body.runMode === "plan"
+          ? "plan"
+          : body.runMode === "chat"
+            ? "chat"
+            : "build";
+    const readOnly = runMode === "plan" || runMode === "chat";
     const fullAccess = body.fullAccess !== false; // default: full access
     let userPrompt: string;
     let systemPrompt = SYSTEM_PROMPT;
@@ -557,15 +565,21 @@ export const chatRoute = HttpRouter.add(
           "\". It contains `AGENTS.md` and `agent-memory.md` — an auto-generated digest of the reference protocols. " +
           "Consult `agent-memory.md` first to answer quickly; open the original reference files only when you need detail beyond the digest.\n"
         : "";
-      const planAddendum = planMode
-        ? "\n\n## PLAN MODE (read-only)\n" +
-          "You are in plan mode. You MAY read files, search the web, and load any relevant Skill for " +
-          "methodology, and you SHOULD use the AskUserQuestion tool to confirm any decisions that " +
-          "materially change the plan before finalizing it. Then present a clear, numbered step-by-step " +
-          "plan as your final message. You may NOT edit files or run shell commands — Write/Edit/Bash " +
-          "are disabled until the user approves. Do not claim you have built, created, or changed " +
-          "anything; you are only proposing a plan. The user will review it and approve to execute.\n"
-        : "";
+      const modeAddendum =
+        runMode === "plan"
+          ? "\n\n## PLAN MODE (read-only)\n" +
+            "You are in plan mode. You MAY read files, search the web, and load any relevant Skill for " +
+            "methodology, and you SHOULD use the AskUserQuestion tool to confirm any decisions that " +
+            "materially change the plan before finalizing it. Then present a clear, numbered step-by-step " +
+            "plan as your final message. You may NOT edit files or run shell commands — Write/Edit/Bash " +
+            "are disabled. Do not claim you have built, created, or changed anything; you are only " +
+            "proposing a plan. The user will switch to Build to execute it.\n"
+          : runMode === "chat"
+            ? "\n\n## CHAT MODE (read-only)\n" +
+              "You are in chat mode: answer conversationally and help the user think. You MAY read files " +
+              "and search the web, but you may NOT edit files or run shell commands (Write/Edit/Bash are " +
+              "disabled). Do not claim you have changed anything. The user will switch to Build to make changes.\n"
+            : "";
       systemPrompt =
         (provider === "openai" && !codexEngine
           ? OPENAI_SYSTEM_PROMPT + built.contextAddendum + referenceAddendum + agentMemoryHint
@@ -573,7 +587,7 @@ export const chatRoute = HttpRouter.add(
             built.protocolAddendum +
             built.contextAddendum +
             referenceAddendum +
-            agentMemoryHint) + planAddendum;
+            agentMemoryHint) + modeAddendum;
     }
 
     // The codex engine uses codex's own local auth, so it doesn't need an
@@ -594,8 +608,8 @@ export const chatRoute = HttpRouter.add(
     // Claude's hard `--permission-mode plan` would gate Skill + AskUserQuestion,
     // which is exactly what we don't want during protocol planning.
     const claudePermissionMode =
-      mode === "edit" || planMode || fullAccess ? "bypassPermissions" : "default";
-    const codexSandbox: "read-only" | "workspace-write" | "danger-full-access" = planMode
+      mode === "edit" || readOnly || fullAccess ? "bypassPermissions" : "default";
+    const codexSandbox: "read-only" | "workspace-write" | "danger-full-access" = readOnly
       ? "read-only"
       : fullAccess
         ? "danger-full-access"
@@ -638,9 +652,9 @@ export const chatRoute = HttpRouter.add(
         "--no-session-persistence",
         "--setting-sources", mode === "edit" ? "project" : "project,user",
         "--exclude-dynamic-system-prompt-sections",
-        // Plan mode: keep Skill / AskUserQuestion / Read / WebSearch available,
-        // but remove the tools that change things or run commands.
-        ...(planMode
+        // Plan / Chat are read-only: keep Skill / AskUserQuestion / Read /
+        // WebSearch available, but remove tools that change things or run commands.
+        ...(readOnly
           ? ["--disallowedTools", "Write", "Edit", "MultiEdit", "NotebookEdit", "Bash"]
           : []),
         "--effort", mode === "edit" ? "low" : "high",

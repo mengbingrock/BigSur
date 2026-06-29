@@ -39,7 +39,6 @@ import {
   Bot,
   PanelRightOpen,
   PanelRightClose,
-  ClipboardList,
   Lock,
 } from "lucide-react";
 import type { Agent, Skill } from "@labee/contracts";
@@ -236,11 +235,10 @@ export default function Chat({
     }
   }, [filesVisible]);
 
-  // Plan mode (research/plan without editing or running) is PER-SESSION: it
-  // always starts off on load, so a forgotten "plan only" toggle can never
-  // silently block execution in a later session. It stays toggled for the rest
-  // of this session until the user flips it or reloads.
-  const [planMode, setPlanMode] = useState(false);
+  // Operating mode (Plan / Build / Chat). PER-SESSION: always starts at "build"
+  // on load, so a stale Plan/Chat selection can never silently block execution
+  // in a later session. It stays as set for the rest of this session.
+  const [runMode, setRunMode] = useState<"chat" | "plan" | "build">("build");
   // Full access (whole computer + internet vs. limited to the working dir) is a
   // standing trust preference, remembered across reloads.
   const [fullAccess, setFullAccess] = useState<boolean>(
@@ -550,24 +548,7 @@ export default function Chat({
       contextFiles: Array.from(selectedFiles),
       artifactNotes,
       snapshot: buildSkillSnapshot(),
-      planMode,
-      fullAccess,
-      ...(agent ? { agentId: agent.id } : {}),
-    });
-  };
-
-  // Exit plan mode: approve the plan the agent just presented and run it. Turns
-  // plan mode off and sends a follow-up execute turn (the plan is in history).
-  const approvePlan = async () => {
-    if (streaming) return;
-    setPlanMode(false);
-    await chatStore.send({
-      text: "The plan above is approved. Implement it now.",
-      skillSlugs: Array.from(selected),
-      contextFiles: Array.from(selectedFiles),
-      artifactNotes,
-      snapshot: buildSkillSnapshot(),
-      planMode: false,
+      runMode,
       fullAccess,
       ...(agent ? { agentId: agent.id } : {}),
     });
@@ -778,7 +759,7 @@ export default function Chat({
                   contextFiles: Array.from(selectedFiles),
                   artifactNotes,
                   snapshot: buildSkillSnapshot(),
-                  planMode,
+                  runMode,
                   fullAccess,
                   ...(agent ? { agentId: agent.id } : {}),
                 });
@@ -925,21 +906,6 @@ export default function Chat({
 
         <div className="border-t border-border px-4 py-3 sm:px-6 sm:py-4">
           <div className="mx-auto w-full max-w-4xl">
-          {planMode &&
-            !streaming &&
-            messages.length > 0 &&
-            messages[messages.length - 1]?.role === "assistant" && (
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink/30 bg-ink/5 px-3 py-2 text-xs">
-                <span className="flex items-center gap-1.5 text-ink">
-                  <ClipboardList size={13} />
-                  Plan ready — review it above, then approve to exit plan mode and run it.
-                </span>
-                <Button type="button" variant="default" onClick={approvePlan}>
-                  <Send size={13} />
-                  Approve &amp; run
-                </Button>
-              </div>
-            )}
           {error && (
             <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               {error}
@@ -972,20 +938,35 @@ export default function Chat({
                 disabled={streaming}
               />
               <div className="flex items-center gap-2 px-3 pt-1 pb-2.5">
-                <button
-                  type="button"
-                  onClick={() => setPlanMode((v) => !v)}
-                  aria-pressed={planMode}
-                  title="Plan mode — research and propose a plan without editing files or running commands"
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition ${
-                    planMode
-                      ? "border-ink bg-ink text-paper"
-                      : "border-rule text-muted hover:border-ink hover:text-ink"
-                  }`}
+                <div
+                  role="radiogroup"
+                  aria-label="Operating mode"
+                  className="inline-flex items-center rounded-full border border-rule p-0.5 text-xs"
                 >
-                  <ClipboardList size={13} />
-                  Plan
-                </button>
+                  {(
+                    [
+                      { id: "plan", label: "Plan", title: "Plan — read-only: research and propose a step-by-step plan (no changes)" },
+                      { id: "build", label: "Build", title: "Build — execute: edit files and run commands" },
+                      { id: "chat", label: "Chat", title: "Chat — read-only: answer and discuss (no changes)" },
+                    ] as const
+                  ).map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={runMode === m.id}
+                      title={m.title}
+                      onClick={() => setRunMode(m.id)}
+                      className={`rounded-full px-2.5 py-1 transition ${
+                        runMode === m.id
+                          ? "bg-ink text-paper"
+                          : "text-muted hover:text-ink"
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
                 <button
                   type="button"
                   onClick={() => setFullAccess((v) => !v)}
