@@ -39,6 +39,8 @@ import {
   Bot,
   PanelRightOpen,
   PanelRightClose,
+  ClipboardList,
+  Lock,
 } from "lucide-react";
 import type { Agent, Skill } from "@labee/contracts";
 import type { DeckFile } from "@labee/contracts";
@@ -233,6 +235,24 @@ export default function Chat({
       window.localStorage.setItem("labee:files-panel", filesVisible ? "shown" : "hidden");
     }
   }, [filesVisible]);
+
+  // Composer access controls (persisted). Plan mode = research/plan without
+  // editing or running; Full access = whole computer + internet vs. limited to
+  // the working directory.
+  const [planMode, setPlanMode] = useState<boolean>(
+    () => typeof window !== "undefined" && window.localStorage.getItem("labee:plan-mode") === "on",
+  );
+  const [fullAccess, setFullAccess] = useState<boolean>(
+    () => typeof window === "undefined" || window.localStorage.getItem("labee:full-access") !== "off",
+  );
+  useEffect(() => {
+    if (typeof window !== "undefined")
+      window.localStorage.setItem("labee:plan-mode", planMode ? "on" : "off");
+  }, [planMode]);
+  useEffect(() => {
+    if (typeof window !== "undefined")
+      window.localStorage.setItem("labee:full-access", fullAccess ? "on" : "off");
+  }, [fullAccess]);
 
   useEffect(() => {
     const raw =
@@ -533,6 +553,8 @@ export default function Chat({
       contextFiles: Array.from(selectedFiles),
       artifactNotes,
       snapshot: buildSkillSnapshot(),
+      planMode,
+      fullAccess,
       ...(agent ? { agentId: agent.id } : {}),
     });
   };
@@ -742,6 +764,8 @@ export default function Chat({
                   contextFiles: Array.from(selectedFiles),
                   artifactNotes,
                   snapshot: buildSkillSnapshot(),
+                  planMode,
+                  fullAccess,
                   ...(agent ? { agentId: agent.id } : {}),
                 });
               }}
@@ -892,7 +916,7 @@ export default function Chat({
               {error}
             </div>
           )}
-          <div className="relative flex items-end gap-3">
+          <div className="relative">
             {slashOpen && (
               <SlashSuggestions
                 matches={slashMatches}
@@ -901,41 +925,72 @@ export default function Chat({
                 onHover={setSlashIndex}
               />
             )}
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={onKey}
-              placeholder={
-                selectedSkills.length > 0
-                  ? `Ask with ${selectedSkills.length} artifact${
-                      selectedSkills.length === 1 ? "" : "s"
-                    } active…`
-                  : "Ask anything… (type / to pick a skill, Shift+Enter for newline)"
-              }
-              rows={2}
-              className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
-              disabled={streaming}
-            />
-            {streaming ? (
-              <Button type="button" variant="default" onClick={cancel}>
-                <Loader2 size={14} className="animate-spin" />
-                Stop
-              </Button>
-            ) : (
-              <Button type="button" variant="default" onClick={send} disabled={!input.trim()}>
-                Send
-                <Send size={14} />
-              </Button>
-            )}
+            <div className="flex flex-col rounded-2xl border border-input bg-background transition focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={onKey}
+                placeholder={
+                  selectedSkills.length > 0
+                    ? `Ask with ${selectedSkills.length} artifact${
+                        selectedSkills.length === 1 ? "" : "s"
+                      } active…`
+                    : "Ask anything…  ( / for skills · Shift+Enter for newline )"
+                }
+                rows={2}
+                className="resize-none bg-transparent px-4 pt-3 pb-1 text-sm text-ink placeholder:text-ink-faint focus:outline-none"
+                disabled={streaming}
+              />
+              <div className="flex items-center gap-2 px-3 pt-1 pb-2.5">
+                <button
+                  type="button"
+                  onClick={() => setPlanMode((v) => !v)}
+                  aria-pressed={planMode}
+                  title="Plan mode — research and propose a plan without editing files or running commands"
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition ${
+                    planMode
+                      ? "border-ink bg-ink text-paper"
+                      : "border-rule text-muted hover:border-ink hover:text-ink"
+                  }`}
+                >
+                  <ClipboardList size={13} />
+                  Plan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFullAccess((v) => !v)}
+                  aria-pressed={fullAccess}
+                  title={
+                    fullAccess
+                      ? "Full access — the agent can use your whole computer and the internet"
+                      : "Limited — the agent stays in its working directory, no internet"
+                  }
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition ${
+                    fullAccess
+                      ? "border-ink bg-ink text-paper"
+                      : "border-rule text-muted hover:border-ink hover:text-ink"
+                  }`}
+                >
+                  {fullAccess ? <Globe size={13} /> : <Lock size={13} />}
+                  {fullAccess ? "Full access" : "Limited"}
+                </button>
+                <div className="ml-auto">
+                  {streaming ? (
+                    <Button type="button" variant="default" onClick={cancel}>
+                      <Loader2 size={14} className="animate-spin" />
+                      Stop
+                    </Button>
+                  ) : (
+                    <Button type="button" variant="default" onClick={send} disabled={!input.trim()}>
+                      Send
+                      <Send size={14} />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-          <p className="mt-2 text-[11px] text-ink-light">
-            Using your local <code className="font-mono">claude</code> CLI
-            (claude.ai OAuth — no API key). Full toolset (Bash, Read, Write,
-            Edit, Grep, Glob, WebSearch, WebFetch, Skill) + user-level skills
-            (docx, xlsx, pdf, …). Files the assistant writes appear below the
-            message as downloads.
-          </p>
           </div>
         </div>
       </section>

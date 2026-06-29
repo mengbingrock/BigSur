@@ -178,9 +178,10 @@ export function codexExecStream(opts: {
   prompt: string;
   cwd: string;
   planLabel?: string;
-  /** "read-only" (default) for chat answers; "workspace-write" lets the agent
-   *  edit files in its working directory (used by the codex agent engine). */
-  mode?: "read-only" | "workspace-write";
+  /** "read-only" (default) for chat answers / plan mode; "workspace-write" lets
+   *  the agent edit files in its working directory; "danger-full-access" grants
+   *  the whole machine + network (the composer's Full access toggle). */
+  mode?: "read-only" | "workspace-write" | "danger-full-access";
 }): ReadableStream<Uint8Array> {
   const { prompt, cwd, planLabel } = opts;
   const mode = opts.mode ?? "read-only";
@@ -205,11 +206,9 @@ export function codexExecStream(opts: {
       enqueue("status", { status: "thinking" });
 
       try {
-        // workspace-write lets codex edit files in cwd. `codex exec` is already
-        // non-interactive (no approval prompts), so the sandbox flag is all we
-        // need — there is no -a/--ask-for-approval flag on `exec`.
-        const sandboxArgs =
-          mode === "workspace-write" ? ["-s", "workspace-write"] : ["-s", "read-only"];
+        // `codex exec` is non-interactive (no approval prompts), so the sandbox
+        // flag is all we need — there is no -a/--ask-for-approval flag on `exec`.
+        const sandboxArgs = ["-s", mode];
         proc = spawn(
           bin,
           [

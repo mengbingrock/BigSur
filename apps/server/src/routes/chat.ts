@@ -36,6 +36,8 @@ interface ChatRequest {
   provider?: Provider;
   model?: string;
   agentId?: string;
+  planMode?: boolean;
+  fullAccess?: boolean;
 }
 
 const CLAUDE_BIN = process.env.CLAUDE_BIN || "claude";
@@ -571,14 +573,32 @@ export const chatRoute = HttpRouter.add(
       );
     }
 
+    // Per-turn access controls from the composer. Edit mode is always a tightly
+    // scoped rewrite, so it ignores them.
+    const planMode = mode !== "edit" && body.planMode === true;
+    const fullAccess = body.fullAccess !== false; // default: full access
+    const claudePermissionMode =
+      mode === "edit"
+        ? "bypassPermissions"
+        : planMode
+          ? "plan"
+          : fullAccess
+            ? "bypassPermissions"
+            : "default";
+    const codexSandbox: "read-only" | "workspace-write" | "danger-full-access" = planMode
+      ? "read-only"
+      : fullAccess
+        ? "danger-full-access"
+        : "workspace-write";
+
     let makeStream: () => ReadableStream<Uint8Array>;
     if (codexEngine) {
-      // Local codex agent: workspace-write so it can edit files in cwd.
+      // Local codex agent: sandbox per the composer's plan / full-access toggles.
       makeStream = () =>
         codexExecStream({
           prompt: `${systemPrompt}\n\n----\n\n${userPrompt}`,
           cwd,
-          mode: "workspace-write",
+          mode: codexSandbox,
         });
     } else if (provider === "openai" && cred.useCodex) {
       // ChatGPT subscription → run through the codex CLI (agentic, read-only).
@@ -604,7 +624,7 @@ export const chatRoute = HttpRouter.add(
         "--output-format", "stream-json",
         "--verbose",
         "--include-partial-messages",
-        "--permission-mode", "bypassPermissions",
+        "--permission-mode", claudePermissionMode,
         "--no-session-persistence",
         "--setting-sources", mode === "edit" ? "project" : "project,user",
         "--exclude-dynamic-system-prompt-sections",

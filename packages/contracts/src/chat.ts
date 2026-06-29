@@ -36,6 +36,13 @@ export const ChatRequest = Schema.Struct({
   /** When set, run inside this saved agent's working directory and expose its
    *  reference folders. The server validates the agent belongs to the user. */
   agentId: Schema.optional(Schema.String),
+  /** Plan mode: the agent researches and proposes a plan without editing files
+   *  or running commands (claude --permission-mode plan / codex read-only). */
+  planMode: Schema.optional(Schema.Boolean),
+  /** Full access: allow the whole computer + internet (claude bypassPermissions
+   *  / codex danger-full-access). When false, the agent is limited to its
+   *  working directory (codex workspace-write / claude default permissions). */
+  fullAccess: Schema.optional(Schema.Boolean),
 });
 export type ChatRequest = typeof ChatRequest.Type;
 
