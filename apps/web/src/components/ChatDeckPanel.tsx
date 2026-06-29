@@ -347,10 +347,7 @@ const ChatDeckPanel = forwardRef<ChatDeckPanelHandle, Props>(function ChatDeckPa
 
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs uppercase tracking-[0.18em] text-muted">
-          Working directory
-        </p>
+      <div className="mb-3 flex items-center justify-end">
         {!creatingDir && (
           <button
             type="button"
@@ -366,11 +363,6 @@ const ChatDeckPanel = forwardRef<ChatDeckPanelHandle, Props>(function ChatDeckPa
           </button>
         )}
       </div>
-      <p className="mb-3 text-xs leading-relaxed text-muted">
-        Mounted as <code className="font-mono">./deck/</code> in the chat
-        workspace. Files persist across sessions; folders organize them. Tick
-        a file&apos;s checkbox to inject its contents into the next prompt.
-      </p>
 
       {creatingDir && (
         <form

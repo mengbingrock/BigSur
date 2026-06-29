@@ -1,18 +1,15 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
-  BrainCircuit,
   ChevronDown,
   ChevronRight,
   Download,
   FolderOpen,
   Library,
-  Loader2,
   RefreshCw,
 } from "lucide-react";
 import type { Agent, DeckFile } from "@labee/contracts";
-import { apiGet, apiSend } from "~/lib/api";
-import { Button } from "~/components/ui/button";
+import { apiGet } from "~/lib/api";
 import { formatBytes } from "@labee/shared/format";
 import { cn } from "~/lib/utils";
 
@@ -31,81 +28,15 @@ export function AgentWorkspacePanel({
   agent: Agent;
   streaming: boolean;
 }) {
-  const qc = useQueryClient();
   const rootsQ = useQuery({
     queryKey: ["agent-roots", agent.id],
     queryFn: () => apiGet<{ roots: Root[] }>(`/api/agents/${agent.id}/roots`),
   });
   const roots = rootsQ.data?.roots ?? [];
-  const working = roots.find((r) => r.kind === "working");
   const references = roots.filter((r) => r.kind === "reference");
-
-  const rebuild = useMutation({
-    mutationFn: () =>
-      apiSend<{ written: string[]; syncedSkills: string[]; memoryPending: boolean }>(
-        "POST",
-        `/api/agents/${agent.id}/initialize`,
-      ),
-    onSuccess: (data) => {
-      // Refresh the working-directory listing so the regenerated files show.
-      qc.invalidateQueries({ queryKey: ["agent-files", agent.id] });
-      qc.invalidateQueries({ queryKey: ["agent-roots", agent.id] });
-      // The memory digest finishes in the background a few seconds later;
-      // refresh again so agent-memory.md appears once it's written.
-      if (data.memoryPending) {
-        setTimeout(() => {
-          qc.invalidateQueries({ queryKey: ["agent-files", agent.id] });
-        }, 6000);
-      }
-    },
-  });
-  const syncedCount = rebuild.data?.syncedSkills.length ?? 0;
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <div className="flex items-center justify-between">
-          <h3 className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink-light">
-            Working directory
-          </h3>
-          {streaming ? <Loader2 className="size-3 animate-spin text-ink-faint" /> : null}
-        </div>
-        {working ? (
-          <RootFiles agentId={agent.id} root={working} defaultOpen streaming={streaming} />
-        ) : (
-          <p className="mt-2 text-xs text-ink-faint">No working directory configured.</p>
-        )}
-        <div className="mt-2 flex items-center gap-2">
-          <Button
-            size="xs"
-            variant="outline"
-            disabled={rebuild.isPending}
-            onClick={() => rebuild.mutate()}
-            title="Sync the selected skills into .skill, re-read the reference folders, and rebuild agent-memory.md"
-          >
-            {rebuild.isPending ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <BrainCircuit className="size-3.5" />
-            )}
-            {rebuild.isPending ? "Rebuilding…" : "Sync skills + memory"}
-          </Button>
-          {rebuild.isSuccess ? (
-            <span className="text-[11px] text-ink-faint">
-              {syncedCount > 0
-                ? `${syncedCount} skill${syncedCount === 1 ? "" : "s"} synced`
-                : "Skills synced"}
-              {rebuild.data?.memoryPending ? " · rebuilding memory…" : ""}
-            </span>
-          ) : null}
-          {rebuild.isError ? (
-            <span className="text-[11px] text-destructive">
-              {rebuild.error instanceof Error ? rebuild.error.message : "Failed"}
-            </span>
-          ) : null}
-        </div>
-      </div>
-
       {references.length > 0 ? (
         <div>
           <h3 className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink-light">

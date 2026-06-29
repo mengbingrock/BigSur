@@ -307,10 +307,6 @@ export default function Chat({
     [skills, selected],
   );
 
-  const skillsOnly = useMemo(
-    () => skills.filter((s) => s.artifactKind !== "protocol"),
-    [skills],
-  );
   const protocolsOnly = useMemo(
     () => skills.filter((s) => s.artifactKind === "protocol"),
     [skills],
@@ -683,35 +679,6 @@ export default function Chat({
               }
             />
           )}
-
-          <hr className="my-5 border-rule" />
-
-          <ArtifactToggleSection
-            label="Active skills"
-            description={
-              <>
-                Selected skills are symlinked into the spawned{" "}
-                <code className="font-mono">claude</code> process. Claude Code&apos;s
-                user-level skills (docx, xlsx, pptx, pdf, canvas-design, …) also load by default.
-              </>
-            }
-            emptyText="(No skills indexed.)"
-            artifacts={skillsOnly}
-            selected={selected}
-            onToggle={toggleSkill}
-            artifactNotes={artifactNotes}
-            onSetNote={(slug, body) =>
-              setArtifactNotes((prev) => ({ ...prev, [slug]: body }))
-            }
-            onClearNote={(slug) =>
-              setArtifactNotes((prev) => {
-                const next = { ...prev };
-                delete next[slug];
-                return next;
-              })
-            }
-            onApplied={() => queryClient.invalidateQueries({ queryKey: ["skills"] })}
-          />
 
           <hr className="my-5 border-rule" />
 
