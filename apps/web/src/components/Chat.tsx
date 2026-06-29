@@ -307,11 +307,6 @@ export default function Chat({
     [skills, selected],
   );
 
-  const protocolsOnly = useMemo(
-    () => skills.filter((s) => s.artifactKind === "protocol"),
-    [skills],
-  );
-
   // Slash-command picker: when the textarea content is just "/<word>",
   // surface installed skills whose name/slug matches.
   const slashQuery = useMemo<string | null>(() => {
@@ -353,15 +348,6 @@ export default function Chat({
     });
     setInput("");
     requestAnimationFrame(() => inputRef.current?.focus());
-  };
-
-  const toggleSkill = (slug: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(slug)) next.delete(slug);
-      else next.add(slug);
-      return next;
-    });
   };
 
   const cancel = () => chatStore.cancel();
@@ -679,35 +665,6 @@ export default function Chat({
               }
             />
           )}
-
-          <hr className="my-5 border-rule" />
-
-          <ArtifactToggleSection
-            label="Active protocols"
-            description={
-              <>
-                Protocols are reference text — their full body is injected into the
-                system prompt as authoritative procedure for this session, not
-                wired in as a callable skill.
-              </>
-            }
-            emptyText="(No protocols yet. Create one on the Artifacts page.)"
-            artifacts={protocolsOnly}
-            selected={selected}
-            onToggle={toggleSkill}
-            artifactNotes={artifactNotes}
-            onSetNote={(slug, body) =>
-              setArtifactNotes((prev) => ({ ...prev, [slug]: body }))
-            }
-            onClearNote={(slug) =>
-              setArtifactNotes((prev) => {
-                const next = { ...prev };
-                delete next[slug];
-                return next;
-              })
-            }
-            onApplied={() => queryClient.invalidateQueries({ queryKey: ["skills"] })}
-          />
 
           {selectedSkills.length > 0 && (
             <button
