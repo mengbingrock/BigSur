@@ -38,8 +38,9 @@ export const TOOLS = [
     // Read-only, queries the open web, results vary over time → not idempotent.
     annotations: { readOnlyHint: true, openWorldHint: true, idempotentHint: false },
     description:
-      "Search laboratory-protocol and reagent sources (STAR Protocols, Nature Protocols, " +
-      "Thermo Fisher, QIAGEN, NEB, Bio-Rad, Sigma-Aldrich, EMD Millipore, Takara Bio, Promega, IDT) " +
+      "Search laboratory-protocol and reagent sources (STAR Protocols, Nature Protocols, JoVE, " +
+      "Bio-protocol, Current Protocols, protocols.io, Thermo Fisher, QIAGEN, NEB, Bio-Rad, " +
+      "Sigma-Aldrich, EMD Millipore, Takara Bio, Promega, IDT) " +
       "for a technique, kit, reagent, or product. Journals are searched via scholarly APIs " +
       "(Crossref/Europe PMC); vendors via a web-search provider. Returns ranked links with snippets " +
       "per source plus a guaranteed on-site search URL for each. Use this instead of fetching the " +

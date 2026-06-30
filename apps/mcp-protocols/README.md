@@ -33,19 +33,22 @@ works for it.
 
 Two routes, picked per source:
 
-- **Journals (STAR Protocols, Nature Protocols)** → a chain of five free,
-  keyless scholarly APIs, tried in order until one answers: **Crossref →
-  Europe PMC → OpenAlex → Semantic Scholar → PubMed (NCBI E-utilities)**. They
-  index these journals directly, returning real protocol titles, DOIs, and links
-  — no scraping, no paywall. Because they're run by different organizations, the
-  chain almost never fails: if one is down or rate-limiting (HTTP 429), the next
-  answers. Reliable out of the box; reorder with `PROTOCOLS_JOURNAL_PROVIDERS`.
-  Optional `SEMANTIC_SCHOLAR_API_KEY` / `NCBI_API_KEY` raise rate limits (both
-  work without a key).
+- **Protocol journals (STAR Protocols, Nature Protocols, JoVE, Bio-protocol,
+  Current Protocols)** → a chain of five free, keyless scholarly APIs, tried in
+  order until one answers: **Crossref → Europe PMC → OpenAlex → Semantic Scholar
+  → PubMed (NCBI E-utilities)**. They index these journals directly (keyed by
+  ISSN / journal name), returning real protocol titles, DOIs, and links — no
+  scraping, no paywall. Because they're run by different organizations, the
+  chain almost never fails: if one is down or rate-limiting (HTTP 429), it
+  retries with backoff then falls through to the next. Reliable out of the box;
+  reorder with `PROTOCOLS_JOURNAL_PROVIDERS`. Optional `SEMANTIC_SCHOLAR_API_KEY`
+  / `NCBI_API_KEY` raise rate limits (both work without a key).
 
-- **Reagent vendors** → a **web-search provider chain**, scoped per vendor with a
-  `site:` filter and batched into combined `(site:a OR site:b ...)` queries
-  (results bucketed back per vendor by hostname):
+- **Reagent vendors + protocols.io** → a **web-search provider chain**, scoped
+  per source with a `site:` filter and batched into combined
+  `(site:a OR site:b ...)` queries (results bucketed back per source by
+  hostname). protocols.io is a repository (no journal ISSN), so it's reached this
+  way rather than via the scholarly chain:
 
   1. **Brave Search API** — if `BRAVE_API_KEY` is set (free tier).
   2. **Google Programmable Search** — if `GOOGLE_API_KEY` + `GOOGLE_CSE_CX` are set
