@@ -221,11 +221,22 @@ export interface SessionInfo {
   permission_mode?: string;
 }
 
+/** Lightweight metadata for one chat session, shown in the sidebar list. */
+export interface SessionMeta {
+  id: string;
+  title: string;
+  updatedAt: number;
+}
+
 export interface ChatState {
   messages: ChatMsg[];
   streaming: boolean;
   error: string | null;
   session: SessionInfo | null;
+  /** Recent chat sessions, most-recent first (for the sidebar). */
+  sessions: SessionMeta[];
+  /** Id of the currently-open session. */
+  currentSessionId: string;
 }
 
 export interface SendOptions {
@@ -256,6 +267,61 @@ export interface EditOptions {
 }
 
 const HISTORY_KEY = "monterey.chatHistory.v1";
+const SESSIONS_KEY = "monterey.sessions.v1";
+/** Stable empty snapshot for SSR (must be referentially stable). */
+const EMPTY_STATE: ChatState = {
+  messages: [],
+  streaming: false,
+  error: null,
+  session: null,
+  sessions: [],
+  currentSessionId: "",
+};
+const CURRENT_SESSION_KEY = "monterey.currentSession.v1";
+
+/** Per-session message storage key. */
+function sessionMsgKey(id: string): string {
+  return `${HISTORY_KEY}:${id}`;
+}
+
+function newSessionId(): string {
+  return `s_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Title for a session: first user message, trimmed. */
+function deriveTitle(messages: ChatMsg[]): string {
+  const firstUser = messages.find((m) => m.role === "user");
+  const t = (firstUser?.content ?? "").trim().replace(/\s+/g, " ");
+  if (!t) return "New chat";
+  return t.length > 48 ? `${t.slice(0, 48)}…` : t;
+}
+
+function readSessionsIndex(): SessionMeta[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const arr = JSON.parse(window.localStorage.getItem(SESSIONS_KEY) ?? "[]") as unknown;
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((s): s is Record<string, unknown> => Boolean(s) && typeof s === "object")
+      .map((s) => ({
+        id: String(s.id ?? ""),
+        title: typeof s.title === "string" ? s.title : "New chat",
+        updatedAt: typeof s.updatedAt === "number" ? s.updatedAt : 0,
+      }))
+      .filter((s) => s.id);
+  } catch {
+    return [];
+  }
+}
+
+function writeSessionsIndex(list: SessionMeta[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(SESSIONS_KEY, JSON.stringify(list));
+  } catch {
+    /* quota — drop persistence */
+  }
+}
 
 export function makeId(): string {
   return `m_${Math.random().toString(36).slice(2, 10)}`;
@@ -285,10 +351,10 @@ export function formatResult(content: unknown): string {
   }
 }
 
-function readPersistedMessages(): ChatMsg[] {
+function readPersistedMessages(key: string): ChatMsg[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(HISTORY_KEY);
+    const raw = window.localStorage.getItem(key);
     if (!raw) return [];
     const arr = JSON.parse(raw) as unknown;
     if (!Array.isArray(arr)) return [];
@@ -331,7 +397,7 @@ function readPersistedMessages(): ChatMsg[] {
   }
 }
 
-function persistMessages(messages: ChatMsg[]): void {
+function persistMessages(messages: ChatMsg[], key: string): void {
   if (typeof window === "undefined") return;
   try {
     const slim = messages.map((m) => ({
@@ -349,7 +415,7 @@ function persistMessages(messages: ChatMsg[]): void {
       extractedPhases: m.extractedPhases,
       extractedPipelineEdges: m.extractedPipelineEdges,
     }));
-    window.localStorage.setItem(HISTORY_KEY, JSON.stringify(slim));
+    window.localStorage.setItem(key, JSON.stringify(slim));
   } catch {
     // quota / mode / etc. — silently lose persistence rather than crash
   }
@@ -361,6 +427,8 @@ class ChatStore {
     streaming: false,
     error: null,
     session: null,
+    sessions: [],
+    currentSessionId: "",
   };
   private listeners = new Set<() => void>();
   private abort: AbortController | null = null;
@@ -399,10 +467,29 @@ class ChatStore {
     if (this.hydrated) return;
     this.hydrated = true;
     if (typeof window === "undefined") return;
-    const messages = readPersistedMessages();
-    if (messages.length > 0) {
-      this.state = { ...this.state, messages };
+
+    let sessions = readSessionsIndex();
+    let currentId = window.localStorage.getItem(CURRENT_SESSION_KEY) ?? "";
+
+    // First run on this device: migrate the legacy single conversation into a
+    // session so existing history isn't lost.
+    if (sessions.length === 0 && !currentId) {
+      const legacy = readPersistedMessages(HISTORY_KEY);
+      currentId = newSessionId();
+      if (legacy.length > 0) {
+        persistMessages(legacy, sessionMsgKey(currentId));
+        sessions = [{ id: currentId, title: deriveTitle(legacy), updatedAt: Date.now() }];
+        writeSessionsIndex(sessions);
+      }
+      window.localStorage.setItem(CURRENT_SESSION_KEY, currentId);
     }
+    if (!currentId) {
+      currentId = sessions[0]?.id ?? newSessionId();
+      window.localStorage.setItem(CURRENT_SESSION_KEY, currentId);
+    }
+
+    const messages = readPersistedMessages(sessionMsgKey(currentId));
+    this.state = { ...this.state, messages, sessions, currentSessionId: currentId };
   }
 
   getState = (): ChatState => {
@@ -411,12 +498,7 @@ class ChatStore {
   };
 
   /** Stable empty snapshot for SSR. */
-  getServerSnapshot = (): ChatState => ({
-    messages: [],
-    streaming: false,
-    error: null,
-    session: null,
-  });
+  getServerSnapshot = (): ChatState => EMPTY_STATE;
 
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
@@ -428,8 +510,87 @@ class ChatStore {
   private setState(patch: Partial<ChatState>) {
     this.state = { ...this.state, ...patch };
     this.notify();
-    if (!this.state.streaming) persistMessages(this.state.messages);
+    if (!this.state.streaming) this.persist();
   }
+
+  /** Save the current session's messages and refresh the sessions index so the
+   *  sidebar reflects the latest title/order. Empty sessions are not indexed. */
+  private persist() {
+    if (typeof window === "undefined") return;
+    const id = this.state.currentSessionId;
+    if (!id) return;
+    persistMessages(this.state.messages, sessionMsgKey(id));
+    const list = readSessionsIndex().filter((s) => s.id !== id);
+    if (this.state.messages.length > 0) {
+      list.unshift({ id, title: deriveTitle(this.state.messages), updatedAt: Date.now() });
+    }
+    list.sort((a, b) => b.updatedAt - a.updatedAt);
+    writeSessionsIndex(list);
+    this.state = { ...this.state, sessions: list };
+    this.notify();
+  }
+
+  /** Start a fresh chat session (the previous one is already saved). */
+  newSession = () => {
+    this.ensureHydrated();
+    this.cancel();
+    const id = newSessionId();
+    if (typeof window !== "undefined") window.localStorage.setItem(CURRENT_SESSION_KEY, id);
+    this.state = {
+      ...this.state,
+      messages: [],
+      error: null,
+      session: null,
+      currentSessionId: id,
+    };
+    this.notify();
+  };
+
+  /** Open an existing session by id (loads its messages). */
+  switchSession = (id: string) => {
+    this.ensureHydrated();
+    if (id === this.state.currentSessionId) return;
+    this.cancel();
+    if (typeof window !== "undefined") window.localStorage.setItem(CURRENT_SESSION_KEY, id);
+    this.state = {
+      ...this.state,
+      messages: readPersistedMessages(sessionMsgKey(id)),
+      error: null,
+      session: null,
+      currentSessionId: id,
+    };
+    this.notify();
+  };
+
+  /** Delete a session; if it was open, fall back to the next most recent. */
+  deleteSession = (id: string) => {
+    this.ensureHydrated();
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem(sessionMsgKey(id));
+      } catch {
+        /* ignore */
+      }
+    }
+    const list = readSessionsIndex().filter((s) => s.id !== id);
+    writeSessionsIndex(list);
+    if (id === this.state.currentSessionId) {
+      this.cancel();
+      const nextId = list[0]?.id ?? newSessionId();
+      if (typeof window !== "undefined") window.localStorage.setItem(CURRENT_SESSION_KEY, nextId);
+      this.state = {
+        ...this.state,
+        sessions: list,
+        currentSessionId: nextId,
+        messages: list[0] ? readPersistedMessages(sessionMsgKey(nextId)) : [],
+        error: null,
+        session: null,
+      };
+    } else {
+      this.state = { ...this.state, sessions: list };
+    }
+    this.notify();
+  };
 
   private mutateMessage(id: string, mutator: (m: ChatMsg) => ChatMsg) {
     this.state = {
@@ -496,7 +657,7 @@ class ChatStore {
       }),
     };
     this.notify();
-    persistMessages(this.state.messages);
+    this.persist();
   };
 
   /**
@@ -527,7 +688,7 @@ class ChatStore {
       },
     }));
     const afterMsg = this.state.messages.find((m) => m.id === messageId);
-    persistMessages(this.state.messages);
+    this.persist();
 
     const lines = answers.map((a) => {
       const ans = Array.isArray(a.answer) ? a.answer.join(", ") : a.answer;
@@ -667,7 +828,7 @@ class ChatStore {
       extractionAttempted: true,
       extracting: true,
     }));
-    persistMessages(this.state.messages);
+    this.persist();
     try {
       const res = await fetch("/api/extract-choices", {
         method: "POST",
@@ -820,13 +981,13 @@ class ChatStore {
             ? validatedEdges
             : m.extractedPipelineEdges,
       }));
-      persistMessages(this.state.messages);
+      this.persist();
     } catch {
       // Silent — extractor failures shouldn't surface in the UI; the user
       // can still answer in chat the normal way.
     } finally {
       this.mutateMessage(messageId, (m) => ({ ...m, extracting: false }));
-      persistMessages(this.state.messages);
+      this.persist();
     }
   };
 
@@ -859,7 +1020,7 @@ class ChatStore {
         [choiceId]: answer,
       },
     }));
-    persistMessages(this.state.messages);
+    this.persist();
     const human = Array.isArray(answer) ? answer.join(", ") : answer;
     const text = `For the choice you offered (${choice.question}): ${human}.\n\nPlease continue.`;
     await this.send({

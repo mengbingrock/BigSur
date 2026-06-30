@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   BookOpen,
@@ -5,13 +6,16 @@ import {
   Boxes,
   Loader2,
   LogOut,
-  MessagesSquare,
+  MessageSquare,
+  Plus,
   Settings,
   ShieldCheck,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
 
 import { useCurrentUser, useLogout } from "~/lib/auth";
+import { chatStore, type SessionMeta } from "~/store/chat-store";
 import {
   SidebarContent,
   SidebarFooter,
@@ -34,12 +38,6 @@ interface NavItem {
 
 const WORKSPACE_ITEMS: NavItem[] = [
   {
-    label: "Project",
-    to: "/chat",
-    icon: MessagesSquare,
-    match: (p) => p === "/chat" || p.startsWith("/chat/"),
-  },
-  {
     label: "Agents",
     to: "/agents",
     icon: Bot,
@@ -53,11 +51,52 @@ const WORKSPACE_ITEMS: NavItem[] = [
   },
 ];
 
+const EMPTY_SESSIONS: SessionMeta[] = [];
+
+/** Compact relative time: now, 5m, 3h, 6d, 2w, 4mo, 1y. */
+function relTime(ts: number): string {
+  if (!ts) return "";
+  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (s < 60) return "now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d`;
+  const w = Math.floor(d / 7);
+  if (w < 5) return `${w}w`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `${mo}mo`;
+  return `${Math.floor(d / 365)}y`;
+}
+
 export function AppSidebar() {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data: user } = useCurrentUser();
   const logout = useLogout();
+
+  const sessions = useSyncExternalStore(
+    chatStore.subscribe,
+    () => chatStore.getState().sessions,
+    () => EMPTY_SESSIONS,
+  );
+  const currentSessionId = useSyncExternalStore(
+    chatStore.subscribe,
+    () => chatStore.getState().currentSessionId,
+    () => "",
+  );
+  const onChat = pathname === "/chat" || pathname.startsWith("/chat/");
+
+  const startNewChat = () => {
+    chatStore.newSession();
+    void navigate({ to: "/chat" });
+  };
+  const openSession = (id: string) => {
+    chatStore.switchSession(id);
+    void navigate({ to: "/chat" });
+  };
 
   return (
     <>
@@ -73,6 +112,65 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  size="sm"
+                  className="gap-2 px-2 py-2 font-medium"
+                  tooltip="New chat"
+                  onClick={startNewChat}
+                >
+                  <Plus className="size-4" />
+                  <span>New chat</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Chats</SidebarGroupLabel>
+          <SidebarGroupContent>
+            {sessions.length === 0 ? (
+              <p className="px-2 py-1 text-xs text-ink-faint">No chats yet.</p>
+            ) : (
+              <SidebarMenu>
+                {sessions.map((s) => (
+                  <SidebarMenuItem key={s.id} className="group/chat relative">
+                    <SidebarMenuButton
+                      size="sm"
+                      className="gap-2 px-2 py-2 pr-7"
+                      tooltip={s.title}
+                      isActive={onChat && s.id === currentSessionId}
+                      onClick={() => openSession(s.id)}
+                    >
+                      <MessageSquare className="size-4 shrink-0" />
+                      <span className="min-w-0 flex-1 truncate">{s.title}</span>
+                      <span className="shrink-0 text-[10px] text-ink-faint tabular-nums group-hover/chat:opacity-0">
+                        {relTime(s.updatedAt)}
+                      </span>
+                    </SidebarMenuButton>
+                    <button
+                      type="button"
+                      aria-label="Delete chat"
+                      title="Delete chat"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        chatStore.deleteSession(s.id);
+                      }}
+                      className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded p-1 text-ink-faint transition hover:text-destructive group-hover/chat:block"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            )}
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         <SidebarGroup>
           <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
