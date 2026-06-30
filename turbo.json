@@ -21,10 +21,12 @@
     "PROTOCOLS_CONTACT_EMAIL",
     "BRAVE_API_KEY",
     "BRAVE_SEARCH_API_KEY",
+    "BRAVE_API_ENDPOINT",
     "GOOGLE_API_KEY",
     "GOOGLE_CSE_KEY",
     "GOOGLE_CSE_CX",
-    "GOOGLE_CSE_ID"
+    "GOOGLE_CSE_ID",
+    "GOOGLE_API_ENDPOINT"
   ],
   "tasks": {
     "build": {

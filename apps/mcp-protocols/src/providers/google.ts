@@ -13,13 +13,18 @@ import {
   fetchWithTimeout,
 } from "./types.ts";
 
-const ENDPOINT = "https://www.googleapis.com/customsearch/v1";
+const DEFAULT_ENDPOINT = "https://www.googleapis.com/customsearch/v1";
 const DEFAULT_TIMEOUT_MS = 9000;
 
 function creds(): { key: string; cx: string } | undefined {
   const key = process.env.GOOGLE_API_KEY || process.env.GOOGLE_CSE_KEY;
   const cx = process.env.GOOGLE_CSE_CX || process.env.GOOGLE_CSE_ID;
   return key && cx ? { key, cx } : undefined;
+}
+
+/** Endpoint override for self-hosted gateways / enterprise proxies / testing. */
+function endpoint(): string {
+  return process.env.GOOGLE_API_ENDPOINT || DEFAULT_ENDPOINT;
 }
 
 interface GoogleResponse {
@@ -36,7 +41,7 @@ export const googleProvider: WebProvider = {
     const doFetch = opts.fetchImpl ?? fetch;
     const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const url =
-      `${ENDPOINT}?key=${encodeURIComponent(c.key)}&cx=${encodeURIComponent(c.cx)}` +
+      `${endpoint()}?key=${encodeURIComponent(c.key)}&cx=${encodeURIComponent(c.cx)}` +
       `&q=${encodeURIComponent(query)}&num=${Math.min(10, Math.max(1, limit))}`;
     try {
       const res = await fetchWithTimeout(doFetch, url, { headers: { Accept: "application/json" } }, timeoutMs);

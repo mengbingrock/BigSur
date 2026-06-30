@@ -14,11 +14,16 @@ import {
   fetchWithTimeout,
 } from "./types.ts";
 
-const ENDPOINT = "https://api.search.brave.com/res/v1/web/search";
+const DEFAULT_ENDPOINT = "https://api.search.brave.com/res/v1/web/search";
 const DEFAULT_TIMEOUT_MS = 9000;
 
 function apiKey(): string | undefined {
   return process.env.BRAVE_API_KEY || process.env.BRAVE_SEARCH_API_KEY || undefined;
+}
+
+/** Endpoint override for self-hosted gateways / enterprise proxies / testing. */
+function endpoint(): string {
+  return process.env.BRAVE_API_ENDPOINT || DEFAULT_ENDPOINT;
 }
 
 interface BraveResponse {
@@ -34,7 +39,7 @@ export const braveProvider: WebProvider = {
     const doFetch = opts.fetchImpl ?? fetch;
     const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const url =
-      `${ENDPOINT}?q=${encodeURIComponent(query)}` +
+      `${endpoint()}?q=${encodeURIComponent(query)}` +
       `&count=${Math.min(20, Math.max(1, limit))}&country=us&search_lang=en`;
     try {
       const res = await fetchWithTimeout(

@@ -82,6 +82,18 @@ describe("keyed providers", () => {
     ]);
   });
 
+  it("honors BRAVE_API_ENDPOINT override (self-host / proxy)", async () => {
+    process.env.BRAVE_API_KEY = "k";
+    process.env.BRAVE_API_ENDPOINT = "http://localhost:9999/search";
+    let seen = "";
+    const fakeFetch = (async (url: string) => {
+      seen = url;
+      return new Response(JSON.stringify({ web: { results: [] } }), { status: 200 });
+    }) as unknown as typeof fetch;
+    await braveProvider.run("site:neb.com x", 5, { fetchImpl: fakeFetch });
+    expect(seen.startsWith("http://localhost:9999/search?")).toBe(true);
+  });
+
   it("google needs both key and cx, then parses items", async () => {
     delete process.env.GOOGLE_API_KEY;
     delete process.env.GOOGLE_CSE_KEY;
