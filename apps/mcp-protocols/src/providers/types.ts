@@ -66,6 +66,65 @@ export async function fetchWithTimeout(
   }
 }
 
+/** HTTP statuses worth retrying: rate-limited and transient server errors.
+ *  (NCBI's eutils flap with 500s, so 500 is included.) */
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+
+export interface RetryOptions {
+  /** Extra attempts after the first (default 2 → up to 3 total). */
+  retries?: number;
+  baseDelayMs?: number;
+  maxDelayMs?: number;
+}
+
+/** Parse a `Retry-After` header (delta-seconds or HTTP-date) to ms, capped. */
+function retryAfterMs(header: string | null): number | null {
+  if (!header) return null;
+  const secs = Number(header);
+  if (Number.isFinite(secs)) return Math.min(Math.max(secs, 0) * 1000, 30_000);
+  const when = Date.parse(header);
+  if (!Number.isNaN(when)) return Math.min(Math.max(when - Date.now(), 0), 30_000);
+  return null;
+}
+
+/** Exponential backoff with ±25% full jitter. */
+function backoffMs(base: number, max: number, attempt: number): number {
+  const raw = Math.min(base * 2 ** attempt, max);
+  return Math.round(raw * (0.75 + 0.5 * Math.random()));
+}
+
+/**
+ * `fetchWithTimeout` plus retry-with-backoff on transient failures (HTTP 429 /
+ * 5xx and network/timeout errors), honouring `Retry-After`. Retrying the same
+ * endpoint on a transient blip avoids needlessly falling through to a
+ * lower-priority provider. Non-retryable responses (2xx, 4xx≠429) return
+ * immediately. Throws the last error only if every attempt failed to connect.
+ */
+export async function fetchWithRetry(
+  doFetch: typeof fetch,
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  retry: RetryOptions = {},
+): Promise<Response> {
+  const retries = retry.retries ?? 2;
+  const base = retry.baseDelayMs ?? 400;
+  const max = retry.maxDelayMs ?? 4000;
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetchWithTimeout(doFetch, url, init, timeoutMs);
+      if (!RETRYABLE_STATUS.has(res.status) || attempt === retries) return res;
+      await sleep(retryAfterMs(res.headers.get("retry-after")) ?? backoffMs(base, max, attempt));
+    } catch (err) {
+      lastErr = err;
+      if (attempt === retries) throw err;
+      await sleep(backoffMs(base, max, attempt));
+    }
+  }
+  throw lastErr ?? new Error("fetch failed after retries");
+}
+
 export function decodeEntities(s: string): string {
   return s
     .replace(/&amp;/g, "&")

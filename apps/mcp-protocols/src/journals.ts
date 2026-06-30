@@ -15,7 +15,7 @@
 //   - semanticscholar  — AI/citation-graph index (optional SEMANTIC_SCHOLAR_API_KEY)
 //   - pubmed           — NCBI E-utilities, esearch→esummary (optional NCBI_API_KEY)
 
-import { type ProviderOptions, type RawResult, fetchWithTimeout } from "./providers/types.ts";
+import { type ProviderOptions, type RawResult, fetchWithRetry } from "./providers/types.ts";
 import type { JournalInfo } from "./vendors.ts";
 
 const DEFAULT_TIMEOUT_MS = 9000;
@@ -67,7 +67,7 @@ const crossref: JournalSearchFn = async (journal, query, limit, opts) => {
     `https://api.crossref.org/works?query=${encodeURIComponent(query)}` +
     `&filter=container-title:${encodeURIComponent(journal.crossrefContainer)}` +
     `&rows=${limit}&select=title,DOI,URL,abstract&sort=relevance&mailto=${encodeURIComponent(CONTACT)}`;
-  const res = await fetchWithTimeout(
+  const res = await fetchWithRetry(
     doFetch,
     url,
     { headers: { Accept: "application/json", "User-Agent": `labee-mcp-protocols (mailto:${CONTACT})` } },
@@ -95,7 +95,7 @@ const europepmc: JournalSearchFn = async (journal, query, limit, opts) => {
   const url =
     `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}` +
     `&format=json&pageSize=${limit}&resultType=lite`;
-  const res = await fetchWithTimeout(
+  const res = await fetchWithRetry(
     doFetch,
     url,
     { headers: { Accept: "application/json" } },
@@ -129,7 +129,7 @@ const openalex: JournalSearchFn = async (journal, query, limit, opts) => {
     `https://api.openalex.org/works?search=${encodeURIComponent(query)}` +
     `&filter=primary_location.source.issn:${encodeURIComponent(issnFilter)}` +
     `&per_page=${limit}&mailto=${encodeURIComponent(CONTACT)}`;
-  const res = await fetchWithTimeout(
+  const res = await fetchWithRetry(
     doFetch,
     url,
     { headers: { Accept: "application/json", "User-Agent": `labee-mcp-protocols (mailto:${CONTACT})` } },
@@ -160,7 +160,7 @@ const semanticscholar: JournalSearchFn = async (journal, query, limit, opts) => 
   const headers: Record<string, string> = { Accept: "application/json" };
   const key = process.env.SEMANTIC_SCHOLAR_API_KEY;
   if (key) headers["x-api-key"] = key;
-  const res = await fetchWithTimeout(doFetch, url, { headers }, opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  const res = await fetchWithRetry(doFetch, url, { headers }, opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   if (res.status !== 200) throw new Error(`Semantic Scholar HTTP ${res.status}`);
   const json = (await res.json()) as SemanticScholarResponse;
   return (json.data ?? [])
@@ -189,14 +189,14 @@ const pubmed: JournalSearchFn = async (journal, query, limit, opts) => {
   const esearchUrl =
     `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&retmode=json` +
     `&retmax=${limit}&term=${encodeURIComponent(term)}${common}`;
-  const sres = await fetchWithTimeout(doFetch, esearchUrl, { headers: { Accept: "application/json" } }, timeoutMs);
+  const sres = await fetchWithRetry(doFetch, esearchUrl, { headers: { Accept: "application/json" } }, timeoutMs);
   if (sres.status !== 200) throw new Error(`PubMed esearch HTTP ${sres.status}`);
   const ids = ((await sres.json()) as ESearchResponse).esearchresult?.idlist ?? [];
   if (ids.length === 0) return [];
   const esummaryUrl =
     `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&retmode=json` +
     `&id=${ids.join(",")}${common}`;
-  const ures = await fetchWithTimeout(doFetch, esummaryUrl, { headers: { Accept: "application/json" } }, timeoutMs);
+  const ures = await fetchWithRetry(doFetch, esummaryUrl, { headers: { Accept: "application/json" } }, timeoutMs);
   if (ures.status !== 200) throw new Error(`PubMed esummary HTTP ${ures.status}`);
   const result = ((await ures.json()) as ESummaryResponse).result ?? {};
   return ids

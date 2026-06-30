@@ -12,6 +12,24 @@ describe("MCP dispatch", () => {
     });
   });
 
+  it("echoes the client's protocol version when supported, else its latest", async () => {
+    const echoed = await dispatch({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: { protocolVersion: "2024-11-05" },
+    });
+    expect((echoed!.result as { protocolVersion: string }).protocolVersion).toBe("2024-11-05");
+
+    const fallback = await dispatch({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: { protocolVersion: "1999-01-01" },
+    });
+    expect((fallback!.result as { protocolVersion: string }).protocolVersion).toBe("2025-06-18");
+  });
+
   it("does not reply to the initialized notification", async () => {
     const res = await dispatch({ jsonrpc: "2.0", method: "notifications/initialized" });
     expect(res).toBeNull();

@@ -11,7 +11,10 @@ import { VENDORS, VENDOR_IDS } from "./vendors.ts";
 import { providerStatus } from "./providers/registry.ts";
 import { journalProviderOrder } from "./journals.ts";
 
-const PROTOCOL_VERSION = "2024-11-05";
+// Versions we speak. The spec requires echoing the client's requested version
+// when we support it, else replying with our latest (the client then decides).
+const LATEST_PROTOCOL_VERSION = "2025-06-18";
+const SUPPORTED_PROTOCOL_VERSIONS = ["2025-06-18", "2024-11-05"];
 const SERVER_INFO = { name: "labee-protocols", version: "0.1.0" };
 
 export interface JsonRpcRequest {
@@ -31,6 +34,9 @@ export interface JsonRpcResponse {
 export const TOOLS = [
   {
     name: "search_protocols",
+    title: "Search lab protocols & reagents",
+    // Read-only, queries the open web, results vary over time → not idempotent.
+    annotations: { readOnlyHint: true, openWorldHint: true, idempotentHint: false },
     description:
       "Search laboratory-protocol and reagent sources (STAR Protocols, Nature Protocols, " +
       "Thermo Fisher, QIAGEN, NEB, Bio-Rad, Sigma-Aldrich, EMD Millipore, Takara Bio, Promega, IDT) " +
@@ -63,6 +69,8 @@ export const TOOLS = [
   },
   {
     name: "list_protocol_vendors",
+    title: "List protocol/reagent vendors",
+    annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },
     description:
       "List the protocol/reagent vendors this server can search, with their ids and what each is best for.",
     inputSchema: { type: "object", properties: {} },
@@ -116,16 +124,18 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<un
 export async function dispatch(req: JsonRpcRequest): Promise<JsonRpcResponse | null> {
   const id = req.id ?? null;
   switch (req.method) {
-    case "initialize":
+    case "initialize": {
+      const requested = (req.params as { protocolVersion?: unknown } | undefined)?.protocolVersion;
+      const protocolVersion =
+        typeof requested === "string" && SUPPORTED_PROTOCOL_VERSIONS.includes(requested)
+          ? requested
+          : LATEST_PROTOCOL_VERSION;
       return {
         jsonrpc: "2.0",
         id,
-        result: {
-          protocolVersion: PROTOCOL_VERSION,
-          capabilities: { tools: {} },
-          serverInfo: SERVER_INFO,
-        },
+        result: { protocolVersion, capabilities: { tools: {} }, serverInfo: SERVER_INFO },
       };
+    }
     case "notifications/initialized":
       return null;
     case "ping":
