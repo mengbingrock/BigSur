@@ -1,0 +1,23 @@
+{
+  "name": "@labee/mcp-protocols",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "labee-mcp-protocols": "./dist/index.mjs"
+  },
+  "scripts": {
+    "dev": "node --experimental-strip-types src/index.ts",
+    "build": "tsdown",
+    "start": "node dist/index.mjs",
+    "search": "node --experimental-strip-types src/index.ts --query",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

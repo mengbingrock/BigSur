@@ -15,7 +15,8 @@
     "COOKIE_SECURE",
     "SIGNUP_ENABLED",
     "ANTHROPIC_API_KEY",
-    "CLAUDE_BIN"
+    "CLAUDE_BIN",
+    "PROTOCOLS_MCP_PATH"
   ],
   "tasks": {
     "build": {

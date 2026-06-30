@@ -27,6 +27,15 @@ Labee is a Bun + Turbo monorepo with three apps and two shared packages.
 - **apps/desktop** — Electron. Forks the bundled server on a free loopback
   port (redirecting all writable state into the OS per-user data dir) and
   points a `BrowserWindow` at it. In dev it loads the Vite server instead.
+- **apps/mcp-protocols** — a zero-dependency MCP (Model Context Protocol)
+  stdio server that searches laboratory-protocol / reagent vendors (STAR
+  Protocols, Nature Protocols, Thermo Fisher, QIAGEN, NEB, Bio-Rad,
+  Sigma-Aldrich, EMD Millipore, Takara Bio, Promega, IDT). The chat route
+  registers it with the `claude` CLI via `--mcp-config`, exposing
+  `mcp__protocols__search_protocols`. Those vendor sites bot-block direct
+  fetches, so the tool searches via DuckDuckGo `site:` queries and always
+  returns each vendor's deterministic on-site search URL as a fallback. Also
+  runnable standalone as a CLI (`node dist/index.mjs --query "..."`).
 
 ## Shared packages
 
