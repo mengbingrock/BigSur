@@ -31,6 +31,17 @@ describe("vendor registry", () => {
     }
   });
 
+  it("marks the two protocol journals as journal-kind with Crossref metadata", () => {
+    for (const id of ["star-protocols", "nature-protocols"]) {
+      const v = getVendor(id)!;
+      expect(v.kind).toBe("journal");
+      expect(v.journal?.crossrefContainer).toBeTruthy();
+      expect(v.journal?.europepmcJournal).toBeTruthy();
+    }
+    expect(getVendor("neb")!.kind).toBe("vendor");
+    expect(getVendor("neb")!.journal).toBeUndefined();
+  });
+
   it("resolves known ids, defaults to all, and reports unknowns", () => {
     expect(getVendor("neb")?.name).toContain("New England Biolabs");
     expect(resolveVendors().vendors).toHaveLength(VENDORS.length);

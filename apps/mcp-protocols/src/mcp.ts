@@ -8,6 +8,7 @@
 
 import { searchProtocols, renderMarkdown } from "./search.ts";
 import { VENDORS, VENDOR_IDS } from "./vendors.ts";
+import { providerStatus } from "./providers/registry.ts";
 
 const PROTOCOL_VERSION = "2024-11-05";
 const SERVER_INFO = { name: "labee-protocols", version: "0.1.0" };
@@ -30,11 +31,12 @@ export const TOOLS = [
   {
     name: "search_protocols",
     description:
-      "Search laboratory-protocol and reagent vendors (STAR Protocols, Nature Protocols, " +
+      "Search laboratory-protocol and reagent sources (STAR Protocols, Nature Protocols, " +
       "Thermo Fisher, QIAGEN, NEB, Bio-Rad, Sigma-Aldrich, EMD Millipore, Takara Bio, Promega, IDT) " +
-      "for a technique, kit, reagent, or product. Returns ranked links with snippets per vendor plus " +
-      "a guaranteed on-site search URL for each. Use this instead of fetching the vendor sites " +
-      "directly — they bot-block automated requests.",
+      "for a technique, kit, reagent, or product. Journals are searched via scholarly APIs " +
+      "(Crossref/Europe PMC); vendors via a web-search provider. Returns ranked links with snippets " +
+      "per source plus a guaranteed on-site search URL for each. Use this instead of fetching the " +
+      "vendor sites directly — they bot-block automated requests.",
     inputSchema: {
       type: "object",
       properties: {
@@ -72,8 +74,21 @@ function toolText(text: string, isError = false): unknown {
 
 async function callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
   if (name === "list_protocol_vendors") {
-    const lines = VENDORS.map((v) => `- ${v.id}: ${v.name} — ${v.blurb}`);
-    return toolText(["Available vendors:", ...lines].join("\n"));
+    const lines = VENDORS.map(
+      (v) => `- ${v.id} [${v.kind}]: ${v.name} — ${v.blurb}`,
+    );
+    const providers = providerStatus()
+      .map((p) => `${p.id}${p.available ? "" : " (not configured)"}`)
+      .join(", ");
+    return toolText(
+      [
+        "Sources:",
+        ...lines,
+        "",
+        `Web-search providers (vendors): ${providers}.`,
+        "Journals use Crossref/Europe PMC. Set BRAVE_API_KEY or GOOGLE_API_KEY+GOOGLE_CSE_CX for rate-limit-free vendor search.",
+      ].join("\n"),
+    );
   }
   if (name === "search_protocols") {
     const query = typeof args.query === "string" ? args.query : "";

@@ -28,14 +28,18 @@ Labee is a Bun + Turbo monorepo with three apps and two shared packages.
   port (redirecting all writable state into the OS per-user data dir) and
   points a `BrowserWindow` at it. In dev it loads the Vite server instead.
 - **apps/mcp-protocols** — a zero-dependency MCP (Model Context Protocol)
-  stdio server that searches laboratory-protocol / reagent vendors (STAR
-  Protocols, Nature Protocols, Thermo Fisher, QIAGEN, NEB, Bio-Rad,
+  stdio server that searches laboratory-protocol journals and reagent vendors
+  (STAR Protocols, Nature Protocols, Thermo Fisher, QIAGEN, NEB, Bio-Rad,
   Sigma-Aldrich, EMD Millipore, Takara Bio, Promega, IDT). The chat route
   registers it with the `claude` CLI via `--mcp-config`, exposing
-  `mcp__protocols__search_protocols`. Those vendor sites bot-block direct
-  fetches, so the tool searches via DuckDuckGo `site:` queries and always
-  returns each vendor's deterministic on-site search URL as a fallback. Also
-  runnable standalone as a CLI (`node dist/index.mjs --query "..."`).
+  `mcp__protocols__search_protocols`. Those sites bot-block direct fetches, so
+  each source is routed to a backend that works: journals go to scholarly APIs
+  (Crossref → Europe PMC, keyless and reliable); vendors go to a web-search
+  provider chain (`src/providers/`: Brave or Google when an API key is set,
+  else DuckDuckGo), scoped per vendor with `site:` filters. Every source also
+  returns a deterministic on-site search URL as a guaranteed fallback. Keys are
+  read from the server env (`BRAVE_API_KEY`, `GOOGLE_API_KEY`+`GOOGLE_CSE_CX`).
+  Also runnable standalone as a CLI (`node dist/index.mjs --query "..."`).
 
 ## Shared packages
 
