@@ -16,10 +16,12 @@
 // every result even when live extraction is unavailable.
 
 export interface JournalInfo {
-  /** Exact Crossref `container-title` for this journal. */
+  /** Exact Crossref `container-title` for this journal (also Semantic Scholar venue). */
   crossrefContainer: string;
-  /** Exact Europe PMC `JOURNAL:"..."` name. */
+  /** Exact Europe PMC `JOURNAL:"..."` name (also the PubMed `[Journal]` term). */
   europepmcJournal: string;
+  /** ISSN(s) identifying the journal in OpenAlex (print + electronic). */
+  issn: string[];
 }
 
 export interface Vendor {
@@ -51,6 +53,7 @@ export const VENDORS: Vendor[] = [
     journal: {
       crossrefContainer: "STAR Protocols",
       europepmcJournal: "STAR Protocols",
+      issn: ["2666-1667"],
     },
     searchUrl: (q) =>
       `https://www.cell.com/action/doSearch?journalCode=star-protocols&field1=AllField&text1=${enc(q)}`,
@@ -64,6 +67,7 @@ export const VENDORS: Vendor[] = [
     journal: {
       crossrefContainer: "Nature Protocols",
       europepmcJournal: "Nature Protocols",
+      issn: ["1750-2799", "1754-2189"],
     },
     searchUrl: (q) => `https://www.nature.com/search?journal=nprot&q=${enc(q)}`,
   },

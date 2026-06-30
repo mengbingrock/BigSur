@@ -33,10 +33,11 @@ Labee is a Bun + Turbo monorepo with three apps and two shared packages.
   Sigma-Aldrich, EMD Millipore, Takara Bio, Promega, IDT). The chat route
   registers it with the `claude` CLI via `--mcp-config`, exposing
   `mcp__protocols__search_protocols`. Those sites bot-block direct fetches, so
-  each source is routed to a backend that works: journals go to scholarly APIs
-  (Crossref → Europe PMC, keyless and reliable); vendors go to a web-search
-  provider chain (`src/providers/`: Brave or Google when an API key is set,
-  else DuckDuckGo), scoped per vendor with `site:` filters. Every source also
+  each source is routed to a backend that works: journals go to a chain of free
+  keyless scholarly APIs (Crossref → Europe PMC → OpenAlex → Semantic Scholar →
+  PubMed, first non-empty wins); vendors go to a web-search provider chain
+  (`src/providers/`: Brave or Google when an API key is set, else DuckDuckGo),
+  scoped per vendor with `site:` filters. Every source also
   returns a deterministic on-site search URL as a guaranteed fallback. Keys are
   read from the server env (`BRAVE_API_KEY`, `GOOGLE_API_KEY`+`GOOGLE_CSE_CX`).
   Also runnable standalone as a CLI (`node dist/index.mjs --query "..."`).

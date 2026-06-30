@@ -33,10 +33,15 @@ works for it.
 
 Two routes, picked per source:
 
-- **Journals (STAR Protocols, Nature Protocols)** → **Crossref**, falling back to
-  **Europe PMC**. Both are free, keyless scholarly APIs that index these
-  journals directly, returning real protocol titles, DOIs, and links — no
-  scraping, no rate limits, no paywall. This is reliable out of the box.
+- **Journals (STAR Protocols, Nature Protocols)** → a chain of five free,
+  keyless scholarly APIs, tried in order until one answers: **Crossref →
+  Europe PMC → OpenAlex → Semantic Scholar → PubMed (NCBI E-utilities)**. They
+  index these journals directly, returning real protocol titles, DOIs, and links
+  — no scraping, no paywall. Because they're run by different organizations, the
+  chain almost never fails: if one is down or rate-limiting (HTTP 429), the next
+  answers. Reliable out of the box; reorder with `PROTOCOLS_JOURNAL_PROVIDERS`.
+  Optional `SEMANTIC_SCHOLAR_API_KEY` / `NCBI_API_KEY` raise rate limits (both
+  work without a key).
 
 - **Reagent vendors** → a **web-search provider chain**, scoped per vendor with a
   `site:` filter and batched into combined `(site:a OR site:b ...)` queries
@@ -71,8 +76,10 @@ tool stays useful even when extraction is unavailable.
 | --- | --- |
 | `BRAVE_API_KEY` | Enable the Brave Search provider (recommended). |
 | `GOOGLE_API_KEY` + `GOOGLE_CSE_CX` | Enable the Google Programmable Search provider. |
-| `PROTOCOLS_SEARCH_PROVIDER` | Force a single provider: `brave` \| `google` \| `duckduckgo`. |
-| `PROTOCOLS_CONTACT_EMAIL` | Sent to Crossref's "polite pool" for better reliability. |
+| `PROTOCOLS_SEARCH_PROVIDER` | Force a single vendor provider: `brave` \| `google` \| `duckduckgo`. |
+| `PROTOCOLS_JOURNAL_PROVIDERS` | Reorder/limit the journal chain (comma-separated): `crossref,europepmc,openalex,semanticscholar,pubmed`. |
+| `SEMANTIC_SCHOLAR_API_KEY` / `NCBI_API_KEY` | Optional; raise rate limits for those journal providers. |
+| `PROTOCOLS_CONTACT_EMAIL` | Sent to the Crossref/OpenAlex/NCBI "polite pools" for reliability. |
 
 ## Use as a CLI
 

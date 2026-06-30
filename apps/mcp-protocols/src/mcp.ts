@@ -9,6 +9,7 @@
 import { searchProtocols, renderMarkdown } from "./search.ts";
 import { VENDORS, VENDOR_IDS } from "./vendors.ts";
 import { providerStatus } from "./providers/registry.ts";
+import { journalProviderOrder } from "./journals.ts";
 
 const PROTOCOL_VERSION = "2024-11-05";
 const SERVER_INFO = { name: "labee-protocols", version: "0.1.0" };
@@ -86,7 +87,8 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<un
         ...lines,
         "",
         `Web-search providers (vendors): ${providers}.`,
-        "Journals use Crossref/Europe PMC. Set BRAVE_API_KEY or GOOGLE_API_KEY+GOOGLE_CSE_CX for rate-limit-free vendor search.",
+        `Journal providers (chain): ${journalProviderOrder().join(" → ")}.`,
+        "Set BRAVE_API_KEY or GOOGLE_API_KEY+GOOGLE_CSE_CX for rate-limit-free vendor search.",
       ].join("\n"),
     );
   }
