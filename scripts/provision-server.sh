@@ -124,6 +124,13 @@ else
     echo "STRIPE_PRICE_CREDITS_25="
     echo "STRIPE_PRICE_CREDITS_50="
     echo "# LABEE_PUBLIC_URL=https://labee.online"
+    # Protocol-search MCP (apps/mcp-protocols). Set a real contact email for the
+    # scholarly polite-pools; optionally add a Brave/Google key for reliable
+    # reagent-vendor search (see .env.example). Blank = keyless best-effort.
+    echo "PROTOCOLS_CONTACT_EMAIL="
+    echo "BRAVE_API_KEY="
+    echo "# GOOGLE_API_KEY="
+    echo "# GOOGLE_CSE_CX="
   } > "$APP_DIR/.env.production"
   chmod 600 "$APP_DIR/.env.production"
   ok "wrote $APP_DIR/.env.production"

@@ -130,9 +130,9 @@ function buildContextAddendum(report: ContextLoadReport): string {
 const SYSTEM_PROMPT =
   "You are a chat assistant inside the Labee skills catalog. " +
   "You have access to the full Claude Code toolset (Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch, Skill, AskUserQuestion). " +
-  "A protocol-search tool (mcp__protocols__search_protocols) is also available: it searches laboratory-protocol and reagent vendors " +
-  "(STAR Protocols, Nature Protocols, Thermo Fisher, QIAGEN, NEB, Bio-Rad, Sigma-Aldrich, EMD Millipore, Takara Bio, Promega, IDT) and returns ranked links per vendor. " +
-  "Prefer it over WebFetch for those vendors — they bot-block direct fetches. " +
+  "A protocol-search MCP tool (search_protocols, from the `protocols` server) is also available: it searches laboratory-protocol journals and reagent vendors " +
+  "(STAR Protocols, Nature Protocols, JoVE, Bio-protocol, Current Protocols, protocols.io, Thermo Fisher, QIAGEN, NEB, Bio-Rad, Sigma-Aldrich, EMD Millipore, Takara Bio, Promega, IDT) and returns ranked links per source. " +
+  "Prefer it over WebFetch/WebSearch for those sources — they bot-block direct fetches. " +
   "Your current working directory IS the user's persistent file deck. Anything you write here (and in subdirectories) is saved across sessions and shows up in their Working Directory panel. " +
   "Files the user has uploaded for you live alongside your outputs in this directory — read them by name, no need to navigate into a subfolder. " +
   "Prefer top-level filenames for outputs the user will care about (the panel only surfaces top-level files); use subdirectories only for transient working state. " +
@@ -565,10 +565,11 @@ export const chatRoute = HttpRouter.add(
       return { provider: prov, model: mdl, cred: credential };
     });
 
-    // Provider-specific system prompt. Claude runs the agentic toolset; OpenAI
-    // is a plain chat (no Bash/file tools), so it gets a non-agentic prompt and
-    // skips the protocol addendum (which depends on the Read tool), while still
-    // receiving inlined context-file content.
+    // Provider-specific system prompt. The agentic runtimes (claude, and the
+    // codex CLI — whether a pinned codex agent or a ChatGPT subscription) get the
+    // full tool-aware prompt incl. the protocol-search MCP. Only the plain OpenAI
+    // HTTP chat (own API key, no codex) gets the non-agentic "no tools" prompt,
+    // still receiving inlined context-file content.
     if (mode !== "edit") {
       const referenceAddendum = buildReferenceFoldersAddendum(referenceFolders);
       const agentMemoryHint = agent
@@ -595,7 +596,7 @@ export const chatRoute = HttpRouter.add(
               "You are in build mode: implement the work directly. You may read, create, and edit files " +
               "and run shell commands to complete the task.\n";
       systemPrompt =
-        (provider === "openai" && !codexEngine
+        (provider === "openai" && !codexEngine && !cred.useCodex
           ? OPENAI_SYSTEM_PROMPT + built.contextAddendum + referenceAddendum + agentMemoryHint
           : SYSTEM_PROMPT +
             built.protocolAddendum +

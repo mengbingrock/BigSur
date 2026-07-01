@@ -36,6 +36,10 @@
       {
         "from": "../web/dist",
         "to": "server/client"
+      },
+      {
+        "from": "../mcp-protocols/dist",
+        "to": "mcp-protocols/dist"
       }
     ],
     "asar": true,

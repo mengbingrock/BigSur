@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { AccountConnection } from "@labee/contracts";
+import { ensureCodexProtocolsMcp } from "./protocolsMcp";
 
 function codexHome(): string {
   return process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
@@ -209,6 +210,10 @@ export function codexExecStream(opts: {
         return;
       }
       enqueue("status", { status: "thinking" });
+
+      // Register the protocol-search MCP in ~/.codex/config.toml so this exec can
+      // call it (best-effort; no-op if the bundle isn't present).
+      ensureCodexProtocolsMcp();
 
       try {
         // `codex exec` is non-interactive (no approval prompts), so the sandbox

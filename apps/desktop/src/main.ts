@@ -250,6 +250,13 @@ async function startServer(): Promise<string> {
     COOKIE_SECURE: "false",
   };
 
+  // Point the server at the bundled protocol-search MCP (shipped as an
+  // extraResource beside the server bundle). Only relevant to the embedded
+  // server; remote mode uses the hosted server's own copy.
+  if (app.isPackaged) {
+    env.PROTOCOLS_MCP_PATH = path.join(process.resourcesPath, "mcp-protocols", "dist", "index.mjs");
+  }
+
   // The agent runs locally: the server spawns the user's own claude/codex CLI.
   // Give it the real user PATH (Finder-launched apps get a stripped one) and the
   // resolved absolute binary paths so spawns work regardless of how the app was

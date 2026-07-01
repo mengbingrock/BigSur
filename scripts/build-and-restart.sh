@@ -20,8 +20,8 @@ bold "[1/3] bun install"
 bun install --frozen-lockfile
 ok "deps installed"
 
-bold "[2/3] build (server + web)"
-bun run turbo run build --filter=@labee/server --filter=@labee/web
+bold "[2/3] build (server + web + protocols MCP)"
+bun run turbo run build --filter=@labee/server --filter=@labee/web --filter=@labee/mcp-protocols
 ok "build complete"
 
 bold "[3/3] restart service"
