@@ -13,6 +13,7 @@ import {
 import { agentRoots, listAgentDir, readAgentFile } from "../services/agentFiles";
 import { initializeAgent, rebuildAgentMemory } from "../services/agentInit";
 import { availableEngines } from "../services/engines";
+import { syncAgentsFromServer } from "../services/remoteAgents";
 
 const params = HttpRouter.params;
 const safeBody = <T>() =>
@@ -227,7 +228,31 @@ export const agentDownloadRoute = HttpRouter.add(
   }),
 );
 
+/** POST /api/agents/sync — pull the caller's saved agents from the hosted Labee
+ *  server into this (local) instance's DB. Used by the local-first desktop. */
+export const syncAgentsRoute = HttpRouter.add(
+  "POST",
+  "/api/agents/sync",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const result = yield* Effect.tryPromise({
+      try: () => syncAgentsFromServer(user.email),
+      catch: (e) => e,
+    }).pipe(
+      Effect.map((r) => ({ ok: true as const, r })),
+      Effect.catch((e) => Effect.succeed({ ok: false as const, e })),
+    );
+    if (!result.ok) {
+      const { status, message } = statusForError(result.e);
+      return yield* error(message, status);
+    }
+    return yield* json(result.r);
+  }),
+);
+
 export const agentRoutes = [
+  syncAgentsRoute,
   listAgentsRoute,
   agentEnginesRoute,
   getAgentRoute,

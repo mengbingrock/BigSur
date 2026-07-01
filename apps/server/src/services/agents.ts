@@ -157,3 +157,35 @@ export async function deleteAgent(email: string, id: string): Promise<void> {
   const db = await getDb();
   db.prepare("DELETE FROM agents WHERE email = ? AND id = ?").run(email, id);
 }
+
+/**
+ * Insert-or-update an agent synced from a remote Labee server, keyed on the
+ * remote agent `id` (so re-syncing is idempotent and preserves identity).
+ * Unlike createAgent, it does NOT require a working directory or run any
+ * scaffolding side effects — a web-created agent's `workingDir` may not exist on
+ * this machine, so we store it verbatim and let the caller flag it for re-pick.
+ */
+export async function upsertAgentFromRemote(email: string, agent: Agent): Promise<void> {
+  const db = await getDb();
+  const now = new Date().toISOString();
+  db.prepare(
+    "INSERT INTO agents (id, email, name, description, skill_slugs, working_dir, reference_folders, engine, created_at, updated_at) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+      "ON CONFLICT(id) DO UPDATE SET " +
+      "email = excluded.email, name = excluded.name, description = excluded.description, " +
+      "skill_slugs = excluded.skill_slugs, working_dir = excluded.working_dir, " +
+      "reference_folders = excluded.reference_folders, engine = excluded.engine, " +
+      "updated_at = excluded.updated_at",
+  ).run(
+    agent.id,
+    email,
+    (agent.name ?? "").trim() || "Untitled agent",
+    agent.description?.trim() || null,
+    JSON.stringify(Array.isArray(agent.skillSlugs) ? agent.skillSlugs : []),
+    (agent.workingDir ?? "").trim(),
+    JSON.stringify(Array.isArray(agent.referenceFolders) ? agent.referenceFolders : []),
+    agent.engine === "codex" ? "codex" : "claude",
+    agent.createdAt ?? now,
+    now,
+  );
+}

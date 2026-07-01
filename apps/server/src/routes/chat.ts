@@ -617,6 +617,32 @@ export const chatRoute = HttpRouter.add(
       );
     }
 
+    // Desktop (local-first): the embedded server can only run turns backed by the
+    // user's LOCAL CLI login — own_subscription (claude/codex) or a pinned local
+    // codex agent. `provided` needs Labee's server key/host OAuth and `own_api_key`
+    // needs the key that's encrypted with the box's secret; neither is available
+    // locally. Rather than run on the box (which can't see the user's local files),
+    // steer the user to the hosted web app.
+    if (
+      process.env.LABEE_MODE === "desktop" &&
+      !codexEngine &&
+      cred.mode !== "own_subscription"
+    ) {
+      const modeLabel = cred.mode === "provided" ? "Labee Provided" : "your API key";
+      return HttpServerResponse.stream(
+        Stream.fromReadableStream({
+          evaluate: () =>
+            singleErrorStream(
+              `This agent uses ${modeLabel}, which runs on Labee's hosted servers and can't reach ` +
+                `your local files. Open Labee at labee.online in your browser for those chats, or set ` +
+                `this provider's credential source to "Your subscription" in Settings to run it here.`,
+            ),
+          onError: (cause) => cause,
+        }),
+        { contentType: "text/event-stream; charset=utf-8" },
+      );
+    }
+
     // Plan mode is a SOFT read-only: we keep tools un-gated (bypassPermissions)
     // so the agent can still load Skills, call AskUserQuestion, and research —
     // and instead block only the mutating tools via --disallowedTools below.

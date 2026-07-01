@@ -257,6 +257,12 @@ async function startServer(): Promise<string> {
     env.PROTOCOLS_MCP_PATH = path.join(process.resourcesPath, "mcp-protocols", "dist", "index.mjs");
   }
 
+  // Local-first: let the embedded server pull the user's agents/skills FROM the
+  // hosted Labee server, authenticating with a box session the desktop persists
+  // at "Connect to Labee" (see labee:connect-labee / connectToLabee()).
+  env.LABEE_SKILLS_SERVER = process.env.LABEE_SKILLS_SERVER ?? REMOTE_URL;
+  env.LABEE_REMOTE_SESSION_FILE = remoteSessionFile();
+
   // The agent runs locally: the server spawns the user's own claude/codex CLI.
   // Give it the real user PATH (Finder-launched apps get a stripped one) and the
   // resolved absolute binary paths so spawns work regardless of how the app was
@@ -506,6 +512,92 @@ ipcMain.handle("labee:google-sign-in", (_event, next?: string) => {
   if (!serverBaseUrl) return;
   void shell.openExternal(`${serverBaseUrl}/api/auth/google?next=${encodeURIComponent(target)}`);
 });
+
+/** File holding the hosted-Labee (box) session used to sync agents/skills. */
+function remoteSessionFile(): string {
+  return path.join(app.getPath("userData"), "remote-session.txt");
+}
+
+let connectLoopback: http.Server | null = null;
+
+/** Local-first: capture a labee.online (box) session so the embedded server can
+ *  pull the user's agents/skills. Opens the hosted Google sign-in in the system
+ *  browser with a one-shot loopback the box redirects the sealed session to,
+ *  then persists it (0600) to remoteSessionFile(). Resolves true once captured. */
+function connectToLabee(): Promise<boolean> {
+  if (connectLoopback) {
+    try {
+      connectLoopback.close();
+    } catch {
+      /* already closed */
+    }
+    connectLoopback = null;
+  }
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (!settled) {
+        settled = true;
+        resolve(ok);
+      }
+    };
+    const server = http.createServer((req, res) => {
+      let value: string | null = null;
+      try {
+        const u = new URL(req.url ?? "/", "http://127.0.0.1");
+        if (!u.pathname.startsWith("/cb")) {
+          res.writeHead(404);
+          res.end();
+          return;
+        }
+        value = u.searchParams.get("session");
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+        res.end(GOOGLE_DONE_HTML);
+      } finally {
+        server.close();
+        if (connectLoopback === server) connectLoopback = null;
+      }
+      if (value) {
+        try {
+          const file = remoteSessionFile();
+          fs.mkdirSync(path.dirname(file), { recursive: true });
+          fs.writeFileSync(file, value, { mode: 0o600 });
+          finish(true);
+        } catch {
+          finish(false);
+        }
+      } else {
+        finish(false);
+      }
+    });
+    connectLoopback = server;
+    server.listen(0, "127.0.0.1", () => {
+      const addr = server.address();
+      const port = typeof addr === "object" && addr ? addr.port : 0;
+      const cb = `http://127.0.0.1:${port}/cb`;
+      void shell.openExternal(
+        `${REMOTE_URL}/api/auth/google?next=${encodeURIComponent("/")}&desktop=${encodeURIComponent(cb)}`,
+      );
+    });
+    setTimeout(
+      () => {
+        if (connectLoopback === server) {
+          try {
+            server.close();
+          } catch {
+            /* already closed */
+          }
+          connectLoopback = null;
+        }
+        finish(false);
+      },
+      5 * 60 * 1000,
+    );
+  });
+}
+
+// Renderer asks to connect the user's hosted Labee account (for agent/skill sync).
+ipcMain.handle("labee:connect-labee", () => connectToLabee());
 
 // Renderer asks for a native folder picker (used to choose the agent's working
 // directory / reference folders). Returns the absolute path, or null.

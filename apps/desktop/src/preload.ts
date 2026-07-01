@@ -19,4 +19,7 @@ contextBridge.exposeInMainWorld("labeeDesktop", {
   // Native OS folder picker; resolves to the chosen absolute path or null.
   pickFolder: (defaultPath?: string): Promise<string | null> =>
     ipcRenderer.invoke("labee:pick-folder", defaultPath),
+  // Connect the user's hosted Labee account (opens hosted sign-in in the system
+  // browser, persists a box session) so the local app can sync agents/skills.
+  connectToLabee: (): Promise<boolean> => ipcRenderer.invoke("labee:connect-labee"),
 });

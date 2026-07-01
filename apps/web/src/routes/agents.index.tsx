@@ -4,19 +4,37 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import type { Agent } from "@labee/contracts";
 import { Bot, Folder, Loader2, Pencil, Play, Plus, Trash2 } from "lucide-react";
 
-import { apiGet, apiSend } from "~/lib/api";
+import { ApiError, apiGet, apiSend } from "~/lib/api";
 import { chatStore } from "~/store/chat-store";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { useCurrentUser } from "~/lib/auth";
+import { RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/agents/")({
   component: AgentsPage,
 });
 
+interface LabeeDesktop {
+  isDesktop?: boolean;
+  connectToLabee?: () => Promise<boolean>;
+}
+function desktopBridge(): LabeeDesktop | undefined {
+  return (window as unknown as { labeeDesktop?: LabeeDesktop }).labeeDesktop;
+}
+
+interface AgentSyncResult {
+  server: string;
+  synced: number;
+  agents: string[];
+  needsFolder: string[];
+}
+
 function AgentsPage() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { data: user, isLoading: authLoading } = useCurrentUser();
+  const [syncMsg, setSyncMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate({ to: "/login", search: { next: "/agents" } });
@@ -27,6 +45,44 @@ function AgentsPage() {
     queryFn: () => apiGet<{ agents: Agent[] }>("/api/agents"),
     enabled: !!user,
   });
+
+  // Pull the user's hosted agents into this local instance. If not connected to
+  // Labee yet, prompt the desktop connect flow and retry once.
+  const sync = useMutation({
+    mutationFn: async (): Promise<AgentSyncResult> => {
+      const doSync = () => apiSend<AgentSyncResult>("POST", "/api/agents/sync");
+      try {
+        return await doSync();
+      } catch (e) {
+        const d = desktopBridge();
+        if (
+          d?.isDesktop &&
+          d.connectToLabee &&
+          e instanceof ApiError &&
+          /connect|expired/i.test(e.message)
+        ) {
+          const ok = await d.connectToLabee();
+          if (ok) return await doSync();
+        }
+        throw e;
+      }
+    },
+    onSuccess: (r) => {
+      void qc.invalidateQueries({ queryKey: ["agents"] });
+      setSyncMsg({
+        ok: true,
+        text:
+          `Synced ${r.synced} agent${r.synced === 1 ? "" : "s"} from ${r.server}.` +
+          (r.needsFolder.length
+            ? ` Re-pick a local folder (Edit) for: ${r.needsFolder.join(", ")}.`
+            : ""),
+      });
+    },
+    onError: (e) =>
+      setSyncMsg({ ok: false, text: e instanceof Error ? e.message : "Sync failed." }),
+  });
+
+  const isDesktop = Boolean(desktopBridge()?.isDesktop);
 
   const agents = data?.agents ?? [];
 
@@ -39,11 +95,33 @@ function AgentsPage() {
             Saved presets bundling skills, a working directory, and reference folders.
           </p>
         </div>
-        <Button render={<Link to="/agents/new" />}>
-          <Plus className="size-4" />
-          New agent
-        </Button>
+        <div className="flex items-center gap-2">
+          {isDesktop ? (
+            <Button
+              variant="outline"
+              disabled={sync.isPending}
+              onClick={() => sync.mutate()}
+              title="Pull your agents from your hosted Labee account into this app"
+            >
+              {sync.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <RefreshCw className="size-4" />
+              )}
+              Sync from Labee
+            </Button>
+          ) : null}
+          <Button render={<Link to="/agents/new" />}>
+            <Plus className="size-4" />
+            New agent
+          </Button>
+        </div>
       </div>
+      {syncMsg ? (
+        <p className={`mt-2 text-sm ${syncMsg.ok ? "text-ink-light" : "text-destructive"}`}>
+          {syncMsg.text}
+        </p>
+      ) : null}
 
       <div className="mt-8">
         {isLoading || authLoading ? (
