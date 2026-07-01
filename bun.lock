@@ -19,8 +19,21 @@
       "devDependencies": {
         "@labee/server": "workspace:*",
         "@types/node": "catalog:",
-        "electron": "^38.8.6",
+        "electron": "38.8.6",
         "electron-builder": "^25.1.8",
+        "tsdown": "catalog:",
+        "typescript": "catalog:",
+        "vitest": "catalog:",
+      },
+    },
+    "apps/mcp-protocols": {
+      "name": "@labee/mcp-protocols",
+      "version": "0.1.0",
+      "bin": {
+        "labee-mcp-protocols": "./dist/index.mjs",
+      },
+      "devDependencies": {
+        "@types/node": "catalog:",
         "tsdown": "catalog:",
         "typescript": "catalog:",
         "vitest": "catalog:",
@@ -300,6 +313,8 @@
     "@labee/contracts": ["@labee/contracts@workspace:packages/contracts"],
 
     "@labee/desktop": ["@labee/desktop@workspace:apps/desktop"],
+
+    "@labee/mcp-protocols": ["@labee/mcp-protocols@workspace:apps/mcp-protocols"],
 
     "@labee/scripts": ["@labee/scripts@workspace:scripts"],
 
