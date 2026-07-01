@@ -195,7 +195,12 @@ export function codexExecStream(opts: {
       const started = Date.now();
       const enqueue = (event: string, data: unknown) => {
         if (aborted.v) return;
-        controller.enqueue(sse(event, data));
+        try {
+          controller.enqueue(sse(event, data));
+        } catch {
+          aborted.v = true; // controller closed (client aborted) — stop.
+          return;
+        }
       };
       enqueue("init", { model: planLabel ?? "ChatGPT", api_key_source: "chatgpt", permission_mode: mode });
       if (!bin) {

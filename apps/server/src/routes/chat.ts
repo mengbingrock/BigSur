@@ -347,6 +347,9 @@ function buildChatStream(
   let proc: ChildProcessByStdio<null, Readable, Readable>;
   const encoder = new TextEncoder();
   let stderrBuf = "";
+  // Hoisted so cancel() (client abort) can stop further enqueues; otherwise
+  // buffered stdout keeps calling send() after the controller is closed.
+  let closed = false;
   return new ReadableStream<Uint8Array>({
     start(controller) {
       try {
@@ -368,7 +371,6 @@ function buildChatStream(
         return;
       }
 
-      let closed = false;
       const close = () => {
         if (closed) return;
         closed = true;
@@ -380,9 +382,14 @@ function buildChatStream(
       };
       const send = (event: string, data: unknown) => {
         if (closed) return;
-        controller.enqueue(
-          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
-        );
+        try {
+          controller.enqueue(
+            encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+          );
+        } catch {
+          // Controller already closed (e.g. the client aborted) — stop sending.
+          closed = true;
+        }
       };
 
       send("skills_loaded", { linkedNames: linkedSkillNames, cwd });
@@ -433,6 +440,7 @@ function buildChatStream(
       });
     },
     cancel() {
+      closed = true;
       try {
         proc?.kill("SIGTERM");
       } catch {
