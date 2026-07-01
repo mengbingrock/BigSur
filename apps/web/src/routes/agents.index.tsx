@@ -5,6 +5,7 @@ import type { Agent } from "@labee/contracts";
 import { Bot, Folder, Loader2, Pencil, Play, Plus, Trash2 } from "lucide-react";
 
 import { apiGet, apiSend } from "~/lib/api";
+import { chatStore } from "~/store/chat-store";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { useCurrentUser } from "~/lib/auth";
@@ -127,11 +128,12 @@ function AgentCard({ agent }: { agent: Agent }) {
       <div className="mt-1 flex items-center gap-2">
         <Button
           size="sm"
-          onClick={() =>
-            // TODO: chat route doesn't declare the `agent` search param yet; cast
-            // until the chat launch wiring lands (handled separately).
-            navigate({ to: "/chat", search: { agent: agent.id } as never })
-          }
+          onClick={() => {
+            // Start a fresh chat session bound to this agent so the sidebar's
+            // Chats list stays consistent with the open conversation.
+            chatStore.newSession(agent.id);
+            navigate({ to: "/chat", search: { agent: agent.id } as never });
+          }}
         >
           <Play className="size-4" />
           Open

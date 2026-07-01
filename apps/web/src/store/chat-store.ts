@@ -226,6 +226,8 @@ export interface SessionMeta {
   id: string;
   title: string;
   updatedAt: number;
+  /** The agent this chat is bound to (chats are always agent-scoped). */
+  agentId?: string;
 }
 
 export interface ChatState {
@@ -307,6 +309,7 @@ function readSessionsIndex(): SessionMeta[] {
         id: String(s.id ?? ""),
         title: typeof s.title === "string" ? s.title : "New chat",
         updatedAt: typeof s.updatedAt === "number" ? s.updatedAt : 0,
+        ...(typeof s.agentId === "string" ? { agentId: s.agentId } : {}),
       }))
       .filter((s) => s.id);
   } catch {
@@ -437,6 +440,8 @@ class ChatStore {
   // turns (AskUserQuestion answers, extracted choices) reuse the same mode.
   private lastRunMode: "chat" | "plan" | "build" = "plan";
   private lastFullAccess = true;
+  // The agent bound to the current session (persisted into the sessions index).
+  private lastAgentId: string | undefined;
   /**
    * Set to true when the browser is about to unload (refresh, navigation
    * to a different origin, tab close). Used in the fetch catch block to
@@ -522,7 +527,12 @@ class ChatStore {
     persistMessages(this.state.messages, sessionMsgKey(id));
     const list = readSessionsIndex().filter((s) => s.id !== id);
     if (this.state.messages.length > 0) {
-      list.unshift({ id, title: deriveTitle(this.state.messages), updatedAt: Date.now() });
+      list.unshift({
+        id,
+        title: deriveTitle(this.state.messages),
+        updatedAt: Date.now(),
+        ...(this.lastAgentId ? { agentId: this.lastAgentId } : {}),
+      });
     }
     list.sort((a, b) => b.updatedAt - a.updatedAt);
     writeSessionsIndex(list);
@@ -530,11 +540,12 @@ class ChatStore {
     this.notify();
   }
 
-  /** Start a fresh chat session (the previous one is already saved). */
-  newSession = () => {
+  /** Start a fresh chat session bound to an agent (previous one is saved). */
+  newSession = (agentId?: string) => {
     this.ensureHydrated();
     this.cancel();
     const id = newSessionId();
+    this.lastAgentId = agentId;
     if (typeof window !== "undefined") window.localStorage.setItem(CURRENT_SESSION_KEY, id);
     this.state = {
       ...this.state,
@@ -546,11 +557,12 @@ class ChatStore {
     this.notify();
   };
 
-  /** Open an existing session by id (loads its messages). */
+  /** Open an existing session by id (loads its messages + agent binding). */
   switchSession = (id: string) => {
     this.ensureHydrated();
     if (id === this.state.currentSessionId) return;
     this.cancel();
+    this.lastAgentId = this.state.sessions.find((s) => s.id === id)?.agentId;
     if (typeof window !== "undefined") window.localStorage.setItem(CURRENT_SESSION_KEY, id);
     this.state = {
       ...this.state,
@@ -714,6 +726,7 @@ class ChatStore {
     // Remember the user's choice so follow-up turns that omit it reuse it.
     if (runMode) this.lastRunMode = runMode;
     if (fullAccess !== undefined) this.lastFullAccess = fullAccess;
+    if (agentId) this.lastAgentId = agentId;
 
     const userMsg: ChatMsg = { id: makeId(), role: "user", content: text };
     const assistantMsg: ChatMsg = {

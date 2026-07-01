@@ -1,5 +1,7 @@
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
+import type { Agent } from "@labee/contracts";
 import {
   BookOpen,
   Bot,
@@ -14,6 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { apiGet } from "~/lib/api";
 import { useCurrentUser, useLogout } from "~/lib/auth";
 import { chatStore, type SessionMeta } from "~/store/chat-store";
 import {
@@ -89,13 +92,35 @@ export function AppSidebar() {
   );
   const onChat = pathname === "/chat" || pathname.startsWith("/chat/");
 
+  const agentsQ = useQuery({
+    queryKey: ["agents"],
+    queryFn: () => apiGet<{ agents: Agent[] }>("/api/agents"),
+    enabled: !!user,
+  });
+  const agents = agentsQ.data?.agents ?? [];
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  // New chat is always agent-scoped: pick an agent, or require creating one.
   const startNewChat = () => {
-    chatStore.newSession();
-    void navigate({ to: "/chat" });
+    if (agentsQ.isLoading) return;
+    if (agents.length === 0) {
+      setPickerOpen(false);
+      void navigate({ to: "/agents/new" });
+      return;
+    }
+    setPickerOpen((v) => !v);
   };
-  const openSession = (id: string) => {
-    chatStore.switchSession(id);
-    void navigate({ to: "/chat" });
+  const startChatWith = (agentId: string) => {
+    setPickerOpen(false);
+    chatStore.newSession(agentId);
+    void navigate({ to: "/chat", search: { agent: agentId } as never });
+  };
+  const openSession = (s: SessionMeta) => {
+    chatStore.switchSession(s.id);
+    void navigate({
+      to: "/chat",
+      search: (s.agentId ? { agent: s.agentId } : {}) as never,
+    });
   };
 
   return (
@@ -119,7 +144,9 @@ export function AppSidebar() {
                 <SidebarMenuButton
                   size="sm"
                   className="gap-2 px-2 py-2 font-medium"
-                  tooltip="New chat"
+                  tooltip={
+                    agents.length === 0 ? "Create an agent to start chatting" : "New chat"
+                  }
                   onClick={startNewChat}
                 >
                   <Plus className="size-4" />
@@ -127,6 +154,36 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
+
+            {pickerOpen && agents.length > 0 ? (
+              <div className="mt-1 flex flex-col gap-0.5 rounded-md border border-sidebar-border bg-background/40 p-1">
+                <p className="px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-ink-faint">
+                  Chat with agent
+                </p>
+                {agents.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => startChatWith(a.id)}
+                    className="flex items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-ink transition hover:bg-sidebar-accent"
+                  >
+                    <Bot className="size-4 shrink-0 text-ink-light" />
+                    <span className="min-w-0 flex-1 truncate">{a.name}</span>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPickerOpen(false);
+                    void navigate({ to: "/agents/new" });
+                  }}
+                  className="mt-0.5 flex items-center gap-2 rounded border-t border-sidebar-border px-2 py-1.5 text-left text-xs text-ink-light transition hover:bg-sidebar-accent hover:text-ink"
+                >
+                  <Plus className="size-3.5 shrink-0" />
+                  <span>New agent…</span>
+                </button>
+              </div>
+            ) : null}
           </SidebarGroupContent>
         </SidebarGroup>
 
@@ -144,7 +201,7 @@ export function AppSidebar() {
                       className="gap-2 px-2 py-2 pr-7"
                       tooltip={s.title}
                       isActive={onChat && s.id === currentSessionId}
-                      onClick={() => openSession(s.id)}
+                      onClick={() => openSession(s)}
                     >
                       <MessageSquare className="size-4 shrink-0" />
                       <span className="min-w-0 flex-1 truncate">{s.title}</span>
