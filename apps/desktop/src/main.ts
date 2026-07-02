@@ -147,6 +147,36 @@ function googleDesktopCreds(): { id?: string; secret?: string } {
   return {};
 }
 
+/** Config the embedded server / protocol-search MCP reads: web-search provider
+ *  keys (Brave/Google) so vendor search returns results, plus other PROTOCOLS_*
+ *  tuning. Sourced from the process env, then `apps/desktop/.env` (dev) / a
+ *  per-user `labee.env` in userData (packaged). Absent keys are simply omitted. */
+function desktopSearchEnv(): Record<string, string> {
+  const KEYS = [
+    "BRAVE_API_KEY",
+    "BRAVE_SEARCH_API_KEY",
+    "GOOGLE_API_KEY",
+    "GOOGLE_CSE_KEY",
+    "GOOGLE_CSE_CX",
+    "PROTOCOLS_SEARCH_PROVIDER",
+    "PROTOCOLS_JOURNAL_PROVIDERS",
+    "PROTOCOLS_CONTACT_EMAIL",
+    "SEMANTIC_SCHOLAR_API_KEY",
+    "NCBI_API_KEY",
+  ];
+  const files = app.isPackaged
+    ? [path.join(app.getPath("userData"), "labee.env")]
+    : [path.join(__dirname, "..", ".env"), path.join(app.getPath("userData"), "labee.env")];
+  const merged: Record<string, string> = {};
+  for (const file of files) Object.assign(merged, readEnvFile(file));
+  const out: Record<string, string> = {};
+  for (const k of KEYS) {
+    const v = process.env[k] ?? merged[k];
+    if (v) out[k] = v;
+  }
+  return out;
+}
+
 /** Path to the bundled server entry. Packaged: resources/server/bin.mjs
  *  (with the web client beside it at resources/server/client). */
 function serverEntry(): string {
@@ -262,6 +292,10 @@ async function startServer(): Promise<string> {
   // at "Connect to Labee" (see labee:connect-labee / connectToLabee()).
   env.LABEE_SKILLS_SERVER = process.env.LABEE_SKILLS_SERVER ?? REMOTE_URL;
   env.LABEE_REMOTE_SESSION_FILE = remoteSessionFile();
+
+  // Web-search provider keys (Brave/Google) for the protocol-search MCP, so local
+  // reagent-vendor search returns results instead of being bot-blocked.
+  Object.assign(env, desktopSearchEnv());
 
   // The agent runs locally: the server spawns the user's own claude/codex CLI.
   // Give it the real user PATH (Finder-launched apps get a stripped one) and the
