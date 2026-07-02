@@ -376,6 +376,8 @@ async function createWindow(): Promise<void> {
   let url: string;
   if (isDev) {
     url = DEV_URL;
+    // So the Google loopback's applyGoogleSession can set the cookie + navigate.
+    serverBaseUrl = DEV_URL;
   } else if (useRemote) {
     serverBaseUrl = REMOTE_URL;
     url = REMOTE_URL;
@@ -443,10 +445,11 @@ async function createWindow(): Promise<void> {
   });
 }
 
-/** Remote mode: open Google sign-in in the system browser (so the user's saved
- *  Google accounts are available), with a one-shot loopback listener the hosted
- *  server redirects the sealed session back to. */
-function startGoogleSignInRemote(next: string): void {
+/** Open Google sign-in in the system browser (so the user's saved Google accounts
+ *  are available) against `base`, with a one-shot loopback listener that `base`
+ *  redirects the sealed session back to. Used for remote mode (labee.online) and
+ *  for dev (the Vite origin, which proxies /api to the local server). */
+function startGoogleSignInRemote(base: string, next: string): void {
   if (googleLoopback) {
     try {
       googleLoopback.close();
@@ -481,7 +484,7 @@ function startGoogleSignInRemote(next: string): void {
     const port = typeof addr === "object" && addr ? addr.port : 0;
     const cb = `http://127.0.0.1:${port}/cb`;
     void shell.openExternal(
-      `${REMOTE_URL}/api/auth/google?next=${encodeURIComponent(next)}&desktop=${encodeURIComponent(cb)}`,
+      `${base}/api/auth/google?next=${encodeURIComponent(next)}&desktop=${encodeURIComponent(cb)}`,
     );
   });
   // Auto-close if the user never finishes the flow.
@@ -505,8 +508,15 @@ function startGoogleSignInRemote(next: string): void {
 // window — via a loopback listener in remote mode, or server IPC in embedded.
 ipcMain.handle("labee:google-sign-in", (_event, next?: string) => {
   const target = next && next.startsWith("/") ? next : "/chat";
+  // Remote (labee.online) and dev (the Vite origin) both use the loopback flow;
+  // dev's local server isn't forked with an IPC channel, so the loopback is how
+  // the sealed session gets back to the window.
   if (useRemote) {
-    startGoogleSignInRemote(target);
+    startGoogleSignInRemote(REMOTE_URL, target);
+    return;
+  }
+  if (isDev) {
+    startGoogleSignInRemote(DEV_URL, target);
     return;
   }
   if (!serverBaseUrl) return;
