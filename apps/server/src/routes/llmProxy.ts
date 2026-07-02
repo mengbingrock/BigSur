@@ -5,6 +5,9 @@
 // (active plan or credits), swaps in Labee's real vendor key, and streams the
 // vendor's response straight back — a transparent passthrough so the claude CLI
 // and OpenAI client behave exactly as if they talked to the vendor directly.
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { Effect, Stream } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 import { error, json, sessionUser } from "../httpKit";
@@ -18,11 +21,50 @@ const OPENAI_UPSTREAM = (process.env.OPENAI_API_BASE || "https://api.openai.com/
   /\/v1\/?$/,
   "",
 );
+const OAUTH_BETA = "oauth-2025-04-20";
 
-function labeeKey(provider: "anthropic" | "openai"): string | null {
-  if (provider === "anthropic") {
-    return process.env.LABEE_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || null;
+/** How Labee authenticates to Anthropic upstream: a console API key, or a Claude
+ *  subscription OAuth token (the box's own Max/Pro login — no API billing). */
+type AnthropicAuth =
+  | { kind: "apiKey"; value: string }
+  | { kind: "oauth"; value: string }
+  | null;
+
+/** Read the box's Claude subscription OAuth access token, in order of preference:
+ *  an explicit long-lived token (from `claude setup-token`), else the access
+ *  token in the CLI credential store (`~/.claude/.credentials.json`). */
+function claudeOAuthToken(): string | null {
+  const explicit =
+    process.env.LABEE_ANTHROPIC_OAUTH_TOKEN || process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  if (explicit) return explicit.trim();
+  try {
+    const file = path.join(os.homedir(), ".claude", ".credentials.json");
+    interface OAuthCred {
+      accessToken?: string;
+      expiresAt?: number;
+      claudeAiOauth?: OAuthCred;
+    }
+    const raw = JSON.parse(fs.readFileSync(file, "utf8")) as OAuthCred;
+    const o: OAuthCred = raw.claudeAiOauth ?? raw;
+    // Skip an obviously-expired token (the CLI refreshes it on use, not us).
+    if (o.expiresAt && o.expiresAt < Date.now()) return null;
+    return o.accessToken?.trim() || null;
+  } catch {
+    return null;
   }
+}
+
+/** Resolve how to authenticate the Anthropic upstream call. Prefer a real API
+ *  key (clean, ToS-simple); else fall back to the box's subscription token. */
+function anthropicAuth(): AnthropicAuth {
+  const key = process.env.LABEE_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
+  if (key) return { kind: "apiKey", value: key };
+  const oauth = claudeOAuthToken();
+  if (oauth) return { kind: "oauth", value: oauth };
+  return null;
+}
+
+function openaiKey(): string | null {
   return process.env.LABEE_OPENAI_API_KEY || process.env.OPENAI_API_KEY || null;
 }
 
@@ -64,11 +106,12 @@ const proxyAuth = Effect.gen(function* () {
 });
 
 /** Shared passthrough: authenticate, gate on entitlement, forward the raw body
- *  to the vendor with Labee's key, and stream the response back verbatim. */
+ *  to the vendor with Labee's credential, and stream the response back verbatim.
+ *  `buildHeaders` returns null when no Labee credential is configured (→ 503). */
 function makeProxy(
   provider: "anthropic" | "openai",
   upstreamBase: string,
-  buildHeaders: (incoming: Record<string, string | undefined>, key: string) => Record<string, string>,
+  buildHeaders: (incoming: Record<string, string | undefined>) => Record<string, string> | null,
 ) {
   return Effect.gen(function* () {
     const email = yield* proxyAuth;
@@ -82,24 +125,19 @@ function makeProxy(
       );
     }
 
-    const key = labeeKey(provider);
-    if (!key) {
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const headers = buildHeaders(request.headers);
+    if (!headers) {
       return yield* error(`Labee has no ${provider} account configured on this server.`, 503);
     }
 
-    const request = yield* HttpServerRequest.HttpServerRequest;
     const rest = (yield* params)["*"] ?? "";
     const url = yield* requestUrlSuffix;
     const body = yield* request.text.pipe(Effect.catch(() => Effect.succeed("")));
 
     const upstream = `${upstreamBase}/${rest}${url}`;
     const res = yield* Effect.tryPromise({
-      try: () =>
-        fetch(upstream, {
-          method: "POST",
-          headers: buildHeaders(request.headers, key),
-          body,
-        }),
+      try: () => fetch(upstream, { method: "POST", headers, body }),
       catch: (e) => e,
     }).pipe(Effect.catch((e) => Effect.succeed(vendorError(e))));
 
@@ -137,19 +175,30 @@ function vendorError(e: unknown): Response {
   });
 }
 
-/** POST /api/llm/anthropic/* — forward to api.anthropic.com with Labee's key. */
+/** POST /api/llm/anthropic/* — forward to api.anthropic.com using Labee's API
+ *  key, or (fallback) the box's Claude subscription OAuth token. */
 export const anthropicProxyRoute = HttpRouter.add(
   "POST",
   "/api/llm/anthropic/*",
-  makeProxy("anthropic", ANTHROPIC_UPSTREAM, (incoming, key) => {
+  makeProxy("anthropic", ANTHROPIC_UPSTREAM, (incoming) => {
+    const auth = anthropicAuth();
+    if (!auth) return null;
     const headers: Record<string, string> = {
       "content-type": "application/json",
-      "x-api-key": key,
       "anthropic-version": incoming["anthropic-version"] ?? "2023-06-01",
     };
     // Forward the beta flags the CLI relies on (tools, fine-grained streaming…).
-    const beta = incoming["anthropic-beta"];
-    if (beta) headers["anthropic-beta"] = beta;
+    const betas = new Set((incoming["anthropic-beta"] ?? "").split(",").map((b) => b.trim()).filter(Boolean));
+    if (auth.kind === "apiKey") {
+      headers["x-api-key"] = auth.value;
+    } else {
+      // Subscription auth: Bearer token + the oauth beta. The incoming request
+      // comes from a real claude CLI, so its system prompt already leads with the
+      // required "You are Claude Code…" identity block.
+      headers["authorization"] = `Bearer ${auth.value}`;
+      betas.add(OAUTH_BETA);
+    }
+    if (betas.size) headers["anthropic-beta"] = Array.from(betas).join(",");
     return headers;
   }),
 );
@@ -158,10 +207,11 @@ export const anthropicProxyRoute = HttpRouter.add(
 export const openaiProxyRoute = HttpRouter.add(
   "POST",
   "/api/llm/openai/*",
-  makeProxy("openai", OPENAI_UPSTREAM, (_incoming, key) => ({
-    "content-type": "application/json",
-    authorization: `Bearer ${key}`,
-  })),
+  makeProxy("openai", OPENAI_UPSTREAM, () => {
+    const key = openaiKey();
+    if (!key) return null;
+    return { "content-type": "application/json", authorization: `Bearer ${key}` };
+  }),
 );
 
 export const llmProxyRoutes = [proxyTokenRoute, anthropicProxyRoute, openaiProxyRoute] as const;
