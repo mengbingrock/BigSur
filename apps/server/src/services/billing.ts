@@ -14,6 +14,7 @@
 import Stripe from "stripe";
 import type { BillingProduct, BillingState, PlanTier } from "@labee/contracts";
 import { getDb } from "./db";
+import { findUser } from "./users";
 
 const CURRENCY = "usd";
 
@@ -257,8 +258,12 @@ export async function consumeCredits(email: string, cents: number): Promise<bool
   return true;
 }
 
-/** True when the user has an active paid plan or a positive credit balance. */
+/** True when the user has an active paid plan or a positive credit balance.
+ *  Admins (the account owner / team) are always entitled — they run on Labee's
+ *  own account without needing to purchase a plan. */
 export async function hasPaidEntitlement(email: string): Promise<boolean> {
+  const user = await findUser(email);
+  if (user?.isAdmin) return true;
   const row = await readRow(email);
   if (!row) return false;
   const planActive =
