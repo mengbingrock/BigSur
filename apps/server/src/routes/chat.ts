@@ -537,6 +537,30 @@ export const chatRoute = HttpRouter.add(
     const referenceFolders = agent?.referenceFolders ?? [];
     const artifactNotes = mode === "edit" || !body.artifactNotes ? {} : body.artifactNotes;
 
+    // A synced/remote agent can carry a workingDir that doesn't exist on this
+    // machine (e.g. a box path like /home/ubuntu/workspace). Don't try to create
+    // it — fail with a clear message (the "needs folder" case) rather than a 500,
+    // and never silently run in an auto-created empty directory.
+    if (agent?.workingDir) {
+      const dirExists = yield* Effect.promise(() =>
+        fs.stat(cwd).then((s) => s.isDirectory()).catch(() => false),
+      );
+      if (!dirExists) {
+        return HttpServerResponse.stream(
+          Stream.fromReadableStream({
+            evaluate: () =>
+              singleErrorStream(
+                `This agent's working directory "${cwd}" doesn't exist on this machine. ` +
+                  `Open Agents, edit "${agent.name}", and pick a local folder — this happens after ` +
+                  `syncing an agent that was created elsewhere.`,
+              ),
+            onError: (cause) => cause,
+          }),
+          { contentType: "text/event-stream; charset=utf-8" },
+        );
+      }
+    }
+
     const built = yield* Effect.promise(async () => {
       await fs.mkdir(cwd, { recursive: true });
       const names = await linkSelectedSkills(cwd, selectedSkills, artifactNotes);
