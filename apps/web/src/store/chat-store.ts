@@ -1300,7 +1300,21 @@ class ChatStore {
           pending: false,
         }));
         break;
-      case "result":
+      case "result": {
+        // A result with is_error carries the real failure reason (e.g. an
+        // upstream API error surfaced by the CLI) — show it, don't just record
+        // stats and let a generic trailing "error" event mislabel it.
+        if (payload.is_error) {
+          const reason = humanizeAgentError(String(payload.result ?? ""));
+          this.setError(reason);
+          this.mutateMessage(aid, (m) => ({
+            ...m,
+            pending: false,
+            errored: true,
+            content: m.content || reason,
+          }));
+          break;
+        }
         this.mutateMessage(aid, (m) => ({
           ...m,
           stats: {
@@ -1314,16 +1328,18 @@ class ChatStore {
           },
         }));
         break;
+      }
       case "end":
       case "message_stop":
         break;
       case "error": {
-        const reason = String(payload.message ?? "Stream error.");
+        const reason = humanizeAgentError(String(payload.message ?? "Stream error."));
         this.setError(reason);
         this.mutateMessage(aid, (m) => ({
           ...m,
           pending: false,
           errored: true,
+          // Don't overwrite a clearer message already set by a prior is_error result.
           content: m.content || reason,
         }));
         break;
@@ -1332,6 +1348,39 @@ class ChatStore {
         break;
     }
   }
+}
+
+/** Turn a raw agent/CLI error string into a human-readable message. The claude
+ *  CLI surfaces upstream HTTP failures as `API Error: <status> {json}` (and the
+ *  Labee inference proxy puts a friendly reason in that json's `error`/`message`),
+ *  so unwrap it rather than showing the raw dump or a bare "HTTP 500". */
+export function humanizeAgentError(raw: string): string {
+  const msg = (raw ?? "").trim();
+  if (!msg) return "The request failed.";
+  const m = msg.match(/API Error:\s*(\d{3})\s*(\{[\s\S]*\})/);
+  if (m) {
+    try {
+      const body = JSON.parse(m[2]!) as { error?: unknown; message?: unknown };
+      const errObj = body.error;
+      const nested =
+        errObj && typeof errObj === "object"
+          ? (errObj as { message?: unknown }).message
+          : undefined;
+      const inner: string =
+        typeof errObj === "string"
+          ? errObj
+          : typeof nested === "string"
+            ? nested
+            : typeof body.message === "string"
+              ? body.message
+              : "";
+      if (inner) return inner;
+    } catch {
+      /* not JSON — fall through */
+    }
+  }
+  // Strip a leading "claude CLI exited with code N: " wrapper if present.
+  return msg.replace(/^claude CLI exited with code \d+:\s*/i, "") || msg;
 }
 
 function parseSSE(chunk: string): {
