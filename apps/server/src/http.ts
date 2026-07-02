@@ -9,6 +9,7 @@ import { fsRoutes } from "./routes/fs";
 import { googleRoutes } from "./routes/google";
 import { extractChoicesRoute } from "./routes/extractChoices";
 import { llmEditRoute } from "./routes/llmEdit";
+import { llmProxyRoutes } from "./routes/llmProxy";
 import { llmRoutes } from "./routes/llmSettings";
 import { skillsRoutes } from "./routes/skills";
 import { staticRoute } from "./routes/static";
@@ -21,6 +22,7 @@ export const routesLayer = Layer.mergeAll(
   ...skillsRoutes,
   ...deckRoutes,
   ...llmRoutes,
+  ...llmProxyRoutes,
   ...billingRoutes,
   ...agentRoutes,
   ...fsRoutes,

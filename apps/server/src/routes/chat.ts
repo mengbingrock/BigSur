@@ -617,25 +617,23 @@ export const chatRoute = HttpRouter.add(
       );
     }
 
-    // Desktop (local-first): the embedded server can only run turns backed by the
-    // user's LOCAL CLI login — own_subscription (claude/codex) or a pinned local
-    // codex agent. `provided` needs Labee's server key/host OAuth and `own_api_key`
-    // needs the key that's encrypted with the box's secret; neither is available
-    // locally. Rather than run on the box (which can't see the user's local files),
-    // steer the user to the hosted web app.
+    // Desktop (local-first): the agent always runs locally (local files/tools/MCP).
+    // own_subscription uses the local CLI login; `provided` routes inference to the
+    // Labee proxy (resolveCredential sets cred.proxyBaseUrl). Only `own_api_key`
+    // can't run yet — its key is encrypted with the box's secret and isn't present
+    // locally — so steer that one to the hosted web app.
     if (
       process.env.LABEE_MODE === "desktop" &&
       !codexEngine &&
-      cred.mode !== "own_subscription"
+      cred.mode === "own_api_key"
     ) {
-      const modeLabel = cred.mode === "provided" ? "Labee Provided" : "your API key";
       return HttpServerResponse.stream(
         Stream.fromReadableStream({
           evaluate: () =>
             singleErrorStream(
-              `This agent uses ${modeLabel}, which runs on Labee's hosted servers and can't reach ` +
-                `your local files. Open Labee at labee.online in your browser for those chats, or set ` +
-                `this provider's credential source to "Your subscription" in Settings to run it here.`,
+              `Chatting with your own API key isn't available in the desktop app yet. Open Labee at ` +
+                `labee.online in your browser, or switch this provider to "Your subscription" or ` +
+                `"Labee Provided" in Settings to run it here.`,
             ),
           onError: (cause) => cause,
         }),
@@ -679,7 +677,14 @@ export const chatRoute = HttpRouter.add(
           ? [{ role: "user", content: userPrompt }]
           : (body.messages ?? []).map((m) => ({ role: m.role, content: m.content }));
       makeStream = () =>
-        openAIChatStream({ apiKey: cred.apiKey!, model, system: systemPrompt, messages: oaMessages });
+        openAIChatStream({
+          apiKey: cred.apiKey!,
+          model,
+          system: systemPrompt,
+          messages: oaMessages,
+          // Local-first "provided": route inference through the Labee proxy.
+          ...(cred.proxyBaseUrl ? { baseUrl: cred.proxyBaseUrl } : {}),
+        });
     } else {
       const args = [
         "-p", userPrompt,

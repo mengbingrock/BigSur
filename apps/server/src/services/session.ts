@@ -57,6 +57,35 @@ export async function sealSession(data: SessionData): Promise<string> {
   return sealData(data, { password: getPassword(), ttl: TTL_SECONDS });
 }
 
+/** A short-lived, scoped token for the LLM inference proxy. Sealed with the same
+ *  session password so any Labee server can verify it; carries only the email +
+ *  a scope tag so it can't be replayed as a full session cookie. */
+export interface ProxyToken {
+  email: string;
+  scope: "llm-proxy";
+}
+const PROXY_TOKEN_TTL_SECONDS = 60 * 60; // 1 hour; the client refetches on expiry
+
+export async function sealProxyToken(email: string): Promise<string> {
+  return sealData({ email, scope: "llm-proxy" } satisfies ProxyToken, {
+    password: getPassword(),
+    ttl: PROXY_TOKEN_TTL_SECONDS,
+  });
+}
+
+/** Unseal + validate a proxy token, returning the email or null. */
+export async function readProxyToken(token: string | undefined): Promise<string | null> {
+  if (!token) return null;
+  try {
+    const data = await unsealData<ProxyToken>(token, { password: getPassword() });
+    return data.scope === "llm-proxy" && data.email ? data.email : null;
+  } catch {
+    return null;
+  }
+}
+
+export const PROXY_TOKEN_TTL = PROXY_TOKEN_TTL_SECONDS;
+
 /** How long a sealed session stays valid, in seconds. */
 export const SESSION_TTL_SECONDS = TTL_SECONDS;
 

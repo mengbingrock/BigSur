@@ -65,9 +65,19 @@ export function buildCatalog(): ProviderCatalogEntry[] {
 }
 
 /** Extra env for the claude CLI based on the resolved credential.
- *  When an API key is resolved we hand it to the CLI; otherwise the CLI falls
- *  back to the host's claude.ai OAuth (the "provided"/subscription path). */
+ *  - Proxy (local-first "provided"): point the CLI at the Labee inference proxy
+ *    (ANTHROPIC_BASE_URL) authenticated with the minted token (ANTHROPIC_AUTH_TOKEN,
+ *    sent as `Authorization: Bearer`). Clear ANTHROPIC_API_KEY so the token path wins.
+ *  - Own API key: hand the key to the CLI.
+ *  - Otherwise: no key — the CLI falls back to the host claude.ai OAuth. */
 export function claudeEnvForCredential(cred: ResolvedCredential): NodeJS.ProcessEnv {
+  if (cred.proxyBaseUrl) {
+    return {
+      ANTHROPIC_BASE_URL: cred.proxyBaseUrl,
+      ANTHROPIC_AUTH_TOKEN: cred.apiKey ?? "",
+      ANTHROPIC_API_KEY: "",
+    };
+  }
   if (cred.apiKey) return { ANTHROPIC_API_KEY: cred.apiKey };
   // Ensure no stale key forces API-key mode when we want OAuth.
   return {};

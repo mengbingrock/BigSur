@@ -14,14 +14,18 @@ function sse(event: string, data: unknown): Uint8Array {
   return new TextEncoder().encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
-/** Build a streaming SSE response for a chat turn against the OpenAI API. */
+/** Build a streaming SSE response for a chat turn against the OpenAI API.
+ *  `baseUrl` overrides the vendor endpoint (e.g. the Labee inference proxy for
+ *  local-first "provided"); defaults to the global OPENAI_API_BASE. */
 export function openAIChatStream(opts: {
   apiKey: string;
   model: string;
   system: string;
   messages: OpenAIChatMessage[];
+  baseUrl?: string;
 }): ReadableStream<Uint8Array> {
   const { apiKey, model, system, messages } = opts;
+  const base = (opts.baseUrl || OPENAI_API_BASE).replace(/\/+$/, "");
   const controllerRef: { aborted: boolean } = { aborted: false };
   const abort = new AbortController();
 
@@ -36,7 +40,7 @@ export function openAIChatStream(opts: {
 
       let res: Response;
       try {
-        res = await fetch(`${OPENAI_API_BASE}/chat/completions`, {
+        res = await fetch(`${base}/chat/completions`, {
           method: "POST",
           headers: {
             "content-type": "application/json",

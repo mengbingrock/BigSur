@@ -8,6 +8,7 @@ import type {
   Provider,
   ProviderAccount,
 } from "@labee/contracts";
+import fs from "node:fs";
 import { getDb } from "./db";
 import { decryptSecret, encryptSecret } from "./secrets";
 import { readCodexConnection } from "./codex";
@@ -124,6 +125,79 @@ export interface ResolvedCredential {
   useCodex?: boolean;
   /** Connected ChatGPT plan label, for display. */
   planLabel?: string;
+  /** Local-first "provided": point the local claude/OpenAI at this Labee
+   *  inference proxy base URL (with `apiKey` used as the Bearer proxy token)
+   *  instead of the vendor. Set only when running as the desktop app against a
+   *  connected Labee account. */
+  proxyBaseUrl?: string;
+}
+
+// --- Labee inference proxy (local-first "provided") --------------------------
+// On the desktop the box env key isn't present, so a "provided" turn runs the
+// local CLI but routes inference to the hosted Labee proxy. We mint a
+// short-lived token from the box (auth via the persisted box session) and cache
+// it per provider.
+interface ProxyCred {
+  token: string;
+  anthropicBaseUrl: string;
+  openaiBaseUrl: string;
+  fetchedAt: number;
+}
+let proxyCache: ProxyCred | null = null;
+const PROXY_CACHE_MS = 45 * 60 * 1000; // refetch before the 1h server TTL
+
+/** True when this server is the local desktop instance (vs the hosted box). */
+function isDesktop(): boolean {
+  return process.env.LABEE_MODE === "desktop";
+}
+
+function proxyServerBase(): string {
+  return (process.env.LABEE_SKILLS_SERVER || "https://labee.online").replace(/\/+$/, "");
+}
+
+/** The box session the desktop persisted at "Connect to Labee", as a Cookie. */
+function boxSessionCookie(): string | null {
+  const file = process.env.LABEE_REMOTE_SESSION_FILE;
+  if (!file) return null;
+  try {
+    const value = fs.readFileSync(file, "utf8").trim();
+    return value ? `monterey_session=${value}` : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Fetch (or reuse a cached) Labee proxy token + base URLs. Null when the user
+ *  hasn't connected their Labee account or the box rejects the session. */
+async function getProxyCred(force = false): Promise<ProxyCred | null> {
+  if (!force && proxyCache && Date.now() - proxyCache.fetchedAt < PROXY_CACHE_MS) {
+    return proxyCache;
+  }
+  const cookie = boxSessionCookie();
+  if (!cookie) return null;
+  try {
+    const res = await fetch(`${proxyServerBase()}/api/llm/proxy-token`, {
+      headers: { accept: "application/json", cookie },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      token: string;
+      anthropicBaseUrl: string;
+      openaiBaseUrl: string;
+    };
+    proxyCache = { ...data, fetchedAt: Date.now() };
+    return proxyCache;
+  } catch {
+    return null;
+  }
+}
+
+/** Build a proxy-backed ResolvedCredential for a provided turn on the desktop. */
+async function providedViaProxy(provider: Provider): Promise<ResolvedCredential | null> {
+  const cred = await getProxyCred();
+  if (!cred) return null;
+  const proxyBaseUrl = provider === "anthropic" ? cred.anthropicBaseUrl : cred.openaiBaseUrl;
+  return { provider, mode: "provided", apiKey: cred.token, proxyBaseUrl, unavailable: false };
 }
 
 /** Server-side env key Labee provides for a provider (the paid/official account). */
@@ -203,6 +277,23 @@ export async function resolveCredential(
   }
 
   // provided
+  // Desktop (local-first): run the local CLI but route inference to the hosted
+  // Labee proxy, so a provided agent still operates the user's local files.
+  if (isDesktop()) {
+    const viaProxy = await providedViaProxy(provider);
+    if (viaProxy) return viaProxy;
+    return {
+      provider,
+      mode,
+      apiKey: null,
+      unavailable: true,
+      reason:
+        "Connect your Labee account (Agents → Sync from Labee) to use Labee-provided models here, " +
+        "or switch this provider to your own subscription in Settings.",
+    };
+  }
+
+  // Hosted box: use Labee's server-side account directly.
   const key = providedKey(provider);
   if (provider === "anthropic") {
     // host claude.ai OAuth works even without an env key
