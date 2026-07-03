@@ -99,6 +99,20 @@ function getOrCreateSessionSecret(): string {
   return secret;
 }
 
+/** Read a single desktop config value from the environment, then the dev
+ *  `apps/desktop/.env` / packaged `<userData>/labee.env`. */
+function desktopEnvValue(key: string): string | undefined {
+  if (process.env[key]) return process.env[key];
+  const files = app.isPackaged
+    ? [path.join(app.getPath("userData"), "labee.env")]
+    : [path.join(__dirname, "..", ".env"), path.join(app.getPath("userData"), "labee.env")];
+  for (const f of files) {
+    const v = readEnvFile(f)[key];
+    if (v) return v;
+  }
+  return undefined;
+}
+
 /** Minimal KEY=VALUE parser for a dotenv-style file. */
 function readEnvFile(file: string): Record<string, string> {
   const out: Record<string, string> = {};
@@ -265,7 +279,11 @@ function findBinary(name: string, searchPath: string): string | null {
 }
 
 async function startServer(): Promise<string> {
-  const port = await getFreePort();
+  // A fixed port (LABEE_DESKTOP_PORT, from env or apps/desktop/.env) gives a
+  // stable loopback URL — handy for pointing a local Stripe webhook listener at
+  // the embedded server. Otherwise pick any free port.
+  const preferred = Number(desktopEnvValue("LABEE_DESKTOP_PORT"));
+  const port = Number.isInteger(preferred) && preferred > 0 ? preferred : await getFreePort();
   const host = "127.0.0.1";
   const entry = serverEntry();
   if (!fs.existsSync(entry)) {
