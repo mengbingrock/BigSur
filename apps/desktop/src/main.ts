@@ -163,6 +163,12 @@ function desktopSearchEnv(): Record<string, string> {
     "PROTOCOLS_CONTACT_EMAIL",
     "SEMANTIC_SCHOLAR_API_KEY",
     "NCBI_API_KEY",
+    // Stripe billing (the purchase plan shown for Labee-provided access).
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    "STRIPE_SUBSCRIPTION_PRICES",
+    "STRIPE_SUBSCRIPTION_PRICES_MAX",
+    "STRIPE_CREDIT_PRICES",
   ];
   const files = app.isPackaged
     ? [path.join(app.getPath("userData"), "labee.env")]

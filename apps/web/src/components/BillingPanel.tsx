@@ -67,7 +67,7 @@ export function BillingPanel({ checkout }: { checkout?: "success" | "cancel" }) 
   const pendingId = checkoutM.isPending ? checkoutM.variables : null;
 
   return (
-    <section className="rounded-xl border border-border bg-background">
+    <section id="billing" className="scroll-mt-4 rounded-xl border border-border bg-background">
       <header className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
         <div className="flex items-center gap-2">
           <CreditCard className="size-4 text-ink-light" />

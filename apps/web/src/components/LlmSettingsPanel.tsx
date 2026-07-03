@@ -339,13 +339,28 @@ function AccountSection({
           title="Labee provided"
           description={
             entry.providedAvailable
-              ? "Billed to your Labee plan — no key required."
+              ? "Billed to your Labee plan — no key required. Choose a plan to keep access."
               : "Not configured on this server."
           }
           control={
-            <Badge variant={entry.providedAvailable ? "success" : "secondary"} size="sm">
-              {entry.providedAvailable ? "Available" : "Unavailable"}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant={entry.providedAvailable ? "success" : "secondary"} size="sm">
+                {entry.providedAvailable ? "Available" : "Unavailable"}
+              </Badge>
+              {entry.providedAvailable ? (
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() =>
+                    document
+                      .getElementById("billing")
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                  }
+                >
+                  Choose a plan
+                </Button>
+              ) : null}
+            </div>
           }
         />
       ) : null}

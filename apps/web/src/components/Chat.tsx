@@ -57,6 +57,7 @@ import {
 import { Markdown } from "./Markdown";
 import ChatDeckPanel, { type ChatDeckPanelHandle } from "./ChatDeckPanel";
 import { AgentWorkspacePanel } from "./AgentWorkspacePanel";
+import { ProvidedPlanBanner } from "./ProvidedPlanBanner";
 import { Button } from "./ui/button";
 
 interface Props {
@@ -906,6 +907,7 @@ export default function Chat({
 
         <div className="border-t border-border px-4 py-3 sm:px-6 sm:py-4">
           <div className="mx-auto w-full max-w-4xl">
+          <ProvidedPlanBanner />
           {error && (
             <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               {error}
