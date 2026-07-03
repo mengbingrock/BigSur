@@ -14,4 +14,8 @@ export default defineConfig({
   noExternal: [/.*/],
   external: ["bun:sqlite", "node:sqlite", "electron"],
   dts: false,
+  // We intentionally bundle every dependency (noExternal) into one file, so
+  // silence tsdown's "unintended bundling" advisory. It's a warning on macOS but
+  // is escalated to a fatal error on the Windows CI runner, breaking that build.
+  inlineOnly: false,
 });
