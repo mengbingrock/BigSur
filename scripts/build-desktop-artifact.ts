@@ -36,11 +36,18 @@ function step(
   }
 }
 
-// 1. Build the workspaces the desktop bundle depends on.
+// 1. Build the workspaces the desktop bundle depends on (mcp-protocols ships as
+//    an extraResource, so it must be built too).
 step(
-  "build web/server/desktop",
+  "build mcp/web/server/desktop",
   "bun",
-  ["run", "turbo", "run", "build", "--filter=@labee/web", "--filter=@labee/server", "--filter=@labee/desktop"],
+  [
+    "run", "turbo", "run", "build",
+    "--filter=@labee/mcp-protocols",
+    "--filter=@labee/web",
+    "--filter=@labee/server",
+    "--filter=@labee/desktop",
+  ],
 );
 
 // 2. Package with electron-builder. Run the local bin directly (not via `bun x`)
