@@ -1,0 +1,79 @@
+{
+  "name": "@labee/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Labee desktop client",
+  "author": "Labee",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "build": "tsdown",
+    "dev:electron": "electron .",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist:dir": "electron-builder --dir",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "build": {
+    "appId": "com.labee.desktop",
+    "productName": "Labee",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "afterPack": "scripts/after-pack.cjs",
+    "npmRebuild": false,
+    "files": [
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../server/dist",
+        "to": "server"
+      },
+      {
+        "from": "../web/dist",
+        "to": "server/client"
+      },
+      {
+        "from": "../mcp-protocols/dist",
+        "to": "mcp-protocols/dist"
+      }
+    ],
+    "asar": true,
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Labee-${version}-Setup.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility"
+    }
+  },
+  "devDependencies": {
+    "@labee/server": "workspace:*",
+    "@types/node": "catalog:",
+    "electron": "38.8.6",
+    "electron-builder": "^25.1.8",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

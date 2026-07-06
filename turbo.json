@@ -1,0 +1,59 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "PORT",
+    "NODE_ENV",
+    "VITE_DEV_SERVER_URL",
+    "ELECTRON_RENDERER_PORT",
+    "LABEE_MODE",
+    "LABEE_PORT",
+    "LABEE_DATA_DIR",
+    "DECK_ROOT",
+    "DECK_MAX_BYTES",
+    "SKILLS_ROOTS",
+    "SESSION_PASSWORD",
+    "COOKIE_SECURE",
+    "SIGNUP_ENABLED",
+    "ANTHROPIC_API_KEY",
+    "CLAUDE_BIN",
+    "PROTOCOLS_MCP_PATH",
+    "PROTOCOLS_SEARCH_PROVIDER",
+    "PROTOCOLS_JOURNAL_PROVIDERS",
+    "PROTOCOLS_CONTACT_EMAIL",
+    "SEMANTIC_SCHOLAR_API_KEY",
+    "NCBI_API_KEY",
+    "BRAVE_API_KEY",
+    "BRAVE_SEARCH_API_KEY",
+    "BRAVE_API_ENDPOINT",
+    "GOOGLE_API_KEY",
+    "GOOGLE_CSE_KEY",
+    "GOOGLE_CSE_CX",
+    "GOOGLE_CSE_ID",
+    "GOOGLE_API_ENDPOINT"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "dist-electron/**"]
+    },
+    "dev": {
+      "dependsOn": ["@labee/contracts#build"],
+      "cache": false,
+      "persistent": true
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "outputs": [],
+      "cache": false
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "outputs": []
+    },
+    "start": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

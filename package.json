@@ -1,98 +1,64 @@
 {
-  "name": "agent-monterey",
+  "name": "@labee/monorepo",
   "version": "0.1.0",
   "private": true,
-  "main": "electron/main.js",
-  "scripts": {
-    "dev": "next dev -p 3000",
-    "build": "next build",
-    "start": "next start -p 3000",
-    "lint": "next lint",
-    "user": "node scripts/users.mjs",
-    "deploy": "bash scripts/deploy.sh",
-    "electron:prepare": "node electron/prepare-standalone.mjs",
-    "electron:dev": "concurrently -k -n next,electron \"next dev -p 3000\" \"wait-on tcp:127.0.0.1:3000 && cross-env ELECTRON_DEV=1 electron .\"",
-    "electron:start": "npm run build && npm run electron:prepare && electron .",
-    "dist": "npm run build && npm run electron:prepare && electron-builder",
-    "dist:mac": "npm run build && npm run electron:prepare && electron-builder --mac",
-    "dist:win": "npm run build && npm run electron:prepare && electron-builder --win",
-    "dist:dir": "npm run build && npm run electron:prepare && electron-builder --dir"
-  },
-  "build": {
-    "appId": "com.labee.desktop",
-    "productName": "Labee",
-    "directories": {
-      "output": "release",
-      "buildResources": "build"
-    },
-    "afterPack": "electron/after-pack.js",
-    "files": [
-      "electron/**/*",
-      "package.json"
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "packages/*",
+      "scripts"
     ],
-    "extraResources": [
-      {
-        "from": ".next/standalone",
-        "to": "standalone"
-      }
-    ],
-    "asar": true,
-    "mac": {
-      "category": "public.app-category.productivity",
-      "target": [
-        "dmg",
-        "zip"
-      ]
-    },
-    "win": {
-      "target": [
-        "nsis"
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "artifactName": "Labee-${version}-Setup.${ext}"
-    },
-    "linux": {
-      "target": [
-        "AppImage"
-      ],
-      "category": "Utility"
+    "catalog": {
+      "effect": "4.0.0-beta.43",
+      "@effect/platform-bun": "4.0.0-beta.43",
+      "@effect/platform-node": "4.0.0-beta.43",
+      "@effect/language-service": "0.84.2",
+      "@effect/vitest": "4.0.0-beta.43",
+      "@types/bun": "^1.3.9",
+      "@types/node": "^24.10.13",
+      "react": "19.2.0",
+      "react-dom": "19.2.0",
+      "@types/react": "^19",
+      "@types/react-dom": "^19",
+      "tsdown": "^0.20.3",
+      "typescript": "^5.7.3",
+      "vitest": "^4.0.0"
     }
   },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.91.0",
-    "@types/diff": "^7.0.2",
-    "@xyflow/react": "^12.10.2",
-    "bcryptjs": "^3.0.3",
-    "diff": "^9.0.0",
-    "fuse.js": "7.0.0",
-    "gray-matter": "4.0.3",
-    "iron-session": "^8.0.4",
-    "lucide-react": "0.454.0",
-    "mammoth": "^1.12.0",
-    "next": "14.2.15",
-    "pdf-parse": "^2.4.5",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "react-markdown": "9.0.1",
-    "remark-gfm": "4.0.0"
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev-runner.ts dev",
+    "dev:server": "node scripts/dev-runner.ts dev:server",
+    "dev:web": "node scripts/dev-runner.ts dev:web",
+    "dev:desktop": "node scripts/dev-runner.ts dev:desktop",
+    "start": "turbo run start --filter=@labee/server",
+    "build": "turbo run build",
+    "build:desktop": "turbo run build --filter=@labee/desktop --filter=@labee/server",
+    "typecheck": "turbo run typecheck",
+    "lint": "oxlint --report-unused-disable-directives",
+    "test": "turbo run test",
+    "build:contracts": "turbo run build --filter=@labee/contracts",
+    "db:generate:sqlite": "drizzle-kit generate --config=./db/drizzle.config.sqlite.ts",
+    "db:generate:postgres": "drizzle-kit generate --config=./db/drizzle.config.postgres.ts",
+    "dist:desktop:dmg": "node scripts/build-desktop-artifact.ts --platform mac --target dmg",
+    "user": "node scripts/users.mjs",
+    "deploy": "bash scripts/deploy.sh"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/node": "20.14.10",
-    "@types/pdf-parse": "^1.1.5",
-    "@types/react": "18.3.3",
-    "@types/react-dom": "18.3.0",
-    "autoprefixer": "10.4.20",
-    "concurrently": "^9.1.0",
-    "cross-env": "^7.0.3",
-    "electron": "^33.2.0",
-    "electron-builder": "^25.1.8",
-    "postcss": "8.4.47",
-    "tailwindcss": "3.4.13",
-    "typescript": "5.5.3",
-    "wait-on": "^8.0.1"
-  }
+    "@types/node": "catalog:",
+    "drizzle-kit": "^0.31.10",
+    "drizzle-orm": "^0.45.2",
+    "oxlint": "^1.55.0",
+    "turbo": "^2.3.3",
+    "vitest": "catalog:"
+  },
+  "overrides": {
+    "vite": "^8.0.0",
+    "@effect/platform-node-shared": "4.0.0-beta.43"
+  },
+  "engines": {
+    "bun": "^1.3.9",
+    "node": "^24.13.1"
+  },
+  "packageManager": "bun@1.3.9"
 }

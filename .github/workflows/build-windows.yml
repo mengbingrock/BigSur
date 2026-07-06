@@ -1,8 +1,9 @@
 name: Build Windows desktop
 
 # Builds the Labee Windows installer on a real Windows runner (NSIS needs
-# Windows / Wine, which we don't have on the dev Mac) and attaches the .exe
-# to the given GitHub release.
+# Windows/Wine, which we don't have on the dev Mac) and attaches the .exe to the
+# given GitHub release. Trigger manually (workflow_dispatch) with a release tag,
+# or automatically when a v* tag is pushed.
 on:
   workflow_dispatch:
     inputs:
@@ -23,28 +24,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: "20"
-          cache: npm
+          # Pin to the version the Mac release builds with — a newer bun/tsdown
+          # turns the server bundle's "unintended bundling" check into an error.
+          bun-version: "1.3.14"
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install --frozen-lockfile
 
-      - name: Build Next.js (standalone)
-        run: npm run build
+      - name: Build workspaces (mcp + web + server + desktop)
+        run: bun run turbo run build --filter=@labee/mcp-protocols --filter=@labee/web --filter=@labee/server --filter=@labee/desktop
 
-      - name: Prepare standalone assets
-        run: npm run electron:prepare
-
-      - name: Build Windows installer
-        run: npx electron-builder --win nsis --x64 --publish never
+      - name: Build Windows installer (NSIS, x64)
+        run: bunx electron-builder --win nsis --x64 --publish never
+        working-directory: apps/desktop
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: labee-windows-installer
-          path: release/*.exe
+          path: apps/desktop/release/*.exe
 
       - name: Attach installer to the release
         env:
@@ -53,5 +53,5 @@ jobs:
         run: |
           TAG="${{ github.event.inputs.tag }}"
           if [ -z "$TAG" ]; then TAG="${GITHUB_REF_NAME}"; fi
-          echo "Uploading to release $TAG"
-          gh release upload "$TAG" release/*.exe --clobber
+          echo "Uploading Windows installer to release $TAG"
+          gh release upload "$TAG" apps/desktop/release/*.exe --clobber

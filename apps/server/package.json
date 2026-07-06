@@ -1,0 +1,38 @@
+{
+  "name": "@labee/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "labee-server": "./dist/bin.mjs"
+  },
+  "scripts": {
+    "dev": "bun run src/bin.ts",
+    "build": "tsdown",
+    "start": "node dist/bin.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@effect/platform-bun": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@labee/contracts": "workspace:*",
+    "@labee/shared": "workspace:*",
+    "bcryptjs": "^3.0.3",
+    "effect": "catalog:",
+    "fuse.js": "^7.0.0",
+    "gray-matter": "^4.0.3",
+    "iron-session": "^8.0.4",
+    "mammoth": "^1.12.0",
+    "pdf-parse": "^2.4.5",
+    "stripe": "^22.3.0"
+  },
+  "devDependencies": {
+    "@labee/web": "workspace:*",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

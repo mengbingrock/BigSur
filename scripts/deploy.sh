@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy Monterey to a Lightsail / Ubuntu box.
+# Deploy Labee to a Lightsail / Ubuntu box.
 #
 # Usage:
 #   SSH_HOST=1.2.3.4 ./scripts/deploy.sh # required
@@ -7,7 +7,7 @@
 # Other env vars (with defaults):
 #   SSH_USER=ubuntu
 #   SSH_KEY=$HOME/Downloads/lightsail.pem
-#   REMOTE_DIR=/home/ubuntu/agent-monterey
+#   REMOTE_DIR=/home/ubuntu/labee
 #
 # Requires: rsync, ssh, an SSH key that can log into SSH_HOST.
 #
@@ -27,12 +27,12 @@ set -euo pipefail
 
 # --- Config ---------------------------------------------------------------
 SSH_HOST="${SSH_HOST:-}"
-[ -n "$SSH_HOST" ] || { printf '\033[31mSSH_HOST is required (e.g. SSH_HOST=1.2.3.4 npm run deploy)\033[0m\n' >&2; exit 1; }
+[ -n "$SSH_HOST" ] || { printf '\033[31mSSH_HOST is required (e.g. SSH_HOST=1.2.3.4 bun run deploy)\033[0m\n' >&2; exit 1; }
 SSH_USER="${SSH_USER:-ubuntu}"
 SSH_KEY="${SSH_KEY:-$HOME/Downloads/lightsail.pem}"
-REMOTE_DIR="${REMOTE_DIR:-/home/ubuntu/agent-monterey}"
+REMOTE_DIR="${REMOTE_DIR:-/home/ubuntu/labee}"
 REMOTE_SKILLS_DIR="${REMOTE_SKILLS_DIR:-/home/ubuntu/protocol-skills}"
-REMOTE_DECK_DIR="${REMOTE_DECK_DIR:-/home/ubuntu/monterey-decks}"
+REMOTE_DECK_DIR="${REMOTE_DECK_DIR:-/home/ubuntu/labee-decks}"
 LOCAL_SKILLS_DIR="${LOCAL_SKILLS_DIR:-$HOME/WorkSync/Git/protocol-agent/.claude/skills}"
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -49,8 +49,9 @@ if [ "$perms" != "400" ] && [ "$perms" != "600" ]; then
   chmod 400 "$SSH_KEY"
 fi
 
-SSH="ssh -i $SSH_KEY -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 $SSH_USER@$SSH_HOST"
-RSYNC_SSH="ssh -i $SSH_KEY -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"
+SSH_OPTS="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=8"
+SSH="ssh -i $SSH_KEY $SSH_OPTS $SSH_USER@$SSH_HOST"
+RSYNC_SSH="ssh -i $SSH_KEY $SSH_OPTS"
 
 bold "==> Testing SSH to $SSH_USER@$SSH_HOST"
 $SSH 'echo "ok, host: $(hostname)"' || die "SSH failed — see stderr"
@@ -67,6 +68,11 @@ rsync -az --delete \
   --exclude='.env*' \
   --exclude='*.log' \
   --exclude='.DS_Store' \
+  --exclude='release' \
+  --exclude='legacy-monterey' \
+  --exclude='dist' \
+  --exclude='dist-electron' \
+  --exclude='.turbo' \
   -e "$RSYNC_SSH" \
   "$PROJECT_ROOT/" "$SSH_USER@$SSH_HOST:$REMOTE_DIR/"
 
@@ -90,6 +96,19 @@ $SSH "SKILLS_ROOT=$REMOTE_SKILLS_DIR DECK_ROOT=$REMOTE_DECK_DIR bash $REMOTE_DIR
 bold "==> Build + restart service"
 $SSH "SKILLS_ROOT=$REMOTE_SKILLS_DIR DECK_ROOT=$REMOTE_DECK_DIR bash $REMOTE_DIR/scripts/build-and-restart.sh"
 
+# --- TLS (optional) -------------------------------------------------------
+# Set DOMAIN + LETSENCRYPT_EMAIL to provision/renew Let's Encrypt and force
+# HTTPS. DNS for $DOMAIN must already point at the box and the Lightsail
+# firewall must allow inbound 80 + 443.
+DOMAIN="${DOMAIN:-}"
+LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
+if [ -n "$DOMAIN" ] && [ -n "$LETSENCRYPT_EMAIL" ]; then
+  bold "==> Setting up TLS for $DOMAIN"
+  $SSH "DOMAIN=$DOMAIN LETSENCRYPT_EMAIL=$LETSENCRYPT_EMAIL bash $REMOTE_DIR/scripts/setup-ssl.sh"
+elif [ -n "$DOMAIN" ] || [ -n "$LETSENCRYPT_EMAIL" ]; then
+  warn "Both DOMAIN and LETSENCRYPT_EMAIL are required to set up TLS — skipping SSL step."
+fi
+
 # --- Post-flight ----------------------------------------------------------
 echo
 bold "==> Deploy complete."
@@ -102,20 +121,27 @@ Next steps (one-time):
        claude /login          # or: claude setup-token
      Follow the prompts. OAuth creds are stored in ~/.claude/ on the box.
 
-  2. Open port 3000 in the Lightsail firewall (AWS console → instance →
-     Networking → Add rule → Custom TCP 3000, restricted to your IP if
-     possible).
+  2. Open the Lightsail firewall (AWS console → instance → Networking):
+       - HTTP   (TCP 80)   — required for HTTPS too (ACME challenge + redirect)
+       - HTTPS  (TCP 443)  — if you're terminating TLS (see step 5)
+       - Custom TCP 3000   — only if you want to hit the app directly, bypassing
+                             nginx (restrict to your IP).
 
   3. Create your first admin account (public signup is disabled by default):
        ssh -i $SSH_KEY $SSH_USER@$SSH_HOST
        cd $REMOTE_DIR
-       npm run user create you@example.com --admin
+       bun run user create you@example.com --admin
 
-  4. Open http://$SSH_HOST:3000 in a browser, sign in.
+  4. Open http://$SSH_HOST in a browser (nginx proxies :80 → app), sign in.
 
-     ⚠️  HTTP only — passwords travel in cleartext. For anything beyond
-         a personal test, add HTTPS (see DEPLOY.md).
+  5. Add HTTPS (recommended — without it passwords travel in cleartext):
+       DOMAIN=labee.online LETSENCRYPT_EMAIL=you@example.com \\
+         SSH_HOST=$SSH_HOST ./scripts/deploy.sh
+     (or run scripts/setup-ssl.sh on the box directly). DNS for the domain
+     must point at $SSH_HOST and the firewall must allow 80 + 443. This
+     installs a Let's Encrypt cert, forces HTTP→HTTPS, sets COOKIE_SECURE=true,
+     and enables auto-renewal.
 
 Check service status any time with:
-  ssh -i $SSH_KEY $SSH_USER@$SSH_HOST 'sudo systemctl status monterey --no-pager; sudo journalctl -u monterey -n 30 --no-pager'
+  ssh -i $SSH_KEY $SSH_USER@$SSH_HOST 'sudo systemctl status labee --no-pager; sudo journalctl -u labee -n 30 --no-pager'
 EOF

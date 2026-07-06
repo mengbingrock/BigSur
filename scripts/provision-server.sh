@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Provision an Ubuntu box for Monterey. Idempotent — safe to re-run.
+# Provision an Ubuntu box for Labee. Idempotent — safe to re-run.
 #
 # Runs ON THE SERVER, invoked by scripts/deploy.sh. Don't run this from your
 # laptop.
@@ -51,7 +51,7 @@ bold "[2/6] Installing apt packages"
 export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update -qq
 sudo apt-get install -y -qq \
-  curl ca-certificates gnupg \
+  curl ca-certificates gnupg unzip \
   build-essential \
   python3 python3-pip python3-venv \
   libreoffice-core libreoffice-writer libreoffice-calc \
@@ -59,19 +59,26 @@ sudo apt-get install -y -qq \
 ok "apt packages installed"
 
 # --- Node.js 20 ----------------------------------------------------------
-bold "[3/6] Ensuring Node.js 20"
+bold "[3/6] Ensuring Node.js 24 + Bun"
 if command -v node >/dev/null 2>&1; then
   NODE_MAJOR=$(node -v | sed 's/^v//;s/\..*//')
 else
   NODE_MAJOR=0
 fi
-if [ "$NODE_MAJOR" -ge 20 ]; then
+if [ "$NODE_MAJOR" -ge 24 ]; then
   skip "Node $(node -v) already installed"
 else
-  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - >/dev/null 2>&1
+  curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash - >/dev/null 2>&1
   sudo apt-get install -y -qq nodejs >/dev/null
   ok "installed Node $(node -v)"
 fi
+if command -v bun >/dev/null 2>&1 || [ -x "$HOME/.bun/bin/bun" ]; then
+  skip "Bun already installed"
+else
+  curl -fsSL https://bun.sh/install | bash >/dev/null 2>&1
+  ok "installed Bun"
+fi
+export PATH="$HOME/.bun/bin:$PATH"
 
 # --- Claude CLI ----------------------------------------------------------
 bold "[4/6] Installing @anthropic-ai/claude-code"
@@ -98,9 +105,8 @@ else
     echo "PORT=3000"
     echo "SESSION_PASSWORD=$SESSION_PASSWORD"
     echo "SIGNUP_ENABLED=false"
-    # We currently serve HTTP only. Secure cookies don't land on HTTP; flip
-    # this to true once TLS is in front of the app (Cloudflare Tunnel, nginx+
-    # certbot, or ALB).
+    # Default to HTTP-only (secure cookies don't land on plain HTTP). Running
+    # scripts/setup-ssl.sh (nginx + certbot) flips this to true automatically.
     echo "COOKIE_SECURE=false"
     if [ -n "$SKILLS_ROOT" ]; then
       echo "SKILLS_ROOTS=$SKILLS_ROOT"
@@ -108,6 +114,23 @@ else
     if [ -n "$DECK_ROOT" ]; then
       echo "DECK_ROOT=$DECK_ROOT"
     fi
+    # Stripe payments — fill in to enable billing (see .env.example). Blank =
+    # billing disabled. LABEE_PUBLIC_URL should be your https domain.
+    echo "STRIPE_SECRET_KEY="
+    echo "STRIPE_WEBHOOK_SECRET="
+    echo "STRIPE_PRICE_PRO="
+    echo "STRIPE_PRICE_MAX="
+    echo "STRIPE_PRICE_CREDITS_10="
+    echo "STRIPE_PRICE_CREDITS_25="
+    echo "STRIPE_PRICE_CREDITS_50="
+    echo "# LABEE_PUBLIC_URL=https://labee.online"
+    # Protocol-search MCP (apps/mcp-protocols). Set a real contact email for the
+    # scholarly polite-pools; optionally add a Brave/Google key for reliable
+    # reagent-vendor search (see .env.example). Blank = keyless best-effort.
+    echo "PROTOCOLS_CONTACT_EMAIL="
+    echo "BRAVE_API_KEY="
+    echo "# GOOGLE_API_KEY="
+    echo "# GOOGLE_CSE_CX="
   } > "$APP_DIR/.env.production"
   chmod 600 "$APP_DIR/.env.production"
   ok "wrote $APP_DIR/.env.production"
@@ -121,11 +144,11 @@ fi
 
 # --- systemd unit --------------------------------------------------------
 bold "[6/6] Installing systemd unit"
-UNIT_PATH=/etc/systemd/system/monterey.service
-if [ ! -f "$UNIT_PATH" ] || ! diff -q "$APP_DIR/scripts/monterey.service" "$UNIT_PATH" >/dev/null 2>&1; then
-  sudo cp "$APP_DIR/scripts/monterey.service" "$UNIT_PATH"
+UNIT_PATH=/etc/systemd/system/labee.service
+if [ ! -f "$UNIT_PATH" ] || ! diff -q "$APP_DIR/scripts/labee.service" "$UNIT_PATH" >/dev/null 2>&1; then
+  sudo cp "$APP_DIR/scripts/labee.service" "$UNIT_PATH"
   sudo systemctl daemon-reload
-  sudo systemctl enable monterey >/dev/null 2>&1
+  sudo systemctl enable labee >/dev/null 2>&1
   ok "systemd unit installed + enabled"
 else
   skip "systemd unit up to date"

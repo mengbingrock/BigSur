@@ -1,0 +1,7 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": { "dependsOn": ["@labee/server#build"], "outputs": ["dist-electron/**"] }
+  }
+}
