@@ -1,10 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Sparkles, X } from "lucide-react";
-import type { LlmSettings } from "@labee/contracts";
-import { apiGet } from "~/lib/api";
-import { useBilling, isPaidPlan } from "~/lib/billing";
+import { useActiveCredentialMode, useBilling, isPaidPlan } from "~/lib/billing";
 import { Button } from "~/components/ui/button";
 
 /**
@@ -16,14 +13,8 @@ export function ProvidedPlanBanner() {
   const navigate = useNavigate();
   const [dismissed, setDismissed] = useState(false);
 
-  const settingsQ = useQuery({
-    queryKey: ["llm", "settings"],
-    queryFn: () => apiGet<LlmSettings>("/api/llm/settings"),
-  });
+  const mode = useActiveCredentialMode();
   const billingQ = useBilling();
-
-  const s = settingsQ.data;
-  const mode = s?.accounts.find((a) => a.provider === s.provider)?.mode;
   const b = billingQ.data;
 
   if (dismissed || mode !== "provided" || !b?.configured || isPaidPlan(b)) return null;

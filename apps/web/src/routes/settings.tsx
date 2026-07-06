@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { BillingPanel } from "~/components/BillingPanel";
 import { LlmSettingsPanel } from "~/components/LlmSettingsPanel";
 import { useCurrentUser } from "~/lib/auth";
+import { useActiveCredentialMode } from "~/lib/billing";
 
 interface SettingsSearch {
   checkout?: "success" | "cancel";
@@ -20,6 +21,11 @@ function SettingsPage() {
   const navigate = useNavigate();
   const { checkout } = Route.useSearch();
   const { data: user, isLoading: authLoading } = useCurrentUser();
+  const mode = useActiveCredentialMode();
+  // Billing only matters on the credit-consuming "Labee provided" tier. Own-key
+  // / own-subscription modes are free, so hide it there. Always show it while
+  // returning from Stripe so the success/cancel notice lands.
+  const showBilling = mode === "provided" || checkout != null;
 
   useEffect(() => {
     if (!authLoading && !user) navigate({ to: "/login", search: { next: "/settings" } });
@@ -40,8 +46,8 @@ function SettingsPage() {
       </header>
       <div className="p-6">
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
-          <BillingPanel checkout={checkout} />
           <LlmSettingsPanel />
+          {showBilling ? <BillingPanel checkout={checkout} /> : null}
         </div>
       </div>
     </div>

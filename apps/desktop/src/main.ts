@@ -183,6 +183,9 @@ function desktopSearchEnv(): Record<string, string> {
     "STRIPE_SUBSCRIPTION_PRICES",
     "STRIPE_SUBSCRIPTION_PRICES_MAX",
     "STRIPE_CREDIT_PRICES",
+    "LABEE_SIGNUP_CREDITS",
+    "LABEE_COUPON_CODES",
+    "LABEE_COUPON_MONTHS",
   ];
   const files = app.isPackaged
     ? [path.join(app.getPath("userData"), "labee.env")]

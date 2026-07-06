@@ -84,8 +84,12 @@ async function openDb(): Promise<SqlDb> {
       "current_period_end TEXT, " +
       "cancel_at_period_end INTEGER NOT NULL DEFAULT 0, " +
       "credits INTEGER NOT NULL DEFAULT 0, " +
+      "credited_period TEXT, " +
+      "subscription_price_id TEXT, " +
       "updated_at TEXT NOT NULL);",
   );
+  ensureColumn(db, "billing", "credited_period", "TEXT");
+  ensureColumn(db, "billing", "subscription_price_id", "TEXT");
   // Processed Stripe webhook events — gives webhook handling idempotency.
   db.exec(
     "CREATE TABLE IF NOT EXISTS billing_events (" +
@@ -93,6 +97,33 @@ async function openDb(): Promise<SqlDb> {
       "type TEXT NOT NULL, " +
       "email TEXT, " +
       "created_at TEXT NOT NULL);",
+  );
+  // Credit ledger: one row per balance change (signup grant, metered spend,
+  // Stripe top-up/subscription). The billing.credits column is the running
+  // balance; this table is the itemised audit trail shown to the user.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS usage_events (" +
+      "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+      "email TEXT NOT NULL, " +
+      "kind TEXT NOT NULL, " +
+      "amount_cents INTEGER NOT NULL DEFAULT 0, " +
+      "provider TEXT, " +
+      "model TEXT, " +
+      "input_tokens INTEGER NOT NULL DEFAULT 0, " +
+      "output_tokens INTEGER NOT NULL DEFAULT 0, " +
+      "created_at TEXT NOT NULL);",
+  );
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_usage_events_email ON usage_events (email, id);",
+  );
+  // Coupon redemptions — one row per (code, user), so a code can't be redeemed
+  // twice by the same account.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS coupon_redemptions (" +
+      "code TEXT NOT NULL, " +
+      "email TEXT NOT NULL, " +
+      "redeemed_at TEXT NOT NULL, " +
+      "PRIMARY KEY (code, email));",
   );
   importLegacyUsersJson(db);
   return db;

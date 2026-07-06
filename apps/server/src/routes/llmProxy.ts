@@ -11,7 +11,7 @@ import path from "node:path";
 import { Effect, Stream } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 import { error, json, sessionUser } from "../httpKit";
-import { hasPaidEntitlement } from "../services/billing";
+import { hasPaidEntitlement, recordUsage } from "../services/billing";
 import { PROXY_TOKEN_TTL, readProxyToken, sealProxyToken } from "../services/session";
 
 const params = HttpRouter.params;
@@ -141,23 +141,126 @@ function makeProxy(
       catch: (e) => e,
     }).pipe(Effect.catch((e) => Effect.succeed(vendorError(e))));
 
-    // TODO(metering): parse the vendor `usage` (from the SSE stream or JSON) and
-    // debit billing.consumeCredits(email, cents) with a per-model price table.
-    // v1 gates on entitlement only.
+    // Meter the call: the client sends `model` in the request body; the vendor
+    // reports token `usage` in the response. We only bill successful calls.
+    const model = modelFromBody(body);
+    const meter = res.status < 300;
 
     const ct = res.headers.get("content-type") ?? "application/json";
     if (!res.body) {
       const text = yield* Effect.promise(() => res.text().catch(() => ""));
+      if (meter) meterFromText(email, provider, model, text);
       return HttpServerResponse.text(text, { status: res.status, contentType: ct });
+    }
+    // Tee the vendor stream: one branch streams to the client verbatim, the
+    // other is drained in the background to extract usage (never blocks the
+    // client, never throws into the request path).
+    const source = res.body as ReadableStream<Uint8Array>;
+    let clientBranch = source;
+    if (meter) {
+      const [a, b] = source.tee();
+      clientBranch = a;
+      void drainAndMeter(b, email, provider, model);
     }
     return HttpServerResponse.stream(
       Stream.fromReadableStream({
-        evaluate: () => res.body as ReadableStream<Uint8Array>,
+        evaluate: () => clientBranch,
         onError: (cause) => cause,
       }),
       { status: res.status, contentType: ct },
     );
   });
+}
+
+/** The model id from a vendor request body (Anthropic + OpenAI both use `model`). */
+function modelFromBody(body: string): string | null {
+  try {
+    const v = (JSON.parse(body) as { model?: unknown }).model;
+    return typeof v === "string" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Drain a teed response branch fully, then meter from the accumulated text. */
+async function drainAndMeter(
+  stream: ReadableStream<Uint8Array>,
+  email: string,
+  provider: "anthropic" | "openai",
+  model: string | null,
+): Promise<void> {
+  try {
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+    let text = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+    meterFromText(email, provider, model, text);
+  } catch {
+    // dropped/aborted stream — nothing to bill
+  }
+}
+
+/** Extract token usage from a vendor response (SSE stream or plain JSON) and
+ *  record the spend. Fire-and-forget. */
+function meterFromText(
+  email: string,
+  provider: "anthropic" | "openai",
+  model: string | null,
+  text: string,
+): void {
+  const usage = extractUsage(text);
+  if (usage.inputTokens + usage.outputTokens <= 0) return;
+  void recordUsage({ email, provider, model, ...usage });
+}
+
+/** Pull the largest input/output token counts out of a response body. Handles
+ *  Anthropic (`input_tokens`/`output_tokens`, split across message_start /
+ *  message_delta SSE events) and OpenAI (`prompt_tokens`/`completion_tokens` or
+ *  Responses-API `input_tokens`/`output_tokens`), streamed or not. */
+function extractUsage(text: string): { inputTokens: number; outputTokens: number } {
+  let inputTokens = 0;
+  let outputTokens = 0;
+  const consider = (u: unknown): void => {
+    if (!u || typeof u !== "object") return;
+    const o = u as Record<string, unknown>;
+    const inp = Number(o.input_tokens ?? o.prompt_tokens ?? 0);
+    const out = Number(o.output_tokens ?? o.completion_tokens ?? 0);
+    if (Number.isFinite(inp) && inp > inputTokens) inputTokens = inp;
+    if (Number.isFinite(out) && out > outputTokens) outputTokens = out;
+  };
+  const scan = (obj: unknown): void => {
+    if (!obj || typeof obj !== "object") return;
+    const rec = obj as Record<string, unknown>;
+    if (rec.usage) consider(rec.usage);
+    if (rec.message && typeof rec.message === "object") {
+      const m = rec.message as Record<string, unknown>;
+      if (m.usage) consider(m.usage);
+    }
+  };
+  // Try whole-body JSON first (non-streaming responses).
+  try {
+    scan(JSON.parse(text));
+  } catch {
+    // not a single JSON doc — fall through to SSE line parsing
+  }
+  // SSE: parse each `data:` payload.
+  for (const line of text.split("\n")) {
+    const t = line.trim();
+    if (!t.startsWith("data:")) continue;
+    const payload = t.slice(5).trim();
+    if (!payload || payload === "[DONE]") continue;
+    try {
+      scan(JSON.parse(payload));
+    } catch {
+      // partial/non-JSON line — ignore
+    }
+  }
+  return { inputTokens, outputTokens };
 }
 
 /** Preserve the request's query string for the upstream call. */

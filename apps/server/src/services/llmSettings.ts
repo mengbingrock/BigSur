@@ -167,6 +167,17 @@ function boxSessionCookie(): string | null {
   }
 }
 
+/** When the desktop is connected to a hosted Labee account, billing lives on
+ *  that account (that's where "provided" inference is metered and credits are
+ *  deducted). Returns the base URL + session cookie to forward billing requests
+ *  there, or null when this isn't a connected desktop (→ serve billing locally). */
+export function remoteLabeeSession(): { base: string; cookie: string } | null {
+  if (!isDesktop()) return null;
+  const cookie = boxSessionCookie();
+  if (!cookie) return null;
+  return { base: proxyServerBase(), cookie };
+}
+
 /** Fetch (or reuse a cached) Labee proxy token + base URLs. Null when the user
  *  hasn't connected their Labee account or the box rejects the session. */
 async function getProxyCred(force = false): Promise<ProxyCred | null> {
@@ -192,7 +203,9 @@ async function getProxyCred(force = false): Promise<ProxyCred | null> {
   }
 }
 
-/** Build a proxy-backed ResolvedCredential for a provided turn on the desktop. */
+/** Build a proxy-backed ResolvedCredential for a provided turn on the desktop:
+ *  run the local CLI but route inference to the hosted Labee box, which meters
+ *  the call and debits the account's credit balance. */
 async function providedViaProxy(provider: Provider): Promise<ResolvedCredential | null> {
   const cred = await getProxyCred();
   if (!cred) return null;
