@@ -834,7 +834,13 @@ function handleEvent(
       } else if (dt === "input_json_delta" && typeof delta.partial_json === "string") {
         const prev = blockInputJson.get(index) ?? "";
         blockInputJson.set(index, prev + delta.partial_json);
-        send("tool_input_delta", { index, partial_json: delta.partial_json });
+        // Key the delta by the tool_use id so the client can match it to the
+        // activity item (which it tracks by id, like tool_start/tool_stop).
+        send("tool_input_delta", {
+          index,
+          id: blockId.get(index),
+          partial_json: delta.partial_json,
+        });
       }
       return;
     }
