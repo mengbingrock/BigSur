@@ -13,6 +13,36 @@ export const SkillSource = Schema.Union([
 ]);
 export type SkillSource = typeof SkillSource.Type;
 
+/** Provenance for an artifact that was pulled in from outside the app. Distinct
+ *  from `source`: an imported skill is copied into the user's own folder (so its
+ *  `source` is `user` — editable, deletable), while `origin` records where it
+ *  came from so the UI can badge it and a future sync can re-fetch the same ref. */
+export const SkillOrigin = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literals(["github"]),
+    /** "owner/repo". */
+    repo: Schema.String,
+    /** The ref the user asked for (branch, tag, or SHA). */
+    ref: Schema.String,
+    /** The commit SHA the ref resolved to at import time (pinned). */
+    sha: Schema.String,
+    /** Directory inside the repo that held SKILL.md, if not the root. */
+    subpath: Schema.optional(Schema.String),
+  }),
+  Schema.Struct({
+    kind: Schema.Literals(["registry"]),
+    /** Registry id, e.g. "clawhub". */
+    registry: Schema.String,
+    /** Package slug, e.g. "@acme/pdf-fill". */
+    pkg: Schema.String,
+    /** Concrete resolved version. */
+    version: Schema.String,
+    /** Content digest, when the registry provides one. */
+    digest: Schema.optional(Schema.String),
+  }),
+]);
+export type SkillOrigin = typeof SkillOrigin.Type;
+
 export const Skill = Schema.Struct({
   slug: Schema.String,
   name: Schema.String,
@@ -22,6 +52,8 @@ export const Skill = Schema.Struct({
   body: Schema.String,
   source: SkillSource,
   sourceLabel: Schema.String,
+  /** Where this artifact was imported from, if it wasn't authored locally. */
+  origin: Schema.optional(SkillOrigin),
   /** Absolute path of the directory containing SKILL.md (server-only). */
   sourcePath: Schema.String,
   artifactKind: ArtifactKind,

@@ -1730,23 +1730,61 @@ interface AskUserQuestionInput {
   multiSelect: boolean;
 }
 
+/** Return `v` if it's an array; if it's a JSON string encoding an array, parse
+ *  and return that. Some agent engines (e.g. Codex) serialize tool arguments as
+ *  strings, so `questions` / `options` can arrive double-encoded. */
+function asArray(v: unknown): unknown[] | null {
+  if (Array.isArray(v)) return v;
+  if (typeof v === "string") {
+    const s = v.trim();
+    if (!s.startsWith("[")) return null;
+    try {
+      const parsed = JSON.parse(s);
+      return Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null; // partial stream — not valid JSON yet
+    }
+  }
+  return null;
+}
+
+/** Coerce a possibly-string boolean ("true"/"false") to a real boolean. */
+function asBool(v: unknown): boolean {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "string") return v.trim().toLowerCase() === "true";
+  return false;
+}
+
 /**
  * Best-effort parse of the AskUserQuestion tool's input. The model could
  * mis-emit, so we tolerate missing fields and return null when the shape
- * is unrecoverable (caller falls back to the generic ToolBlock view).
+ * is unrecoverable (caller falls back to the generic ToolBlock view). The whole
+ * input, `questions`, and each `options` list may each be a JSON string rather
+ * than a real array/object, so we unwrap at every level.
  */
 function parseAskUserInput(input: unknown): AskUserQuestionInput[] | null {
-  if (!input || typeof input !== "object") return null;
-  const obj = input as Record<string, unknown>;
-  const arr = obj.questions;
-  if (!Array.isArray(arr)) return null;
+  let obj: Record<string, unknown> | null = null;
+  if (input && typeof input === "object") {
+    obj = input as Record<string, unknown>;
+  } else if (typeof input === "string") {
+    try {
+      const parsed = JSON.parse(input);
+      if (parsed && typeof parsed === "object") obj = parsed as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+  if (!obj) return null;
+  const arr = asArray(obj.questions);
+  if (!arr) return null;
   const out: AskUserQuestionInput[] = [];
   for (const q of arr) {
     if (!q || typeof q !== "object") continue;
     const r = q as Record<string, unknown>;
-    if (typeof r.question !== "string" || !Array.isArray(r.options)) continue;
+    const optionsRaw = asArray(r.options);
+    if (typeof r.question !== "string" || !optionsRaw) continue;
     const options: AskUserOption[] = [];
-    for (const o of r.options) {
+    for (const o of optionsRaw) {
       if (!o || typeof o !== "object") continue;
       const ro = o as Record<string, unknown>;
       if (typeof ro.label !== "string") continue;
@@ -1761,7 +1799,7 @@ function parseAskUserInput(input: unknown): AskUserQuestionInput[] | null {
       question: r.question,
       header: typeof r.header === "string" ? r.header : undefined,
       options,
-      multiSelect: Boolean(r.multiSelect),
+      multiSelect: asBool(r.multiSelect),
     });
   }
   return out.length > 0 ? out : null;
