@@ -1126,20 +1126,50 @@ class ChatStore {
     const reader = body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let sep;
-      while ((sep = buffer.indexOf("\n\n")) !== -1) {
-        const chunk = buffer.slice(0, sep);
-        buffer = buffer.slice(sep + 2);
-        if (!chunk.trim()) continue;
-        const { ev, payload } = parseSSE(chunk);
-        if (!ev || !payload) continue;
-        this.handleSSE(ev, payload, aid);
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let sep;
+        while ((sep = buffer.indexOf("\n\n")) !== -1) {
+          const chunk = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          if (!chunk.trim()) continue;
+          const { ev, payload } = parseSSE(chunk);
+          if (!ev || !payload) continue;
+          this.handleSSE(ev, payload, aid);
+        }
       }
+    } finally {
+      // The stream ended (cleanly, aborted, or errored). Close out any tool
+      // whose `content_block_stop` never arrived — e.g. the claude CLI tears
+      // down the turn on AskUserQuestion before closing the block. Parse the
+      // accumulated inputRaw into input so the question card can still render,
+      // and mark it done so it stops showing "still streaming…" forever.
+      this.finalizePendingTools(aid);
     }
+  }
+
+  /** Finalize tool activity items still marked streaming after the stream ends:
+   *  best-effort parse inputRaw → input, and set done. Idempotent. */
+  private finalizePendingTools(aid: string) {
+    this.mutateMessage(aid, (m) => {
+      if (!m.activity?.some((a) => a.kind === "tool" && !a.done)) return m;
+      const activity = m.activity.map((a) => {
+        if (a.kind !== "tool" || a.done) return a;
+        let input = a.input;
+        if (input == null && a.inputRaw) {
+          try {
+            input = JSON.parse(a.inputRaw);
+          } catch {
+            // incomplete/invalid JSON — leave null; the raw text still shows
+          }
+        }
+        return { ...a, input, done: true };
+      });
+      return { ...m, activity };
+    });
   }
 
   private async consumeStreamForEdit(
