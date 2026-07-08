@@ -21,6 +21,10 @@ output STRICT JSON of this shape:
 
 Phases are HIERARCHICAL (subPhases, depth <= 2, <= 8 each). All arrays are
 independent and any can be empty. Output pure JSON — no code fences, no prose.
+IMPORTANT: whenever the reply asks the user to confirm, decide, or pick between
+alternatives — including numbered/bulleted option lists, "a few options",
+"which would you prefer", "should I X or Y", or "confirm at build time" — emit
+it as a choice with the concrete options as labels.
 A choice needs >= 2 options. Materials lead with the assistant's pick and list
 2-6 interchangeable alternatives; appliesTo lists the EXACT choice-option labels
 the reagent is used in (verbatim), or is empty when it applies regardless.

@@ -466,9 +466,11 @@ export default function Chat({
       if (m.role !== "assistant") continue;
       // AskUserQuestion tool calls are intentionally NOT surfaced on the
       // canvas — they render only in the chatbox via AskUserQuestionBlock.
-      // (1) Extracted choices from plain-text replies.
+      // Regular extracted choices now also render inline in the chatbox; only
+      // pipeline-gated *material* swaps remain on the canvas here.
       const ec = m.extractedChoices ?? [];
       for (const c of ec) {
+        if ((c.kind ?? "choice") !== "material") continue;
         const answer = m.extractedChoicesAnswered?.[c.id];
         out.push({
           messageId: m.id,
@@ -523,6 +525,26 @@ export default function Chat({
       messageId,
       toolUseId,
       answers,
+      Array.from(selected),
+      buildSkillSnapshot(),
+      {
+        contextFiles: Array.from(selectedFiles),
+        artifactNotes,
+      },
+    );
+  };
+
+  // Answer an inline extracted-choice card (the prose-ask safety net). Mirrors
+  // the canvas "extracted" path — posts the pick back as a normal follow-up turn.
+  const onAnswerExtractedChoice = async (
+    messageId: string,
+    choiceId: string,
+    answer: string | string[],
+  ) => {
+    await chatStore.submitExtractedChoice(
+      messageId,
+      choiceId,
+      answer,
       Array.from(selected),
       buildSkillSnapshot(),
       {
@@ -896,6 +918,7 @@ export default function Chat({
                   onMouseUp={handleMouseUp}
                   onUndoEdit={undoEdit}
                   onAnswerAskUserQuestion={onAnswerAskUserQuestion}
+                  onAnswerExtractedChoice={onAnswerExtractedChoice}
                   streaming={streaming}
                   selected={activeSelection?.messageId === m.id}
                 />
@@ -1347,6 +1370,7 @@ function MessageBubble({
   onMouseUp,
   onUndoEdit,
   onAnswerAskUserQuestion,
+  onAnswerExtractedChoice,
   streaming,
   selected,
 }: {
@@ -1357,6 +1381,11 @@ function MessageBubble({
     messageId: string,
     toolUseId: string,
     answers: AskUserAnswer[],
+  ) => Promise<void>;
+  onAnswerExtractedChoice: (
+    messageId: string,
+    choiceId: string,
+    answer: string | string[],
   ) => Promise<void>;
   streaming: boolean;
   selected: boolean;
@@ -1380,6 +1409,14 @@ function MessageBubble({
   const askUserItems = (msg.activity ?? []).filter(
     (a): a is Extract<ActivityItem, { kind: "tool" }> =>
       a.kind === "tool" && a.name === "AskUserQuestion",
+  );
+  // Plain-text confirmations the post-turn extractor upgraded into structured
+  // choices also render as inline cards (the safety net for prose asks and the
+  // only route on the single-shot Codex engine). Materials stay on the canvas,
+  // gated by the pipeline. The extractor already skips turns that used the tool,
+  // so these never double up with askUserItems.
+  const inlineChoices = (msg.extractedChoices ?? []).filter(
+    (c) => (c.kind ?? "choice") !== "material",
   );
   const showAsErrored =
     msg.errored && askUserItems.length === 0; // suppress error UI when we have an interactive card
@@ -1444,6 +1481,35 @@ function MessageBubble({
           }
         />
       ))}
+      {inlineChoices.map((c) => {
+        const answered = msg.extractedChoicesAnswered?.[c.id];
+        return (
+          <AskUserQuestionBlock
+            key={c.id}
+            tool={{
+              id: c.id,
+              input: {
+                questions: [
+                  {
+                    question: c.question,
+                    options: c.options.map((label) => ({ label })),
+                    multiSelect: c.multiSelect,
+                  },
+                ],
+              },
+            }}
+            existingAnswers={
+              answered !== undefined
+                ? [{ question: c.question, answer: answered }]
+                : undefined
+            }
+            disabled={streaming}
+            onSubmit={(answers) =>
+              onAnswerExtractedChoice(msg.id, c.id, answers[0]?.answer ?? "")
+            }
+          />
+        );
+      })}
     </div>
   );
 }
@@ -1811,7 +1877,9 @@ function AskUserQuestionBlock({
   disabled,
   onSubmit,
 }: {
-  tool: Extract<ActivityItem, { kind: "tool" }>;
+  // Structural: a real tool_use activity item, or a synthetic object built from
+  // an extracted plain-text choice — only these three fields are read.
+  tool: { input: unknown; inputRaw?: string; id: string };
   existingAnswers: AskUserAnswer[] | undefined;
   disabled: boolean;
   onSubmit: (answers: AskUserAnswer[]) => Promise<void>;

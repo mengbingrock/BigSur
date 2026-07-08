@@ -118,44 +118,80 @@ function heuristicExtractChoices(
 ): { question: string; options: string[]; multiSelect: boolean }[] {
   const out: { question: string; options: string[]; multiSelect: boolean }[] = [];
 
+  // Pattern 0: an enumerated / bulleted list of options — the most common way a
+  // prose reply offers a choice ("Two quick options for you to confirm:\n1. …\n2. …").
+  // Requires a pick-like cue so we don't turn every bulleted list into a question.
+  {
+    const lines = text.split("\n").map((l) => l.trim());
+    const items: string[] = [];
+    let question = "";
+    for (let i = 0; i < lines.length; i++) {
+      const bullet = lines[i].match(/^(?:[-*•]|\d+[.)])\s+(.+)$/);
+      if (!bullet) continue;
+      // Clean the label: strip markdown bold, keep the text before the first
+      // dash/colon/period break so long items become short option labels.
+      let label = bullet[1].replace(/\*\*/g, "").trim();
+      label = label.split(/\s+[—–-]\s+|:\s|\.\s/)[0].trim().slice(0, 60).trim();
+      if (!label) continue;
+      items.push(label);
+      if (!question) {
+        for (let j = i - 1; j >= 0; j--) {
+          const prev = lines[j];
+          if (!prev || /^(?:[-*•]|\d+[.)])\s+/.test(prev)) continue;
+          question = prev.replace(/\*\*/g, "").replace(/:$/, "").trim();
+          break;
+        }
+      }
+    }
+    const looksLikeAsk =
+      /\b(option|confirm|choose|choice|prefer|which|pick|proceed)\b/i.test(text) ||
+      /\?/.test(question);
+    if (items.length >= 2 && items.length <= 6 && looksLikeAsk) {
+      const q = question && question.length <= 140 ? question : "Which option?";
+      out.push({ question: q.slice(0, 140), options: items, multiSelect: false });
+    }
+  }
+
   // Pattern 1: "X or Y?" with short alternatives. Captures the trailing
   // sentence ending in "?" and looks for a single " or " inside it.
   // Example: "Coffee or tea?" -> ["Coffee", "Tea"]
   // Example: "Would you like to use TRIzol or RNeasy?" -> ["TRIzol", "RNeasy"]
-  const sentences = text.match(/[^.!?\n][^.!?\n]*\?/g) ?? [];
-  for (const sRaw of sentences) {
-    const s = sRaw.trim();
-    if (s.length < 4 || s.length > 200) continue;
-    const beforeQ = s.replace(/\?+$/, "").trim();
-    // Split on " or " (case-insensitive). Skip if more than one occurrence
-    // (likely a complex compound — let Haiku handle multi-option later).
-    const parts = beforeQ.split(/\s+or\s+/i);
-    if (parts.length !== 2) continue;
-    // Take last 1–4 words from the first segment as the option label
-    // (drops the lead-in like "Would you like to use").
-    const left = parts[0]
-      .replace(/[,;:]+$/, "")
-      .trim()
-      .split(/\s+/)
-      .slice(-4)
-      .join(" ");
-    const right = parts[1].replace(/[,.;:]+$/, "").trim();
-    if (
-      left.length < 1 ||
-      right.length < 1 ||
-      left.length > 40 ||
-      right.length > 40
-    ) {
-      continue;
+  if (out.length === 0) {
+    const sentences = text.match(/[^.!?\n][^.!?\n]*\?/g) ?? [];
+    for (const sRaw of sentences) {
+      const s = sRaw.trim();
+      if (s.length < 4 || s.length > 200) continue;
+      const beforeQ = s.replace(/\?+$/, "").trim();
+      // Split on " or " (case-insensitive). Skip if more than one occurrence
+      // (likely a complex compound — let the server extractor handle it later).
+      const parts = beforeQ.split(/\s+or\s+/i);
+      if (parts.length !== 2) continue;
+      // Take last 1–4 words from the first segment as the option label
+      // (drops the lead-in like "Would you like to use").
+      const left = parts[0]
+        .replace(/[,;:]+$/, "")
+        .trim()
+        .split(/\s+/)
+        .slice(-4)
+        .join(" ");
+      const right = parts[1].replace(/[,.;:]+$/, "").trim();
+      if (
+        left.length < 1 ||
+        right.length < 1 ||
+        left.length > 40 ||
+        right.length > 40
+      ) {
+        continue;
+      }
+      // Capitalise option labels for nicer display.
+      const cap = (w: string) => w.charAt(0).toUpperCase() + w.slice(1);
+      out.push({
+        question: s.slice(0, 100),
+        options: [cap(left), cap(right)],
+        multiSelect: false,
+      });
+      break; // One choice per reply is enough for fallback.
     }
-    // Capitalise option labels for nicer display.
-    const cap = (w: string) => w.charAt(0).toUpperCase() + w.slice(1);
-    out.push({
-      question: s.slice(0, 100),
-      options: [cap(left), cap(right)],
-      multiSelect: false,
-    });
-    break; // One choice per reply is enough for fallback.
   }
 
   // Pattern 2: yes/no question. Emit only if pattern 1 didn't catch one.

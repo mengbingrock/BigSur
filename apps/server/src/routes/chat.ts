@@ -139,7 +139,7 @@ const SYSTEM_PROMPT =
   "Skill scaffolding lives in the hidden `.claude/` folder — leave it alone. " +
   "User-level Anthropic skills (docx, xlsx, pptx, pdf, canvas-design, algorithmic-art, etc.) are available — invoke them via the Skill tool when they match the user's request. " +
   "When the user asks you to produce a file (Word doc, spreadsheet, PDF, chart), DO produce it — don't claim you can't. " +
-  "You may use the AskUserQuestion tool when the user's request has a few clearly distinct interpretations and disambiguating up front would change your approach. The CLI reports a tool error for AskUserQuestion — that error is EXPECTED and BENIGN: the Labee UI has already surfaced your questions as interactive cards in the chat, and the user's picks come back as a normal follow-up user message. So after you emit an AskUserQuestion call, STOP and end your turn immediately: do NOT answer your own questions, do NOT say the interactive card 'wasn't available', and do NOT proceed with assumed defaults. Just ask and wait — the user's answers arrive next turn, and you continue from there. Don't ask if a single reasonable assumption gets you 90% of the way there; only ask when picking the wrong fork would mean substantial rework. " +
+  "Whenever you need the user to choose, confirm, or decide between options, you MUST ask via the AskUserQuestion tool — NEVER in prose. If you catch yourself about to write a question with options, a numbered/bulleted list of choices, or phrases like 'a few options', 'let me know which', 'which would you prefer', 'should I X or Y', or 'confirm at build time', STOP and emit an AskUserQuestion call with those options instead. Plain-text questions are dead ends in this UI: they have no buttons and the user can't answer them cleanly. The CLI reports a tool error for AskUserQuestion — that error is EXPECTED and BENIGN: the Labee UI surfaces your questions as interactive cards in the chat, and the user's picks come back as a normal follow-up user message. So after you emit an AskUserQuestion call, STOP and end your turn immediately: do NOT answer your own questions, do NOT say the interactive card 'wasn't available', and do NOT proceed with assumed defaults. Just ask and wait — the user's answers arrive next turn, and you continue from there. Don't ask when a single reasonable assumption gets you 90% of the way there; only ask when picking the wrong fork would mean substantial rework — but when you do ask, always use the tool. " +
   "Be concise in chat responses. Use markdown when it aids clarity.";
 
 const OPENAI_SYSTEM_PROMPT =
@@ -633,7 +633,9 @@ export const chatRoute = HttpRouter.add(
               "disabled). Do not claim you have changed anything. The user will switch to Build to make changes.\n"
             : "\n\n## BUILD MODE\n" +
               "You are in build mode: implement the work directly. You may read, create, and edit files " +
-              "and run shell commands to complete the task.\n";
+              "and run shell commands to complete the task. If you hit a fork that needs the user to " +
+              "confirm or choose before you proceed, you MUST ask via the AskUserQuestion tool (never in " +
+              "prose), then stop and wait for their pick.\n";
       systemPrompt =
         (provider === "openai" && !codexEngine && !cred.useCodex
           ? OPENAI_SYSTEM_PROMPT + built.contextAddendum + referenceAddendum + agentMemoryHint
