@@ -139,7 +139,7 @@ const SYSTEM_PROMPT =
   "Skill scaffolding lives in the hidden `.claude/` folder — leave it alone. " +
   "User-level Anthropic skills (docx, xlsx, pptx, pdf, canvas-design, algorithmic-art, etc.) are available — invoke them via the Skill tool when they match the user's request. " +
   "When the user asks you to produce a file (Word doc, spreadsheet, PDF, chart), DO produce it — don't claim you can't. " +
-  "You may use the AskUserQuestion tool when the user's request has a few clearly distinct interpretations and disambiguating up front would change your approach. The CLI will report a tool error, but the Labee UI surfaces your questions as interactive cards in the chat, and the user's picks come back as a normal follow-up user message — so go ahead and ask, then continue from those answers when they arrive in the next turn. Don't ask if a single reasonable assumption gets you 90% of the way there; only ask when picking the wrong fork would mean substantial rework. " +
+  "You may use the AskUserQuestion tool when the user's request has a few clearly distinct interpretations and disambiguating up front would change your approach. The CLI reports a tool error for AskUserQuestion — that error is EXPECTED and BENIGN: the Labee UI has already surfaced your questions as interactive cards in the chat, and the user's picks come back as a normal follow-up user message. So after you emit an AskUserQuestion call, STOP and end your turn immediately: do NOT answer your own questions, do NOT say the interactive card 'wasn't available', and do NOT proceed with assumed defaults. Just ask and wait — the user's answers arrive next turn, and you continue from there. Don't ask if a single reasonable assumption gets you 90% of the way there; only ask when picking the wrong fork would mean substantial rework. " +
   "Be concise in chat responses. Use markdown when it aids clarity.";
 
 const OPENAI_SYSTEM_PROMPT =
@@ -396,6 +396,19 @@ function buildChatStream(
         }
       };
 
+      // End the turn cleanly when the model asks the user a question: emit `end`,
+      // then kill the CLI so it can't proceed past the (unsupported) tool call.
+      const stopForQuestion = () => {
+        if (closed) return;
+        send("end", {});
+        try {
+          proc?.kill("SIGTERM");
+        } catch {
+          // already gone
+        }
+        close();
+      };
+
       send("skills_loaded", { linkedNames: linkedSkillNames, cwd });
 
       const blockType = new Map<number, string>();
@@ -417,7 +430,7 @@ function buildChatStream(
           } catch {
             continue;
           }
-          handleEvent(evt, send, blockType, blockId, blockName, blockInputJson);
+          handleEvent(evt, send, blockType, blockId, blockName, blockInputJson, stopForQuestion);
         }
       });
 
@@ -607,7 +620,9 @@ export const chatRoute = HttpRouter.add(
           ? "\n\n## PLAN MODE (read-only)\n" +
             "You are in plan mode. You MAY read files, search the web, and load any relevant Skill for " +
             "methodology, and you SHOULD use the AskUserQuestion tool to confirm any decisions that " +
-            "materially change the plan before finalizing it. Then present a clear, numbered step-by-step " +
+            "materially change the plan before finalizing it. When you ask, STOP and wait for the user's " +
+            "reply — never finalize a plan on assumed answers or claim the question tool was unavailable. " +
+            "Then present a clear, numbered step-by-step " +
             "plan as your final message. You may NOT edit files or run shell commands — Write/Edit/Bash " +
             "are disabled. Do not claim you have built, created, or changed anything; you are only " +
             "proposing a plan. The user will switch to Build to execute it.\n"
@@ -769,6 +784,7 @@ function handleEvent(
   blockId: Map<number, string>,
   blockName: Map<number, string>,
   blockInputJson: Map<number, string>,
+  onQuestionAsked?: () => void,
 ) {
   const type = evt.type;
 
@@ -860,6 +876,12 @@ function handleEvent(
           parsedInput = inputRaw;
         }
         send("tool_stop", { index, id, name, input: parsedInput, inputRaw });
+        // AskUserQuestion can't run in the headless CLI — it returns a tool
+        // error, which makes the model "fall back to defaults" and finish the
+        // turn. Instead, end the turn here: the card is already rendered client
+        // side and the user's picks return as the next user message. The model
+        // never sees the error and never invents answers.
+        if (name === "AskUserQuestion") onQuestionAsked?.();
       } else if (bt === "text") {
         send("text_stop", { index });
       }

@@ -17,6 +17,11 @@ export function SkillCard({ skill }: { skill: Skill }) {
               Protocol
             </Badge>
           )}
+          {skill.origin?.kind === "github" && (
+            <Badge variant="outline" size="sm" title={`Imported from github.com/${skill.origin.repo}`}>
+              GitHub
+            </Badge>
+          )}
           <span className="text-ink-faint">{skill.sourceLabel}</span>
         </div>
       </div>

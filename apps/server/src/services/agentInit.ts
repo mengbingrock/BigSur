@@ -9,6 +9,7 @@ import type { Agent } from "@labee/contracts";
 import { completeText } from "./complete";
 import { getAllSkills } from "./skills";
 import { syncSkillsFromServer } from "./remoteSkills";
+import { copySkillInto, runtimeSkillsDir } from "./installSkill";
 
 export const AGENT_MEMORY_FILE = "agent-memory.md";
 const AGENTS_FILE = "AGENTS.md";
@@ -173,6 +174,8 @@ async function syncAgentSkills(email: string, agent: Agent, dir: string): Promis
   await fsp.mkdir(skillDir, { recursive: true });
   if (agent.skillSlugs.length === 0) return [];
   const bySlug = new Map(getAllSkills(email).map((s) => [s.slug, s]));
+  const engine = agent.engine ?? "claude";
+  const runtimeDir = runtimeSkillsDir(engine, dir);
   const synced: string[] = [];
   for (const slug of agent.skillSlugs) {
     const skill = bySlug.get(slug);
@@ -185,6 +188,9 @@ async function syncAgentSkills(email: string, agent: Agent, dir: string): Promis
     try {
       await fsp.rm(dest, { recursive: true, force: true });
       await fsp.cp(src, dest, { recursive: true, dereference: true });
+      // Also install into the engine-native folder the CLI actually reads
+      // (.claude/skills or .codex/skills), so the runtime discovers it.
+      await copySkillInto(src, runtimeDir).catch(() => {});
       synced.push(skill.name);
     } catch {
       /* skip unreadable skill */

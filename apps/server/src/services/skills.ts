@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import matter from "gray-matter";
-import type { Skill, SkillSource } from "@labee/contracts";
+import type { Skill, SkillOrigin, SkillSource } from "@labee/contracts";
 
 interface Root {
   path: string;
@@ -155,6 +155,38 @@ function normalizeAllowedTools(raw: unknown): string[] {
   return [];
 }
 
+/** Read an `origin:` provenance block from SKILL.md front-matter, tolerating
+ *  hand-edited or missing fields. Unknown/invalid shapes yield `undefined`. */
+function parseOrigin(raw: unknown): SkillOrigin | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  const str = (v: unknown) => (typeof v === "string" ? v : undefined);
+  if (o.kind === "github") {
+    const repo = str(o.repo);
+    if (!repo) return undefined;
+    return {
+      kind: "github",
+      repo,
+      ref: str(o.ref) ?? "",
+      sha: str(o.sha) ?? "",
+      subpath: str(o.subpath),
+    };
+  }
+  if (o.kind === "registry") {
+    const registry = str(o.registry);
+    const pkg = str(o.pkg);
+    if (!registry || !pkg) return undefined;
+    return {
+      kind: "registry",
+      registry,
+      pkg,
+      version: str(o.version) ?? "",
+      digest: str(o.digest),
+    };
+  }
+  return undefined;
+}
+
 function parseSkillFile(
   file: string,
   source: SkillSource,
@@ -181,6 +213,7 @@ function parseSkillFile(
     body: parsed.content.trim(),
     source,
     sourceLabel,
+    origin: parseOrigin(data.origin),
     sourcePath: path.dirname(file),
     artifactKind,
   };
@@ -489,6 +522,9 @@ export function saveSkill(
   // Preserve / set artifact kind. Default to existing kind when not provided.
   const nextKind = update.kind ?? existing.artifactKind;
   if (nextKind === "protocol") data.kind = "protocol";
+  // Keep import provenance across edits — the user editing the body doesn't
+  // change where it came from.
+  if (existing.origin) data.origin = existing.origin;
 
   const content = matter.stringify(update.body.replace(/\s*$/, "") + "\n", data);
   fs.writeFileSync(file, content, "utf8");
@@ -613,6 +649,139 @@ export function importSkill(slug: string, email: string): Skill {
     getAllSkills(email).find((s) => s.sourcePath === targetDir);
   if (!created) throw new Error("Failed to read imported skill.");
   return created;
+}
+
+export interface ImportFile {
+  /** Path relative to the skill root, using "/" separators. */
+  relPath: string;
+  bytes: Uint8Array;
+}
+
+/** Inject (or replace) the `origin:` provenance block inside a SKILL.md buffer. */
+function withOrigin(bytes: Uint8Array, origin: SkillOrigin): Uint8Array {
+  const text = Buffer.from(bytes).toString("utf8");
+  let parsed: matter.GrayMatterFile<string>;
+  try {
+    parsed = matter(text);
+  } catch {
+    return bytes;
+  }
+  const data = { ...(parsed.data as Record<string, unknown>), origin };
+  return Buffer.from(
+    matter.stringify(parsed.content.replace(/\s*$/, "") + "\n", data),
+    "utf8",
+  );
+}
+
+/**
+ * Write an externally-fetched skill (SKILL.md + reference files) into the
+ * caller's own folder and return the resulting catalog entry. The skill's
+ * `source` stays `user` — so it's editable and deletable — while `origin`
+ * records where it was pulled from. Shared by every import adapter (GitHub
+ * today; registry/marketplace next). Directory-name collisions are
+ * auto-suffixed like importSkill.
+ */
+export function importSkillFromFiles(
+  email: string,
+  preferredDirName: string,
+  files: ImportFile[],
+  origin?: SkillOrigin,
+): Skill {
+  if (!files.some((f) => f.relPath === "SKILL.md")) {
+    const err = new Error("No SKILL.md found in the imported skill.");
+    (err as Error & { code: string }).code = "INVALID";
+    throw err;
+  }
+
+  const userRoot = getRoots().find((r) => r.kind === "user");
+  if (!userRoot) {
+    const err = new Error("No user-source skills root is configured.");
+    (err as Error & { code: string }).code = "NO_ROOT";
+    throw err;
+  }
+  const ownFolder = scopedRootPath(userRoot, email);
+  if (!ownFolder) {
+    const err = new Error("Authentication required.");
+    (err as Error & { code: string }).code = "INVALID";
+    throw err;
+  }
+  fs.mkdirSync(ownFolder, { recursive: true });
+
+  const baseName = dirSlug(preferredDirName) || "skill";
+  let targetName = baseName;
+  for (let attempt = 1; attempt <= 50; attempt++) {
+    if (!fs.existsSync(path.join(ownFolder, targetName))) break;
+    targetName = attempt === 1 ? `${baseName}-copy` : `${baseName}-copy-${attempt}`;
+    if (attempt === 50) {
+      const err = new Error(`Too many copies of "${preferredDirName}". Delete one first.`);
+      (err as Error & { code: string }).code = "CONFLICT";
+      throw err;
+    }
+  }
+  const targetDir = path.join(ownFolder, targetName);
+  writeFilesInto(targetDir, files, origin);
+
+  const realDir = fs.realpathSync(targetDir);
+  const created =
+    getAllSkills(email).find((s) => s.sourcePath === realDir) ??
+    getAllSkills(email).find((s) => s.sourcePath === targetDir);
+  if (!created) throw new Error("Failed to read imported skill.");
+  return created;
+}
+
+/** Write a set of files into `targetDir`, injecting `origin` into SKILL.md.
+ *  Rejects path traversal. Creates parent dirs as needed. */
+function writeFilesInto(targetDir: string, files: ImportFile[], origin?: SkillOrigin): void {
+  fs.mkdirSync(targetDir, { recursive: true });
+  for (const f of files) {
+    const cleanRel = f.relPath.replace(/^\/+/, "").replace(/\\/g, "/");
+    // Skip anything that would escape the target directory.
+    if (!cleanRel || cleanRel.split("/").some((seg) => seg === ".." || seg === "")) continue;
+    const dest = path.join(targetDir, ...cleanRel.split("/"));
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    const bytes = cleanRel === "SKILL.md" && origin ? withOrigin(f.bytes, origin) : f.bytes;
+    fs.writeFileSync(dest, bytes);
+  }
+}
+
+/**
+ * Re-fetch an imported skill in place: clear its directory and rewrite it from
+ * fresh files, updating the `origin` (e.g. a new pinned SHA). The slug and
+ * folder stay put. Owner-only, path-guarded like the other write paths.
+ */
+export function overwriteSkillFiles(
+  email: string,
+  slug: string,
+  files: ImportFile[],
+  origin?: SkillOrigin,
+): Skill {
+  const skill = getSkillBySlug(slug, email);
+  if (!skill) {
+    const err = new Error("Skill not found.");
+    (err as Error & { code: string }).code = "NOT_FOUND";
+    throw err;
+  }
+  assertEditable(skill);
+  if (!isInsideOwnFolder(skill.sourcePath, email)) {
+    const err = new Error("Refusing to write outside your own skills folder.");
+    (err as Error & { code: string }).code = "PATH_ESCAPE";
+    throw err;
+  }
+  if (!files.some((f) => f.relPath === "SKILL.md")) {
+    const err = new Error("Refusing to overwrite: the new files have no SKILL.md.");
+    (err as Error & { code: string }).code = "INVALID";
+    throw err;
+  }
+
+  const dir = skill.sourcePath;
+  fs.rmSync(dir, { recursive: true, force: true });
+  writeFilesInto(dir, files, origin);
+
+  const refreshed =
+    getAllSkills(email).find((s) => s.sourcePath === dir) ??
+    getAllSkills(email).find((s) => path.basename(s.sourcePath) === path.basename(dir));
+  if (!refreshed) throw new Error("Failed to read skill after update.");
+  return refreshed;
 }
 
 /**
