@@ -40,6 +40,7 @@ import {
   PanelRightOpen,
   PanelRightClose,
   Lock,
+  Mic,
 } from "lucide-react";
 import type { Agent, Skill } from "@labee/contracts";
 import type { DeckFile } from "@labee/contracts";
@@ -59,6 +60,7 @@ import ChatDeckPanel, { type ChatDeckPanelHandle } from "./ChatDeckPanel";
 import { AgentWorkspacePanel } from "./AgentWorkspacePanel";
 import { ProvidedPlanBanner } from "./ProvidedPlanBanner";
 import { Button } from "./ui/button";
+import { useDictation } from "../lib/useDictation";
 
 interface Props {
   skills: Skill[];
@@ -140,6 +142,10 @@ export default function Chat({
     () => ({}),
   );
   const [input, setInput] = useState("");
+  // Voice input (dictation): appends the transcript to the current draft.
+  const dictation = useDictation((text) =>
+    setInput((v) => (v.trim() ? `${v.replace(/\s*$/, "")} ${text}` : text)),
+  );
   // Bumped on every "Clear chat" — used as React key for ProjectCanvas so
   // the canvas remounts (drops user-added step/choice nodes and edges)
   // alongside the chat reset.
@@ -945,6 +951,19 @@ export default function Chat({
                 onHover={setSlashIndex}
               />
             )}
+            {dictation.error && (
+              <div className="mb-1.5 flex items-center justify-between gap-2 rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-1.5 text-xs text-red-600">
+                <span>{dictation.error}</span>
+                <button
+                  type="button"
+                  onClick={dictation.clearError}
+                  aria-label="Dismiss"
+                  className="shrink-0 text-red-600/70 transition hover:text-red-600"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            )}
             <div className="flex flex-col rounded-2xl border border-input bg-background transition focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
               <textarea
                 ref={inputRef}
@@ -1010,6 +1029,41 @@ export default function Chat({
                   {fullAccess ? <Globe size={13} /> : <Lock size={13} />}
                   {fullAccess ? "Full access" : "Limited"}
                 </button>
+                {dictation.supported && (
+                  <button
+                    type="button"
+                    onClick={dictation.toggle}
+                    disabled={streaming || dictation.state === "transcribing"}
+                    aria-pressed={dictation.state === "recording"}
+                    title={
+                      dictation.state === "recording"
+                        ? "Stop and transcribe"
+                        : dictation.state === "transcribing"
+                          ? "Transcribing…"
+                          : "Voice input"
+                    }
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition ${
+                      dictation.state === "recording"
+                        ? "border-red-500 bg-red-500/10 text-red-600"
+                        : "border-rule text-muted hover:border-ink hover:text-ink disabled:opacity-50"
+                    }`}
+                  >
+                    {dictation.state === "transcribing" ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Mic
+                        size={13}
+                        className={dictation.state === "recording" ? "animate-pulse" : ""}
+                      />
+                    )}
+                    {dictation.state === "recording" && (
+                      <span className="tabular-nums">
+                        {Math.floor(dictation.seconds / 60)}:
+                        {String(dictation.seconds % 60).padStart(2, "0")}
+                      </span>
+                    )}
+                  </button>
+                )}
                 <div className="ml-auto">
                   {streaming ? (
                     <Button type="button" variant="default" onClick={cancel}>

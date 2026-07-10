@@ -10,6 +10,51 @@ export interface OpenAIChatMessage {
   content: string;
 }
 
+const EXT_BY_MIME: Record<string, string> = {
+  "audio/webm": "webm",
+  "audio/ogg": "ogg",
+  "audio/mp4": "mp4",
+  "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
+  "audio/wav": "wav",
+  "audio/x-wav": "wav",
+  "audio/m4a": "m4a",
+  "audio/x-m4a": "m4a",
+};
+
+/** Transcribe an audio clip via OpenAI's speech-to-text API (multipart upload).
+ *  Returns plain text. `apiKey` authenticates the call; model defaults to
+ *  gpt-4o-mini-transcribe (override with LABEE_TRANSCRIBE_MODEL). */
+export async function transcribeAudio(opts: {
+  apiKey: string;
+  audio: Uint8Array;
+  mimeType?: string | undefined;
+  model?: string | undefined;
+  baseUrl?: string | undefined;
+}): Promise<string> {
+  const base = (opts.baseUrl || OPENAI_API_BASE).replace(/\/+$/, "");
+  const mime = (opts.mimeType || "audio/webm").split(";")[0]!.trim();
+  const ext = EXT_BY_MIME[mime] ?? "webm";
+  const model = opts.model || process.env.LABEE_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe";
+  const form = new FormData();
+  // Copy into a fresh Uint8Array so the buffer is a plain ArrayBuffer (a valid
+  // BlobPart) rather than the pooled/ArrayBufferLike backing of Buffer.from.
+  form.append("file", new Blob([new Uint8Array(opts.audio)], { type: mime || "audio/webm" }), `audio.${ext}`);
+  form.append("model", model);
+  form.append("response_format", "text");
+  // No content-type header — fetch sets the multipart boundary from the FormData.
+  const res = await fetch(`${base}/audio/transcriptions`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${opts.apiKey}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Transcription failed (${res.status})${detail ? `: ${detail.slice(0, 300)}` : ""}`);
+  }
+  return (await res.text()).trim();
+}
+
 function sse(event: string, data: unknown): Uint8Array {
   return new TextEncoder().encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
