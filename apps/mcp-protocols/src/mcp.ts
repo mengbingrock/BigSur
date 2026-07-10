@@ -10,6 +10,8 @@ import { searchProtocols, renderMarkdown } from "./search.ts";
 import { VENDORS, VENDOR_IDS } from "./vendors.ts";
 import { providerStatus } from "./providers/registry.ts";
 import { journalProviderOrder } from "./journals.ts";
+import { findRestrictionEnzyme } from "./rebase.ts";
+import { getProtocolFulltext } from "./fulltext.ts";
 
 // Versions we speak. The spec requires echoing the client's requested version
 // when we support it, else replying with our latest (the client then decides).
@@ -44,7 +46,10 @@ export const TOOLS = [
       "for a technique, kit, reagent, or product. Journals are searched via scholarly APIs " +
       "(Crossref/Europe PMC); vendors via a web-search provider. Returns ranked links with snippets " +
       "per source plus a guaranteed on-site search URL for each. Use this instead of fetching the " +
-      "vendor sites directly — they bot-block automated requests.",
+      "vendor sites directly — they bot-block automated requests. For NEB restriction-enzyme facts " +
+      "(recognition site, cut position, methylation, isoschizomers, whether NEB supplies it) call " +
+      "`find_restriction_enzyme` instead — neb.com is links-only. To read the actual text of an " +
+      "open-access protocol/methods article, call `get_protocol_fulltext` with its DOI/PMID/PMCID.",
     inputSchema: {
       type: "object",
       properties: {
@@ -66,6 +71,53 @@ export const TOOLS = [
         },
       },
       required: ["query"],
+    },
+  },
+  {
+    name: "find_restriction_enzyme",
+    title: "Look up a restriction enzyme (REBASE)",
+    // Read-only, backed by REBASE (a monthly flat-file release) → idempotent.
+    annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },
+    description:
+      "Look up a restriction enzyme in REBASE (New England Biolabs' open Restriction Enzyme " +
+      "Database) by enzyme name (e.g. 'EcoRI', 'BsaI') or by recognition sequence (e.g. 'GAATTC'). " +
+      "Returns the recognition site and cut position, isoschizomers, methylation sensitivity, source " +
+      "organism, and which vendors (including NEB) supply it. Use this for NEB enzyme facts instead " +
+      "of fetching neb.com, which bot-blocks automated requests.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "An enzyme name (e.g. 'EcoRI') or a recognition sequence (e.g. 'GAATTC').",
+        },
+        by: {
+          type: "string",
+          enum: ["name", "site"],
+          description: "Force lookup mode. Omit to auto-detect (IUPAC-only strings are treated as a site).",
+        },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "get_protocol_fulltext",
+    title: "Get open-access protocol full text",
+    annotations: { readOnlyHint: true, openWorldHint: true, idempotentHint: false },
+    description:
+      "Retrieve the open-access full text of a protocol/methods article from Europe PMC by DOI, " +
+      "PMID, or PMCID. Returns the article body as plain text (truncated if very long). Use this to " +
+      "read a protocol's actual steps instead of fetching a bot-blocked publisher/vendor page. When " +
+      "no open-access full text exists, returns a citation link to the article.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Article identifier: a DOI (10.x/y), a PMID (digits), or a PMCID (PMC…).",
+        },
+      },
+      required: ["id"],
     },
   },
   {
@@ -113,6 +165,17 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<un
       ...(limit !== undefined ? { limit } : {}),
     });
     return toolText(renderMarkdown(resp));
+  }
+  if (name === "find_restriction_enzyme") {
+    const query = typeof args.query === "string" ? args.query : "";
+    if (!query.trim()) return toolText("Error: `query` is required.", true);
+    const by = args.by === "name" || args.by === "site" ? args.by : undefined;
+    return toolText(await findRestrictionEnzyme(query, by ? { by } : {}));
+  }
+  if (name === "get_protocol_fulltext") {
+    const id = typeof args.id === "string" ? args.id : "";
+    if (!id.trim()) return toolText("Error: `id` is required.", true);
+    return toolText(await getProtocolFulltext(id));
   }
   return toolText(`Error: unknown tool "${name}".`, true);
 }
