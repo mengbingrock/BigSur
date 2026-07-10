@@ -35,10 +35,15 @@ describe("MCP dispatch", () => {
     expect(res).toBeNull();
   });
 
-  it("lists both tools with input schemas", async () => {
+  it("lists all tools with input schemas", async () => {
     const res = await dispatch({ jsonrpc: "2.0", id: 2, method: "tools/list" });
     const tools = (res!.result as { tools: typeof TOOLS }).tools;
-    expect(tools.map((t) => t.name)).toEqual(["search_protocols", "list_protocol_vendors"]);
+    expect(tools.map((t) => t.name)).toEqual([
+      "search_protocols",
+      "find_restriction_enzyme",
+      "get_protocol_fulltext",
+      "list_protocol_vendors",
+    ]);
     expect(tools[0]!.inputSchema.required).toContain("query");
   });
 

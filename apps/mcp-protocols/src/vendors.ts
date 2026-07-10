@@ -139,7 +139,10 @@ export const VENDORS: Vendor[] = [
   {
     id: "neb",
     name: "New England Biolabs (NEB)",
-    blurb: "Enzymes, cloning/library-prep reagents; detailed molecular-biology protocols.",
+    blurb:
+      "Enzymes, cloning/library-prep reagents; detailed molecular-biology protocols. " +
+      "neb.com is links-only (bot-blocked) — for restriction-enzyme recognition/cut/methylation " +
+      "facts use the `find_restriction_enzyme` tool (REBASE), not this vendor's pages.",
     kind: "vendor",
     ddgSite: "neb.com",
     searchUrl: (q) => `https://www.neb.com/en-us/search?searchValue=${enc(q)}`,
