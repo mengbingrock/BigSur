@@ -16,7 +16,7 @@
 //   - remote (LABEE_REMOTE=1): load a hosted server directly (LABEE_REMOTE_URL,
 //            default https://labee.online); all data/billing live on the host.
 //            Google sign-in runs in-window under a Chrome UA.
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell, systemPreferences } from "electron";
 import { execFileSync, fork, type ChildProcess } from "node:child_process";
 import * as path from "node:path";
 import * as fs from "node:fs";
@@ -459,6 +459,19 @@ async function createWindow(): Promise<void> {
       nodeIntegration: false,
     },
   });
+
+  // Microphone (voice input): getUserMedia is denied by default in packaged
+  // builds, so grant the media permission for our own origin. On macOS the OS
+  // TCC prompt still gates real access (see NSMicrophoneUsageDescription).
+  const ses = mainWindow.webContents.session;
+  ses.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(permission === "media");
+  });
+  ses.setPermissionCheckHandler((_wc, permission) => permission === "media");
+  if (process.platform === "darwin") {
+    // Prime the OS microphone prompt so the first getUserMedia succeeds.
+    void systemPreferences.askForMediaAccess("microphone").catch(() => {});
+  }
 
   // Remote mode: present as a normal browser (some sites — and any embedded
   // third-party content — refuse to load under an "Electron" user agent).

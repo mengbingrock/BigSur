@@ -12,6 +12,7 @@ import { llmEditRoute } from "./routes/llmEdit";
 import { llmProxyRoutes } from "./routes/llmProxy";
 import { llmRoutes } from "./routes/llmSettings";
 import { skillsRoutes } from "./routes/skills";
+import { transcribeRoute } from "./routes/transcribe";
 import { staticRoute } from "./routes/static";
 
 // API routes first, the static/SPA catch-all last so exact matches win.
@@ -29,5 +30,6 @@ export const routesLayer = Layer.mergeAll(
   chatRoute,
   extractChoicesRoute,
   llmEditRoute,
+  transcribeRoute,
   staticRoute,
 );

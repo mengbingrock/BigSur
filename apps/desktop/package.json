@@ -48,7 +48,10 @@
       "target": [
         "dmg",
         "zip"
-      ]
+      ],
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Labee uses the microphone for voice input (dictation) in chat."
+      }
     },
     "win": {
       "target": [
