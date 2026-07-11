@@ -65,8 +65,9 @@ function findServerEntry(): string | null {
  * `claude` CLI args that register the protocol-search MCP server, or `[]` when
  * the server bundle isn't available. Computed once and memoised.
  *
- * The tool surfaces to the model as `mcp__protocols__search_protocols`; under
- * the bypassPermissions modes the chat route already uses it is auto-allowed.
+ * The tools surface to the model as `mcp__protocols__search` / `_fetch` /
+ * `_list_sources`; under the bypassPermissions modes the chat route already
+ * uses they are auto-allowed.
  */
 export function protocolsMcpArgs(): string[] {
   if (cached !== undefined) return cached ?? [];
