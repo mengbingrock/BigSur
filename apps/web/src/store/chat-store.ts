@@ -366,6 +366,18 @@ export function makeId(): string {
   return `m_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/** True for a tool input that carries nothing usable — `null`/`undefined` or a
+ *  plain empty `{}`. Used to avoid clobbering an authoritative input with the
+ *  empty object `content_block_stop` reconstructs when its deltas never came. */
+function isEmptyToolInput(input: unknown): boolean {
+  if (input == null) return true;
+  return (
+    typeof input === "object" &&
+    !Array.isArray(input) &&
+    Object.keys(input as Record<string, unknown>).length === 0
+  );
+}
+
 export function formatResult(content: unknown): string {
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
@@ -1325,15 +1337,44 @@ class ChatStore {
           return { ...m, activity };
         });
         break;
+      case "tool_input":
+        // Authoritative tool input from the complete assistant message. Fill in
+        // (or create) the matching tool activity so the block always has its
+        // real input, even when partial-stream deltas were missing/cut short
+        // (e.g. AskUserQuestion torn down before its input_json_delta arrived).
+        this.mutateMessage(aid, (m) => {
+          const activity = [...(m.activity ?? [])];
+          for (let i = activity.length - 1; i >= 0; i--) {
+            const a = activity[i];
+            if (a.kind === "tool" && a.id === payload.id) {
+              activity[i] = { ...a, input: payload.input ?? a.input };
+              return { ...m, activity };
+            }
+          }
+          // No tool_start streamed for this block — create it done-pending.
+          activity.push({
+            kind: "tool",
+            id: String(payload.id ?? ""),
+            name: String(payload.name ?? ""),
+            input: payload.input ?? null,
+            inputRaw: "",
+            done: false,
+          });
+          return { ...m, activity };
+        });
+        break;
       case "tool_stop":
         this.mutateMessage(aid, (m) => {
           const activity = [...(m.activity ?? [])];
           for (let i = activity.length - 1; i >= 0; i--) {
             const a = activity[i];
             if (a.kind === "tool" && a.id === payload.id && !a.done) {
+              // Don't clobber a good input (already set from the authoritative
+              // assistant message) with an empty {} reconstructed from missing
+              // deltas — content_block_stop can arrive after `tool_input`.
               activity[i] = {
                 ...a,
-                input: payload.input ?? null,
+                input: isEmptyToolInput(payload.input) ? a.input : payload.input,
                 done: true,
               };
               break;
