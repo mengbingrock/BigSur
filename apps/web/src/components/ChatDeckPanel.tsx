@@ -38,11 +38,33 @@ interface Props {
 export interface ChatDeckPanelHandle {
   /** Re-fetch the file list. Call after each chat turn so the model's writes appear. */
   refresh: () => Promise<void>;
+  /** Mark the start of a chat turn: files created after this are offered as
+   *  "save as protocol?" candidates. */
+  beginTurn: () => void;
 }
 
 interface UploadResult {
   uploaded: DeckFile[];
   failed: { name: string; error: string }[];
+}
+
+// Document-like files worth offering to save as a protocol. Filters out logs,
+// scratch, and binaries the agent may drop into the deck during a turn.
+const PROTOCOL_DOC_EXTS = new Set([
+  ".md",
+  ".markdown",
+  ".txt",
+  ".text",
+  ".pdf",
+  ".docx",
+  ".doc",
+  ".odt",
+  ".rtf",
+]);
+
+function isProtocolDoc(name: string): boolean {
+  const dot = name.lastIndexOf(".");
+  return dot >= 0 && PROTOCOL_DOC_EXTS.has(name.slice(dot).toLowerCase());
 }
 
 const ChatDeckPanel = forwardRef<ChatDeckPanelHandle, Props>(function ChatDeckPanel(
@@ -62,6 +84,10 @@ const ChatDeckPanel = forwardRef<ChatDeckPanelHandle, Props>(function ChatDeckPa
   const [dirContents, setDirContents] = useState<Record<string, DeckFile[]>>({});
   const [loadingDirs, setLoadingDirs] = useState<Set<string>>(() => new Set());
   const inputRef = useRef<HTMLInputElement | null>(null);
+  // Top-level file names present when the current chat turn started; new
+  // document-like files that appear are offered as "save as protocol?".
+  const turnBaselineRef = useRef<Set<string> | null>(null);
+  const [protocolCandidates, setProtocolCandidates] = useState<string[]>([]);
 
   const DRAG_MIME = "application/x-monterey-deck-entry";
 
@@ -99,6 +125,18 @@ const ChatDeckPanel = forwardRef<ChatDeckPanelHandle, Props>(function ChatDeckPa
       if (!res.ok) return;
       const data = (await res.json()) as { files: DeckFile[] };
       setEntries(data.files);
+      // If a chat turn is in progress, surface document-like files that appeared
+      // since it started as "save as protocol?" candidates.
+      const baseline = turnBaselineRef.current;
+      if (baseline) {
+        setProtocolCandidates(
+          data.files
+            .filter(
+              (f) => f.kind === "file" && !baseline.has(f.name) && isProtocolDoc(f.name),
+            )
+            .map((f) => f.name),
+        );
+      }
       // After a top-level refresh, re-pull contents of any folders that
       // are still expanded — moves and uploads-into-folder may have changed
       // their contents.
@@ -150,7 +188,30 @@ const ChatDeckPanel = forwardRef<ChatDeckPanelHandle, Props>(function ChatDeckPa
     [dirContents, fetchDirContents],
   );
 
-  useImperativeHandle(ref, () => ({ refresh }), [refresh]);
+  // Snapshot the current top-level files as the baseline for a new chat turn, so
+  // only files created during the turn are offered as protocol candidates.
+  const beginTurn = useCallback(() => {
+    turnBaselineRef.current = new Set(
+      entries.filter((f) => f.kind === "file").map((f) => f.name),
+    );
+    setProtocolCandidates([]);
+  }, [entries]);
+
+  // Stop offering a candidate: fold it into the baseline so refresh() won't
+  // re-surface it. `null` dismisses all.
+  const dismissCandidate = useCallback((name: string | null) => {
+    setProtocolCandidates((prev) => {
+      const next = name === null ? [] : prev.filter((n) => n !== name);
+      const base = turnBaselineRef.current;
+      if (base) {
+        if (name === null) for (const n of prev) base.add(n);
+        else base.add(name);
+      }
+      return next;
+    });
+  }, []);
+
+  useImperativeHandle(ref, () => ({ refresh, beginTurn }), [refresh, beginTurn]);
 
   useEffect(() => {
     setEntries(initialFiles);
@@ -265,7 +326,7 @@ const ChatDeckPanel = forwardRef<ChatDeckPanelHandle, Props>(function ChatDeckPa
     setRenameDraft("");
   }
 
-  async function saveAsProtocol(qualifiedPath: string) {
+  async function saveAsProtocol(qualifiedPath: string): Promise<boolean> {
     const filename = qualifiedPath.split("/").pop() || qualifiedPath;
     const suggested = filename
       .replace(/\.[^./\\]+$/, "")
@@ -276,11 +337,11 @@ const ChatDeckPanel = forwardRef<ChatDeckPanelHandle, Props>(function ChatDeckPa
       `Save "${filename}" as a new protocol. Name:`,
       suggested,
     );
-    if (name === null) return;
+    if (name === null) return false;
     const trimmed = name.trim();
     if (!trimmed) {
       setError("Protocol name cannot be empty.");
-      return;
+      return false;
     }
     setError(null);
     try {
@@ -311,10 +372,12 @@ const ChatDeckPanel = forwardRef<ChatDeckPanelHandle, Props>(function ChatDeckPa
       if (open && data.skill.slug) {
         window.location.assign(`/skills/${data.skill.slug}`);
       }
+      return true;
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Could not save protocol.",
       );
+      return false;
     }
   }
 
@@ -347,6 +410,42 @@ const ChatDeckPanel = forwardRef<ChatDeckPanelHandle, Props>(function ChatDeckPa
 
   return (
     <div>
+      {protocolCandidates.length > 0 && (
+        <div className="mb-3 rounded border border-brand/40 bg-brand/5 p-2 text-xs">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <span className="font-medium text-ink">
+              New file{protocolCandidates.length === 1 ? "" : "s"} — save as protocol?
+            </span>
+            <button
+              type="button"
+              onClick={() => dismissCandidate(null)}
+              className="text-muted transition hover:text-ink"
+              title="Dismiss"
+            >
+              <XIcon size={12} />
+            </button>
+          </div>
+          <ul className="flex flex-col gap-1">
+            {protocolCandidates.map((name) => (
+              <li key={name} className="flex items-center justify-between gap-2">
+                <span className="min-w-0 flex-1 truncate text-ink-light" title={name}>
+                  {name}
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const ok = await saveAsProtocol(name);
+                    if (ok) dismissCandidate(name);
+                  }}
+                  className="inline-flex shrink-0 items-center gap-1 border border-ink bg-ink px-2 py-0.5 text-paper transition hover:opacity-90"
+                >
+                  <FileCheck size={11} /> Save
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="mb-3 flex items-center justify-end">
         {!creatingDir && (
           <button

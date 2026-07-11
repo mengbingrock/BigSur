@@ -676,6 +676,8 @@ export default function Chat({
     const editPrefix = canvasEditGetterRef.current?.() ?? null;
     const composed = editPrefix ? `${editPrefix}\n\n${text}` : text;
 
+    // Baseline the deck so files this turn creates are offered as protocols.
+    deckPanelRef.current?.beginTurn();
     await chatStore.send({
       text: composed,
       skillSlugs: Array.from(selected),
@@ -888,6 +890,7 @@ export default function Chat({
                 // skill / protocol / artifactNotes / contextFiles plumbing
                 // applies.
                 if (streaming) return;
+                deckPanelRef.current?.beginTurn();
                 void chatStore.send({
                   text,
                   skillSlugs: Array.from(selected),
