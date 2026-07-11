@@ -635,7 +635,13 @@ class ChatStore {
     const list = readSessionsIndex().filter((s) => s.id !== id);
     writeSessionsIndex(list);
     if (id === this.state.currentSessionId) {
-      this.cancel();
+      // Abort any in-flight stream directly — NOT via cancel(), which routes
+      // through setState() → persist(). persist() re-indexes
+      // `this.state.currentSessionId`, which still points at the session we're
+      // deleting, so it would immediately re-add it (the chat "won't delete").
+      // Fold `streaming: false` into the single state update below instead.
+      this.abort?.abort();
+      this.abort = null;
       const nextId = list[0]?.id ?? newSessionId();
       if (typeof window !== "undefined") window.localStorage.setItem(CURRENT_SESSION_KEY, nextId);
       this.state = {
@@ -643,6 +649,7 @@ class ChatStore {
         sessions: list,
         currentSessionId: nextId,
         messages: list[0] ? readPersistedMessages(sessionMsgKey(nextId)) : [],
+        streaming: false,
         error: null,
         session: null,
       };
