@@ -38,7 +38,7 @@
         "to": "server/client"
       },
       {
-        "from": "../mcp-protocols/dist",
+        "from": "../../node_modules/@mengbingrock/labee-protocol-searcher/dist",
         "to": "mcp-protocols/dist"
       }
     ],

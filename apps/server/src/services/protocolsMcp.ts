@@ -1,12 +1,17 @@
-// Locates the bundled protocol-search MCP server (@labee/mcp-protocols) and
-// produces the `claude` CLI flags that load it. The server is a self-contained
-// `dist/index.mjs`; if it hasn't been built (or can't be found) we return no
-// flags, so chat keeps working exactly as before — the tool is purely additive.
+// Locates the protocol-search MCP server (the published npm package
+// @mengbingrock/labee-protocol-searcher) and produces the `claude` CLI flags
+// that load it. The server is a self-contained `dist/index.mjs`; if it can't be
+// resolved we return no flags, so chat keeps working exactly as before — the
+// tool is purely additive.
 
+import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+
+// The published package ships its entry as `dist/index.mjs`. It has no `exports`
+// map, so this deep-import specifier resolves against node_modules.
+const PACKAGE_ENTRY = "@mengbingrock/labee-protocol-searcher/dist/index.mjs";
 
 let cached: string[] | null | undefined;
 
@@ -40,15 +45,15 @@ function protocolsEnv(): Record<string, string> {
 
 function findServerEntry(): string | null {
   const candidates: string[] = [];
+  // Explicit override wins — the packaged desktop app sets this to the copy it
+  // ships beside the server bundle (electron-builder extraResources).
   if (process.env.PROTOCOLS_MCP_PATH) candidates.push(process.env.PROTOCOLS_MCP_PATH);
-  // Dev: server runs from the repo root; packaged: alongside the server bundle.
-  candidates.push(path.resolve(process.cwd(), "apps/mcp-protocols/dist/index.mjs"));
+  // Dev / non-packaged: resolve the installed npm package from node_modules.
   try {
-    const here = path.dirname(fileURLToPath(import.meta.url));
-    candidates.push(path.resolve(here, "../../../mcp-protocols/dist/index.mjs"));
-    candidates.push(path.resolve(here, "../../mcp-protocols/dist/index.mjs"));
+    const require = createRequire(import.meta.url);
+    candidates.push(require.resolve(PACKAGE_ENTRY));
   } catch {
-    // import.meta.url unavailable (shouldn't happen under ESM) — skip.
+    // Not installed / not resolvable from here — fall through to existsSync miss.
   }
   for (const c of candidates) {
     if (c && existsSync(c)) return c;
