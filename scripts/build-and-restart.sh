@@ -20,8 +20,11 @@ bold "[1/3] bun install"
 bun install --frozen-lockfile
 ok "deps installed"
 
-bold "[2/3] build (server + web + protocols MCP)"
-bun run turbo run build --filter=@labee/server --filter=@labee/web --filter=@labee/mcp-protocols
+bold "[2/3] build (server + web)"
+# The protocol-search MCP now ships as the external npm package
+# @mengbingrock/labee-protocol-searcher (prebuilt dist in node_modules), so it
+# no longer needs a workspace build here.
+bun run turbo run build --filter=@labee/server --filter=@labee/web
 ok "build complete"
 
 bold "[3/3] restart service"
