@@ -40,6 +40,8 @@ interface ChatRequest {
   agentId?: string;
   runMode?: "chat" | "plan" | "build";
   fullAccess?: boolean;
+  /** Enabled MCP server ids for this turn. Omitted → all available (back-compat). */
+  mcpServers?: string[];
 }
 
 const CLAUDE_BIN = process.env.CLAUDE_BIN || "claude";
@@ -500,6 +502,9 @@ export const chatRoute = HttpRouter.add(
             : "plan"; // default to Plan for normal chat turns
     const readOnly = runMode === "plan" || runMode === "chat";
     const fullAccess = body.fullAccess !== false; // default: full access
+    // Which MCP servers to wire in this turn. Omitted → all available (so old
+    // clients keep the protocol server); an explicit list gates each server.
+    const protocolsMcpOn = !Array.isArray(body.mcpServers) || body.mcpServers.includes("protocols");
     let userPrompt: string;
     let systemPrompt = SYSTEM_PROMPT;
     const selectedSkills: Skill[] = [];
@@ -705,6 +710,7 @@ export const chatRoute = HttpRouter.add(
           prompt: `${systemPrompt}\n\n----\n\n${userPrompt}`,
           cwd,
           mode: codexSandbox,
+          protocolsMcp: protocolsMcpOn,
         });
     } else if (provider === "openai" && cred.useCodex) {
       // ChatGPT subscription → run through the codex CLI (agentic, read-only).
@@ -712,6 +718,7 @@ export const chatRoute = HttpRouter.add(
         codexExecStream({
           prompt: `${systemPrompt}\n\n----\n\n${userPrompt}`,
           cwd,
+          protocolsMcp: protocolsMcpOn,
           ...(cred.planLabel ? { planLabel: cred.planLabel } : {}),
         });
     } else if (provider === "openai") {
@@ -748,7 +755,7 @@ export const chatRoute = HttpRouter.add(
           : []),
         // Register the protocol-search MCP server (no-op when it isn't built).
         // Skipped for edit mode, which runs with no tools.
-        ...(mode === "edit" ? [] : protocolsMcpArgs()),
+        ...(mode === "edit" || !protocolsMcpOn ? [] : protocolsMcpArgs()),
         "--effort", mode === "edit" ? "low" : "high",
       ];
       const extraEnv = claudeEnvForCredential(cred);

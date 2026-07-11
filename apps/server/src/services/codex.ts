@@ -183,6 +183,8 @@ export function codexExecStream(opts: {
    *  the agent edit files in its working directory; "danger-full-access" grants
    *  the whole machine + network (the composer's Full access toggle). */
   mode?: "read-only" | "workspace-write" | "danger-full-access";
+  /** Register the protocol-search MCP for this run (default true). */
+  protocolsMcp?: boolean;
 }): ReadableStream<Uint8Array> {
   const { prompt, cwd, planLabel } = opts;
   const mode = opts.mode ?? "read-only";
@@ -211,9 +213,9 @@ export function codexExecStream(opts: {
       }
       enqueue("status", { status: "thinking" });
 
-      // Register the protocol-search MCP in ~/.codex/config.toml so this exec can
-      // call it (best-effort; no-op if the bundle isn't present).
-      ensureCodexProtocolsMcp();
+      // Register (or, when toggled off, remove) the protocol-search MCP in
+      // ~/.codex/config.toml so this exec sees only the enabled servers.
+      ensureCodexProtocolsMcp(opts.protocolsMcp !== false);
 
       try {
         // `codex exec` is non-interactive (no approval prompts), so the sandbox
