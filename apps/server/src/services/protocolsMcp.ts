@@ -121,9 +121,7 @@ function tomlStr(s: string): string {
  * its own marker-delimited block, and bails out if the bundle is missing or the
  * user already defines their own unmanaged `[mcp_servers.protocols]`.
  */
-export function ensureCodexProtocolsMcp(): void {
-  const entry = findServerEntry();
-  if (!entry) return;
+export function ensureCodexProtocolsMcp(enabled = true): void {
   const cfgPath = codexConfigPath();
 
   let existing = "";
@@ -139,6 +137,19 @@ export function ensureCodexProtocolsMcp(): void {
     "g",
   );
   const withoutManaged = existing.replace(managedRe, "\n");
+
+  // Toggled off (or bundle missing): remove our managed block if present and stop.
+  const entry = enabled ? findServerEntry() : null;
+  if (!entry) {
+    if (withoutManaged !== existing) {
+      try {
+        writeFileSync(cfgPath, withoutManaged.trim() ? `${withoutManaged.trim()}\n` : "", "utf8");
+      } catch {
+        /* best-effort */
+      }
+    }
+    return;
+  }
 
   // Never clobber a user-defined server of the same name.
   if (/^\s*\[mcp_servers\.protocols\]/m.test(withoutManaged)) return;

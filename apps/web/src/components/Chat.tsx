@@ -41,6 +41,8 @@ import {
   PanelRightClose,
   Lock,
   Mic,
+  Plus,
+  Check,
 } from "lucide-react";
 import type { Agent, Skill } from "@labee/contracts";
 import type { DeckFile } from "@labee/contracts";
@@ -79,6 +81,84 @@ interface ActiveSelection {
 }
 
 const SELECTED_KEY = "monterey.selectedSkills.v1";
+
+/** Pluggable MCP servers the agent can be given (toggled from the composer "+"). */
+const MCP_SERVERS: { id: string; label: string; desc: string }[] = [
+  {
+    id: "protocols",
+    label: "Protocol search",
+    desc: "Journals, reagent vendors & REBASE enzymes",
+  },
+];
+
+/** A "+" menu under the composer to enable/disable MCP servers for the chat. */
+function McpMenu({
+  enabled,
+  onToggle,
+}: {
+  enabled: Set<string>;
+  onToggle: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const activeCount = MCP_SERVERS.filter((s) => enabled.has(s.id)).length;
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        title="MCP servers — extra tools the agent can use"
+        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+          open
+            ? "border-ink text-ink"
+            : "border-rule text-muted hover:border-ink hover:text-ink"
+        }`}
+      >
+        <Plus size={13} />
+        {activeCount > 0 ? `Tools · ${activeCount}` : "Tools"}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
+          <div
+            role="menu"
+            className="absolute bottom-full left-0 z-50 mb-1.5 w-72 rounded-lg border border-rule bg-paper p-1 shadow-lg"
+          >
+            <p className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted">
+              MCP servers
+            </p>
+            {MCP_SERVERS.map((s) => {
+              const on = enabled.has(s.id);
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={on}
+                  onClick={() => onToggle(s.id)}
+                  className="flex w-full items-start gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-ink/5"
+                >
+                  <span
+                    className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border ${
+                      on ? "border-ink bg-ink text-paper" : "border-rule"
+                    }`}
+                  >
+                    {on && <Check size={11} />}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm text-ink">{s.label}</span>
+                    <span className="block text-xs text-muted">{s.desc}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 function truncate(s: string, n: number) {
   return s.length > n ? s.slice(0, n) + "…" : s;
@@ -255,6 +335,31 @@ export default function Chat({
     if (typeof window !== "undefined")
       window.localStorage.setItem("labee:full-access", fullAccess ? "on" : "off");
   }, [fullAccess]);
+
+  // Enabled MCP servers (a standing preference, remembered across reloads).
+  // Default: all on. Stored as a JSON array of server ids.
+  const [mcpServers, setMcpServers] = useState<Set<string>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const raw = window.localStorage.getItem("labee:mcp-servers");
+        if (raw) return new Set(JSON.parse(raw) as string[]);
+      } catch {
+        /* fall through to default */
+      }
+    }
+    return new Set(MCP_SERVERS.map((s) => s.id));
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined")
+      window.localStorage.setItem("labee:mcp-servers", JSON.stringify([...mcpServers]));
+  }, [mcpServers]);
+  const toggleMcp = (id: string) =>
+    setMcpServers((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   useEffect(() => {
     const raw =
@@ -579,6 +684,7 @@ export default function Chat({
       snapshot: buildSkillSnapshot(),
       runMode,
       fullAccess,
+      mcpServers: [...mcpServers],
       ...(agent ? { agentId: agent.id } : {}),
     });
   };
@@ -790,6 +896,7 @@ export default function Chat({
                   snapshot: buildSkillSnapshot(),
                   runMode,
                   fullAccess,
+                  mcpServers: [...mcpServers],
                   ...(agent ? { agentId: agent.id } : {}),
                 });
               }}
@@ -1029,6 +1136,7 @@ export default function Chat({
                   {fullAccess ? <Globe size={13} /> : <Lock size={13} />}
                   {fullAccess ? "Full access" : "Limited"}
                 </button>
+                <McpMenu enabled={mcpServers} onToggle={toggleMcp} />
                 {dictation.supported && (
                   <button
                     type="button"

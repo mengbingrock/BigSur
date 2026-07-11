@@ -293,6 +293,8 @@ export interface SendOptions {
   runMode?: "chat" | "plan" | "build";
   /** Full machine + internet access (vs. limited to the working directory). */
   fullAccess?: boolean;
+  /** Enabled MCP server ids for this turn (e.g. ["protocols"]). Omitted → all. */
+  mcpServers?: string[];
 }
 
 export interface EditOptions {
@@ -488,6 +490,7 @@ class ChatStore {
   // turns (AskUserQuestion answers, extracted choices) reuse the same mode.
   private lastRunMode: "chat" | "plan" | "build" = "plan";
   private lastFullAccess = true;
+  private lastMcpServers: string[] | undefined = undefined;
   // The agent bound to the current session (persisted into the sessions index).
   private lastAgentId: string | undefined;
   /**
@@ -775,12 +778,13 @@ class ChatStore {
   };
 
   send = async (opts: SendOptions): Promise<void> => {
-    const { text, skillSlugs, snapshot, contextFiles, artifactNotes, agentId, runMode, fullAccess } =
+    const { text, skillSlugs, snapshot, contextFiles, artifactNotes, agentId, runMode, fullAccess, mcpServers } =
       opts;
     if (!text || this.state.streaming) return;
     // Remember the user's choice so follow-up turns that omit it reuse it.
     if (runMode) this.lastRunMode = runMode;
     if (fullAccess !== undefined) this.lastFullAccess = fullAccess;
+    if (mcpServers !== undefined) this.lastMcpServers = mcpServers;
     if (agentId) this.lastAgentId = agentId;
 
     const userMsg: ChatMsg = { id: makeId(), role: "user", content: text };
@@ -816,6 +820,9 @@ class ChatStore {
           ...(agentId ? { agentId } : {}),
           runMode: runMode ?? this.lastRunMode,
           fullAccess: fullAccess ?? this.lastFullAccess,
+          ...((mcpServers ?? this.lastMcpServers) !== undefined
+            ? { mcpServers: mcpServers ?? this.lastMcpServers }
+            : {}),
         }),
         signal: ctrl.signal,
       });
