@@ -40,9 +40,14 @@ function SkillsPage() {
   });
   const [q, setQ] = useState("");
   const [source, setSource] = useState<string | null>(null);
+  const [kind, setKind] = useState<"all" | "skill" | "protocol">("all");
 
   const skills = data?.skills ?? [];
   const sources = data?.sources ?? [];
+  const hasProtocols = useMemo(
+    () => skills.some((s) => s.artifactKind === "protocol"),
+    [skills],
+  );
   const fuse = useMemo(
     () =>
       new Fuse(skills, {
@@ -54,9 +59,10 @@ function SkillsPage() {
   );
   const filtered = useMemo(() => {
     let list = q.trim() ? fuse.search(q).map((r) => r.item) : skills;
+    if (kind !== "all") list = list.filter((s) => s.artifactKind === kind);
     if (source) list = list.filter((s) => s.sourceLabel === source);
     return list;
-  }, [q, source, skills, fuse]);
+  }, [q, source, kind, skills, fuse]);
 
   return (
     <div className="mx-auto w-full max-w-[1080px] px-6 py-10 sm:px-8">
@@ -102,6 +108,19 @@ function SkillsPage() {
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search artifacts…"
         />
+        {hasProtocols && (
+          <div className="flex flex-wrap gap-2">
+            <FilterChip active={kind === "all"} onClick={() => setKind("all")}>
+              All
+            </FilterChip>
+            <FilterChip active={kind === "skill"} onClick={() => setKind("skill")}>
+              Skills
+            </FilterChip>
+            <FilterChip active={kind === "protocol"} onClick={() => setKind("protocol")}>
+              Protocols
+            </FilterChip>
+          </div>
+        )}
         {sources.length > 1 && (
           <div className="flex flex-wrap gap-2">
             <FilterChip active={source === null} onClick={() => setSource(null)}>
