@@ -27,12 +27,16 @@ Labee is a Bun + Turbo monorepo with three apps and two shared packages.
 - **apps/desktop** — Electron. Forks the bundled server on a free loopback
   port (redirecting all writable state into the OS per-user data dir) and
   points a `BrowserWindow` at it. In dev it loads the Vite server instead.
-- **apps/mcp-protocols** — a zero-dependency MCP (Model Context Protocol)
-  stdio server that searches laboratory-protocol journals and reagent vendors
-  (STAR Protocols, Nature Protocols, Thermo Fisher, QIAGEN, NEB, Bio-Rad,
-  Sigma-Aldrich, EMD Millipore, Takara Bio, Promega, IDT). The chat route
-  registers it with the `claude` CLI via `--mcp-config`, exposing
-  `mcp__protocols__search_protocols`. Those sites bot-block direct fetches, so
+- **@mengbingrock/labee-protocol-searcher** (npm) — a zero-dependency MCP
+  (Model Context Protocol) stdio server that searches laboratory-protocol
+  journals and reagent vendors (STAR Protocols, Nature Protocols, Thermo Fisher,
+  QIAGEN, NEB, Bio-Rad, Sigma-Aldrich, EMD Millipore, Takara Bio, Promega, IDT).
+  It's a published package consumed as a `@labee/server` dependency (its source
+  lives at github.com/mengbingrock/Labee-Protocol-Searcher, not in this repo);
+  `apps/server/src/services/protocolsMcp.ts` resolves its `dist/index.mjs` from
+  node_modules and the chat route registers it with the `claude` CLI via
+  `--mcp-config`, exposing `mcp__protocols__search_protocols`. Those sites
+  bot-block direct fetches, so
   each source is routed to a backend that works: journals go to a chain of free
   keyless scholarly APIs (Crossref → Europe PMC → OpenAlex → Semantic Scholar →
   PubMed, first non-empty wins); vendors go to a web-search provider chain

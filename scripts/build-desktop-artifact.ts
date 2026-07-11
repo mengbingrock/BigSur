@@ -36,14 +36,15 @@ function step(
   }
 }
 
-// 1. Build the workspaces the desktop bundle depends on (mcp-protocols ships as
-//    an extraResource, so it must be built too).
+// 1. Build the workspaces the desktop bundle depends on. The protocol-search MCP
+//    server ships as an extraResource, but it's now the published npm package
+//    (@mengbingrock/labee-protocol-searcher) resolved from node_modules — no
+//    build step needed for it.
 step(
-  "build mcp/web/server/desktop",
+  "build web/server/desktop",
   "bun",
   [
     "run", "turbo", "run", "build",
-    "--filter=@labee/mcp-protocols",
     "--filter=@labee/web",
     "--filter=@labee/server",
     "--filter=@labee/desktop",
