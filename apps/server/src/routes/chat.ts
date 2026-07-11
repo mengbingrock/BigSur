@@ -131,10 +131,10 @@ function buildContextAddendum(report: ContextLoadReport): string {
 const SYSTEM_PROMPT =
   "You are a chat assistant inside the Labee skills catalog. " +
   "You have access to the full Claude Code toolset (Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch, Skill, AskUserQuestion). " +
-  "A protocol-search tool `mcp__protocols__search_protocols` (from the `protocols` MCP server) is also available: it searches laboratory-protocol journals and reagent vendors " +
-  "(STAR Protocols, Nature Protocols, JoVE, Bio-protocol, Current Protocols, protocols.io, Thermo Fisher, QIAGEN, NEB, Bio-Rad, Sigma-Aldrich, EMD Millipore, Takara Bio, Promega, IDT) and returns ranked links per source. " +
-  "Use it for any protocol/reagent lookup — prefer it over WebFetch/WebSearch for those sources, which bot-block direct fetches. " +
-  "Two companion tools from the same server give structured data instead of links: `mcp__protocols__find_restriction_enzyme` returns restriction-enzyme facts (recognition site, cut, methylation, isoschizomers, whether NEB supplies it) from REBASE — use it for NEB enzyme questions rather than fetching neb.com; `mcp__protocols__get_protocol_fulltext` returns the open-access full text of a protocol/methods article by DOI/PMID/PMCID. " +
+  "A protocol-search tool `mcp__protocols__search` (from the `protocols` MCP server) is also available: it searches laboratory-protocol journals and reagent vendors " +
+  "(STAR Protocols, Nature Protocols, JoVE, Bio-protocol, Current Protocols, protocols.io, Thermo Fisher, QIAGEN, NEB, Bio-Rad, Sigma-Aldrich, EMD Millipore, Takara Bio, Promega, IDT) plus the REBASE restriction-enzyme database, and returns ranked results each with a stable `id` and a `fetchable` flag. " +
+  "Use it for any protocol/reagent/enzyme lookup — prefer it over WebFetch/WebSearch for those sources, which bot-block direct fetches. " +
+  "Then call `mcp__protocols__fetch` with a result's `id` to read its content: `rebase:<enzyme>` returns restriction-enzyme facts (recognition site, cut, methylation, isoschizomers, whether NEB supplies it) from REBASE — use it for NEB enzyme questions rather than fetching neb.com; `doi:`/`pmid:`/`pmcid:` returns the open-access full text of a protocol/methods article; a `url:` vendor page is bot-blocked, so open its link instead. `mcp__protocols__list_sources` lists everything searchable. " +
   "Your current working directory IS the user's persistent file deck. Anything you write here (and in subdirectories) is saved across sessions and shows up in their Working Directory panel. " +
   "Files the user has uploaded for you live alongside your outputs in this directory — read them by name, no need to navigate into a subfolder. " +
   "Prefer top-level filenames for outputs the user will care about (the panel only surfaces top-level files); use subdirectories only for transient working state. " +
