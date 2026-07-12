@@ -62,19 +62,37 @@ function getFreePort(): Promise<number> {
   });
 }
 
-function waitForPort(port: number, host = "127.0.0.1", timeoutMs = 30000): Promise<void> {
+/** True if something is already listening on `port`. Used to detect a stale
+ *  server from a prior run squatting the fixed desktop port before we fork ours. */
+function isPortInUse(port: number, host = "127.0.0.1", timeoutMs = 1000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const sock = net.connect(port, host);
+    const done = (inUse: boolean) => {
+      sock.destroy();
+      resolve(inUse);
+    };
+    sock.once("connect", () => done(true));
+    sock.once("error", () => done(false));
+    sock.setTimeout(timeoutMs, () => done(false));
+  });
+}
+
+/** Wait until the embedded server actually answers HTTP on `port`. A bare TCP
+ *  connect isn't enough: a stale/hung server from a prior run can hold the port
+ *  open while never responding, which would make every app request hang forever.
+ *  Requiring a real HTTP response ensures we only load once our server serves. */
+function waitForServer(port: number, host = "127.0.0.1", timeoutMs = 30000): Promise<void> {
   const start = Date.now();
   return new Promise((resolve, reject) => {
     const tryOnce = () => {
-      const sock = net.connect(port, host);
-      sock.once("connect", () => {
-        sock.destroy();
-        resolve();
+      const req = http.get({ host, port, path: "/api/me", timeout: 2000 }, (res) => {
+        res.resume(); // drain so the socket is released
+        resolve(); // any HTTP status means the server is answering
       });
-      sock.once("error", () => {
-        sock.destroy();
+      req.once("timeout", () => req.destroy(new Error("timeout")));
+      req.once("error", () => {
         if (Date.now() - start > timeoutMs) {
-          reject(new Error(`Server did not start within ${timeoutMs}ms`));
+          reject(new Error(`Server did not respond within ${timeoutMs}ms`));
         } else {
           setTimeout(tryOnce, 200);
         }
@@ -282,12 +300,16 @@ function findBinary(name: string, searchPath: string): string | null {
 }
 
 async function startServer(): Promise<string> {
-  // A fixed port (LABEE_DESKTOP_PORT, from env or apps/desktop/.env) gives a
-  // stable loopback URL — handy for pointing a local Stripe webhook listener at
-  // the embedded server. Otherwise pick any free port.
-  const preferred = Number(desktopEnvValue("LABEE_DESKTOP_PORT"));
-  const port = Number.isInteger(preferred) && preferred > 0 ? preferred : await getFreePort();
   const host = "127.0.0.1";
+  // A fixed port (LABEE_DESKTOP_PORT, from env or apps/desktop/.env) gives a
+  // stable loopback URL — but only use it when it's actually free. If a stale
+  // server from a prior run (e.g. a force-killed instance) is still squatting it,
+  // forking onto it fails and we'd otherwise attach to that hung/foreign server,
+  // hanging every request. Fall back to a fresh free port in that case.
+  const preferred = Number(desktopEnvValue("LABEE_DESKTOP_PORT"));
+  const wantFixed = Number.isInteger(preferred) && preferred > 0;
+  const port =
+    wantFixed && !(await isPortInUse(preferred, host)) ? preferred : await getFreePort();
   const entry = serverEntry();
   if (!fs.existsSync(entry)) {
     throw new Error(`Bundled server not found at ${entry}. Build @labee/server and @labee/web first.`);
@@ -374,7 +396,7 @@ async function startServer(): Promise<string> {
     serverProcess = null;
   });
 
-  await waitForPort(port, host);
+  await waitForServer(port, host);
   serverBaseUrl = `http://${host}:${port}`;
   return serverBaseUrl;
 }
