@@ -66,6 +66,24 @@ server {
 
   client_max_body_size 60m;
 
+  # Protocol-search MCP (labee-mcp.service). Must precede location / so the
+  # app's catch-all doesn't swallow it. The MCP server does its own bearer-token
+  # auth, so nginx just proxies. Keep this block here rather than hand-editing
+  # the live file: this heredoc overwrites /etc/nginx/sites-available/labee on
+  # every deploy that sets DOMAIN, so an out-of-band edit would be destroyed.
+  location /mcp {
+    proxy_pass http://127.0.0.1:3001/mcp;
+    proxy_http_version 1.1;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_set_header Connection "";
+    proxy_buffering off;
+    proxy_read_timeout 600s;
+    proxy_send_timeout 600s;
+  }
+
   location / {
     proxy_pass http://127.0.0.1:3000;
     proxy_http_version 1.1;
