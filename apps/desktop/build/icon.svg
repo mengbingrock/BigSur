@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#FAFAF7"/>
+  <!-- wings (behind body) -->
+  <g fill="#FFFFFF" stroke="#111111" stroke-width="12" opacity="0.97">
+    <ellipse cx="352" cy="430" rx="155" ry="98" transform="rotate(-30 352 430)"/>
+    <ellipse cx="672" cy="430" rx="155" ry="98" transform="rotate(30 672 430)"/>
+  </g>
+  <!-- stinger -->
+  <path d="M512 800 l-34 70 34 -14 34 14 z" fill="#111111"/>
+  <!-- body -->
+  <clipPath id="body"><ellipse cx="512" cy="560" rx="220" ry="255"/></clipPath>
+  <ellipse cx="512" cy="560" rx="220" ry="255" fill="#F5B301" stroke="#111111" stroke-width="18"/>
+  <g clip-path="url(#body)" fill="#111111">
+    <rect x="280" y="452" width="464" height="74"/>
+    <rect x="280" y="576" width="464" height="74"/>
+    <rect x="280" y="700" width="464" height="74"/>
+  </g>
+  <!-- head -->
+  <circle cx="512" cy="322" r="128" fill="#111111"/>
+  <!-- eyes -->
+  <circle cx="470" cy="308" r="30" fill="#FAFAF7"/>
+  <circle cx="554" cy="308" r="30" fill="#FAFAF7"/>
+  <circle cx="476" cy="314" r="12" fill="#111111"/>
+  <circle cx="560" cy="314" r="12" fill="#111111"/>
+  <!-- antennae -->
+  <g stroke="#111111" stroke-width="14" fill="none" stroke-linecap="round">
+    <path d="M466 214 C 430 150, 410 130, 384 116"/>
+    <path d="M558 214 C 594 150, 614 130, 640 116"/>
+  </g>
+  <circle cx="380" cy="112" r="18" fill="#111111"/>
+  <circle cx="644" cy="112" r="18" fill="#111111"/>
+</svg>

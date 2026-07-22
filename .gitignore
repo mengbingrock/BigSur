@@ -13,6 +13,9 @@ dist-electron/
 .env.*
 !.env.example
 build/
+# ...but keep the desktop app's electron-builder buildResources (icons etc.).
+!apps/desktop/build/
+!apps/desktop/build/**
 release/
 release-mock/
 .idea/
