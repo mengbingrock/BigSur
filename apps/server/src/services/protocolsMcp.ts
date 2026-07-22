@@ -14,20 +14,26 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-
-let cached: string[] | null | undefined;
+import { remoteLabeeSession } from "./llmSettings";
 
 interface RemoteConfig {
   url: string;
   token: string | undefined;
+  /** Epoch ms after which `token` must be re-minted. Absent = never expires. */
+  expiresAt?: number;
 }
 
+/** Re-mint this long before expiry, so a token can't die mid-turn. */
+const REFRESH_SKEW_MS = 15 * 60 * 1000;
+
+let cached: RemoteConfig | null | undefined;
+
 /**
- * The configured remote endpoint, or null when unset/unusable. A malformed URL
- * is treated as unconfigured rather than throwing: a bad env var should cost
- * the protocol tools, not the whole chat route.
+ * The statically configured endpoint (hosted box), or null. A malformed URL is
+ * treated as unconfigured rather than throwing: a bad env var should cost the
+ * protocol tools, not the whole chat route.
  */
-function remoteConfig(): RemoteConfig | null {
+function staticConfig(): RemoteConfig | null {
   const raw = process.env.PROTOCOLS_MCP_URL?.trim();
   if (!raw) return null;
 
@@ -58,20 +64,75 @@ function remoteConfig(): RemoteConfig | null {
 }
 
 /**
+ * Mint a per-user token from the hosted box, for a desktop instance connected to
+ * a Labee account. Returns null when this isn't a connected desktop or the box
+ * rejects the session — the caller then simply has no protocol tools.
+ */
+async function mintedConfig(): Promise<RemoteConfig | null> {
+  const remote = remoteLabeeSession();
+  if (!remote) return null;
+  try {
+    const res = await fetch(`${remote.base}/api/protocols/mcp-token`, {
+      headers: { accept: "application/json", cookie: remote.cookie },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { token?: string; expiresIn?: number; url?: string };
+    if (!data.token || !data.url) return null;
+    return {
+      url: data.url,
+      token: data.token,
+      expiresAt: Date.now() + (data.expiresIn ?? 3600) * 1000,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function isStale(config: RemoteConfig | null | undefined): boolean {
+  if (config === undefined) return true; // never resolved
+  if (config === null) return false; // resolved to "unavailable"; don't hammer
+  if (!config.expiresAt) return false; // static token, never expires
+  return Date.now() > config.expiresAt - REFRESH_SKEW_MS;
+}
+
+/**
+ * Resolve (or refresh) the MCP endpoint + credential. Await this from an async
+ * context before calling `protocolsMcpArgs`, which is synchronous and reads
+ * whatever this last resolved.
+ *
+ * A static token (the hosted box) is used as-is. Otherwise, on a desktop
+ * connected to a Labee account, a short-lived token is minted and re-minted
+ * ahead of expiry — that's the auto-refresh, driven by use rather than a timer,
+ * so it costs nothing while the app is idle.
+ */
+export async function ensureProtocolsMcpToken(): Promise<void> {
+  if (!isStale(cached)) return;
+
+  const direct = staticConfig();
+  if (direct) {
+    cached = direct;
+    return;
+  }
+
+  const minted = await mintedConfig();
+  cached = minted;
+  // codex can only reference a bearer token by env-var name, so publish the
+  // minted value where the spawned codex process will read it. Safe because we
+  // only reach here when no static token was configured.
+  if (minted?.token) process.env.PROTOCOLS_MCP_TOKEN = minted.token;
+}
+
+/**
  * `claude` CLI args that register the protocol-search MCP server, or `[]` when
- * no endpoint is configured. Computed once and memoised.
+ * no endpoint is configured.
  *
  * The tools surface to the model as `mcp__protocols__search` / `_fetch` /
  * `_list_sources`; under the bypassPermissions modes the chat route already
  * uses they are auto-allowed.
  */
 export function protocolsMcpArgs(): string[] {
-  if (cached !== undefined) return cached ?? [];
-  const remote = remoteConfig();
-  if (!remote) {
-    cached = null;
-    return [];
-  }
+  const remote = cached ?? staticConfig();
+  if (!remote) return [];
   const config = {
     mcpServers: {
       protocols: {
@@ -83,8 +144,7 @@ export function protocolsMcpArgs(): string[] {
       },
     },
   };
-  cached = ["--mcp-config", JSON.stringify(config)];
-  return cached;
+  return ["--mcp-config", JSON.stringify(config)];
 }
 
 /** True when the protocol-search MCP server is wired into chat this run. */
@@ -147,7 +207,7 @@ export function ensureCodexProtocolsMcp(enabled = true): void {
   const withoutManaged = existing.replace(managedRe, "\n");
 
   // Toggled off (or no endpoint): remove our managed block if present and stop.
-  const remote = enabled ? remoteConfig() : null;
+  const remote = enabled ? (cached ?? staticConfig()) : null;
   if (!remote) {
     if (withoutManaged !== existing) {
       try {

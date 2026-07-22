@@ -7,7 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { AccountConnection } from "@labee/contracts";
-import { ensureCodexProtocolsMcp } from "./protocolsMcp";
+import { ensureCodexProtocolsMcp, ensureProtocolsMcpToken } from "./protocolsMcp";
 
 function codexHome(): string {
   return process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
@@ -194,7 +194,9 @@ export function codexExecStream(opts: {
   const outFile = path.join(os.tmpdir(), `labee-codex-${process.pid}-${Date.now()}.txt`);
 
   return new ReadableStream<Uint8Array>({
-    start(controller) {
+    // Async so the MCP credential can be refreshed before codex is spawned; the
+    // stream simply doesn't emit until this resolves.
+    async start(controller) {
       const started = Date.now();
       const enqueue = (event: string, data: unknown) => {
         if (aborted.v) return;
@@ -214,7 +216,10 @@ export function codexExecStream(opts: {
       enqueue("status", { status: "thinking" });
 
       // Register (or, when toggled off, remove) the protocol-search MCP in
-      // ~/.codex/config.toml so this exec sees only the enabled servers.
+      // ~/.codex/config.toml so this exec sees only the enabled servers. The
+      // credential is refreshed first, since codex reads the bearer token from
+      // the environment we're about to hand the child process.
+      if (opts.protocolsMcp !== false) await ensureProtocolsMcpToken();
       ensureCodexProtocolsMcp(opts.protocolsMcp !== false);
 
       try {

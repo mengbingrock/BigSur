@@ -86,6 +86,41 @@ export async function readProxyToken(token: string | undefined): Promise<string 
 
 export const PROXY_TOKEN_TTL = PROXY_TOKEN_TTL_SECONDS;
 
+/** A short-lived, scoped token for the protocol-search MCP proxy. Same shape and
+ *  reasoning as ProxyToken — sealed with the session password, tagged with a
+ *  distinct scope so it can't be replayed as a session cookie or as an
+ *  inference-proxy token.
+ *
+ *  Longer-lived than the LLM proxy token because of how MCP clients consume it:
+ *  the claude CLI reads the `headers` block once when it opens the server
+ *  connection and holds it for the life of that process, so the token has to
+ *  outlive a whole agent turn. Callers refresh ahead of expiry. */
+export interface McpToken {
+  email: string;
+  scope: "mcp";
+}
+const MCP_TOKEN_TTL_SECONDS = 60 * 60 * 6; // 6 hours
+
+export async function sealMcpToken(email: string): Promise<string> {
+  return sealData({ email, scope: "mcp" } satisfies McpToken, {
+    password: getPassword(),
+    ttl: MCP_TOKEN_TTL_SECONDS,
+  });
+}
+
+/** Unseal + validate an MCP token, returning the email or null. */
+export async function readMcpToken(token: string | undefined): Promise<string | null> {
+  if (!token) return null;
+  try {
+    const data = await unsealData<McpToken>(token, { password: getPassword() });
+    return data.scope === "mcp" && data.email ? data.email : null;
+  } catch {
+    return null;
+  }
+}
+
+export const MCP_TOKEN_TTL = MCP_TOKEN_TTL_SECONDS;
+
 /** How long a sealed session stays valid, in seconds. */
 export const SESSION_TTL_SECONDS = TTL_SECONDS;
 
