@@ -521,6 +521,15 @@ async function createWindow(): Promise<void> {
       if (openAuthExternally(target)) {
         event.preventDefault();
         void shell.openExternal(target);
+        return;
+      }
+      // A same-window navigation to an external site — e.g. Stripe Checkout or
+      // the billing portal opened by "Add credits" (window.location.href) —
+      // must open in the system browser, not hijack the app window. Same-origin
+      // and loopback navigations stay in-window (mirrors setWindowOpenHandler).
+      if (!sameOrigin(target, serverBaseUrl) && !isLoopback(target)) {
+        event.preventDefault();
+        void shell.openExternal(target);
       }
     });
     mainWindow.webContents.on("will-redirect", (event, target) => {
