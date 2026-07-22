@@ -15,7 +15,7 @@
     },
     "apps/desktop": {
       "name": "@labee/desktop",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "devDependencies": {
         "@labee/server": "workspace:*",
         "@types/node": "catalog:",
@@ -37,7 +37,7 @@
         "@effect/platform-node": "catalog:",
         "@labee/contracts": "workspace:*",
         "@labee/shared": "workspace:*",
-        "@mengbingrock/labee-protocol-searcher": "^0.3.0",
+        "@mengbingrock/labee-protocol-searcher": "^0.4.0",
         "bcryptjs": "^3.0.3",
         "effect": "catalog:",
         "fuse.js": "^7.0.0",
@@ -314,7 +314,7 @@
 
     "@malept/flatpak-bundler": ["@malept/flatpak-bundler@0.4.0", "", { "dependencies": { "debug": "^4.1.1", "fs-extra": "^9.0.0", "lodash": "^4.17.15", "tmp-promise": "^3.0.2" } }, "sha512-9QOtNffcOF/c1seMCDnjckb3R9WHcG34tky+FHpNKKCW0wc/scYLwMtO+ptyGUfMW0/b/n4qRiALlaFHc9Oj7Q=="],
 
-    "@mengbingrock/labee-protocol-searcher": ["@mengbingrock/labee-protocol-searcher@0.3.0", "", { "dependencies": { "unpdf": "^1.6.2" }, "bin": { "labee-protocol-searcher": "dist/index.mjs" } }, "sha512-sgmGz+nn19E9je2Ru/3W4MRbjJMEbpxWYW6jDM3TTRGDo5Jk7qb4330ng3b+T6OPV/UWt7+kmPYtIlTM/Bpwvg=="],
+    "@mengbingrock/labee-protocol-searcher": ["@mengbingrock/labee-protocol-searcher@0.4.0", "", { "dependencies": { "unpdf": "^1.6.2" }, "bin": { "labee-protocol-searcher": "dist/index.mjs" } }, "sha512-Zm77+XPNf8WHkju3j5YQtnzjWl0u3nWYSJ/TyAvn1JlJoGIj9nBMZukwTplsIyqdrNQqkQ/HJkRJSG1nwSYVvQ=="],
 
     "@msgpackr-extract/msgpackr-extract-darwin-arm64": ["@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.4", "", { "os": "darwin", "cpu": "arm64" }, "sha512-LCkGo6JDfaBhgST7UpPWgNgLINpcpabaHfyz5OBx75nUYxBsaEPxjnyNjWpeb/xBup/682QnBfRBy2/LvPutZQ=="],
 
