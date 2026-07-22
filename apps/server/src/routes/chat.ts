@@ -15,7 +15,7 @@ import { getAgent } from "../services/agents";
 import { claudeEnvForCredential, validModel } from "../services/llm";
 import { openAIChatStream, type OpenAIChatMessage } from "../services/openai";
 import { codexExecStream } from "../services/codex";
-import { protocolsMcpArgs } from "../services/protocolsMcp";
+import { ensureProtocolsMcpToken, protocolsMcpArgs } from "../services/protocolsMcp";
 import { handleEvent } from "../services/claudeStream";
 import type { Provider } from "@labee/contracts";
 
@@ -505,6 +505,10 @@ export const chatRoute = HttpRouter.add(
     // Which MCP servers to wire in this turn. Omitted → all available (so old
     // clients keep the protocol server); an explicit list gates each server.
     const protocolsMcpOn = !Array.isArray(body.mcpServers) || body.mcpServers.includes("protocols");
+    // Resolve/refresh the MCP credential before building the CLI args below,
+    // which read it synchronously. On a connected desktop this re-mints a
+    // short-lived token when it's near expiry.
+    if (protocolsMcpOn) yield* Effect.promise(() => ensureProtocolsMcpToken());
     let userPrompt: string;
     let systemPrompt = SYSTEM_PROMPT;
     const selectedSkills: Skill[] = [];

@@ -329,12 +329,15 @@ async function startServer(): Promise<string> {
     COOKIE_SECURE: "false",
   };
 
-  // The protocol-search MCP is no longer bundled — it's a remote (Streamable
-  // HTTP) server the embedded server reaches over the network. It stays absent
-  // unless PROTOCOLS_MCP_URL *and* PROTOCOLS_MCP_TOKEN are both set, since the
-  // endpoint is bearer-authenticated and a desktop build must not ship the
-  // shared secret. Without them the server simply registers no protocol tools
-  // and chat works as before.
+  // The protocol-search MCP is no longer bundled — it's a remote server. We
+  // deliberately pass no URL or token here: a desktop build must not ship the
+  // MCP service's shared secret, since anything inside the bundle is
+  // extractable. Instead the embedded server mints a short-lived per-user token
+  // against the box session below (LABEE_REMOTE_SESSION_FILE) and talks to the
+  // /api/protocols/mcp proxy. With no connected account there's simply no
+  // protocol tool, and chat works as before.
+  //
+  // An explicit override still wins, for pointing a dev build at a local MCP.
   if (process.env.PROTOCOLS_MCP_URL) env.PROTOCOLS_MCP_URL = process.env.PROTOCOLS_MCP_URL;
   if (process.env.PROTOCOLS_MCP_TOKEN) env.PROTOCOLS_MCP_TOKEN = process.env.PROTOCOLS_MCP_TOKEN;
 
