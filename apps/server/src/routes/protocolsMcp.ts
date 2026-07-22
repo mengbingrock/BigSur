@@ -14,7 +14,23 @@
 import { Effect } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 import { error, json, sessionUser } from "../httpKit";
+import { hasPaidEntitlement } from "../services/billing";
+import { clientIp, consume } from "../services/rateLimit";
 import { MCP_TOKEN_TTL, readMcpToken, sealMcpToken } from "../services/session";
+
+const HOUR_MS = 60 * 60 * 1000;
+
+/** Requests per hour, by tier. 0 = unmetered. */
+const ANON_LIMIT = Number(process.env.PROTOCOLS_MCP_ANON_LIMIT ?? 20);
+const USER_LIMIT = Number(process.env.PROTOCOLS_MCP_USER_LIMIT ?? 200);
+
+interface Tier {
+  /** Rate-limit bucket key. */
+  key: string;
+  limit: number;
+  /** Present when the caller is a known account. */
+  email?: string;
+}
 
 /** Where the labee-mcp service listens. Loopback by default. */
 const UPSTREAM = (process.env.PROTOCOLS_MCP_URL || "http://127.0.0.1:3001/mcp").trim();
@@ -64,10 +80,48 @@ export const mcpProxyRoute = HttpRouter.add(
   Effect.gen(function* () {
     const request = yield* HttpServerRequest.HttpServerRequest;
     const auth = request.headers["authorization"] ?? request.headers["Authorization"];
-    const email = yield* Effect.promise(() =>
-      readMcpToken(auth?.replace(/^Bearer\s+/i, "")),
-    );
-    if (!email) return yield* error("Invalid or expired MCP token.", 401);
+    const presented = auth?.replace(/^Bearer\s+/i, "");
+    const email = yield* Effect.promise(() => readMcpToken(presented));
+
+    // A token that was presented but didn't verify is an error, not a silent
+    // demotion to the anonymous tier — otherwise an expired token looks like it
+    // still works, just mysteriously throttled.
+    if (presented && !email) return yield* error("Invalid or expired MCP token.", 401);
+
+    let tier: Tier;
+    if (email) {
+      const paid = yield* Effect.promise(() => hasPaidEntitlement(email));
+      tier = { key: `mcp:user:${email}`, limit: paid ? 0 : USER_LIMIT, email };
+    } else {
+      tier = { key: `mcp:ip:${clientIp(request.headers)}`, limit: ANON_LIMIT };
+    }
+
+    const quota = consume(tier.key, tier.limit, HOUR_MS);
+    if (!quota.allowed) {
+      const hint = tier.email
+        ? "Add credits in Settings → Billing to lift this limit."
+        : "Sign in at labee.online for a higher limit.";
+      return HttpServerResponse.text(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: null,
+          error: {
+            code: -32029,
+            message: `Rate limit exceeded (${quota.limit}/hour). ${hint}`,
+          },
+        }),
+        {
+          status: 429,
+          contentType: "application/json",
+          headers: {
+            "retry-after": String(quota.retryAfterSeconds),
+            "x-ratelimit-limit": String(quota.limit),
+            "x-ratelimit-remaining": "0",
+            "x-ratelimit-reset": String(Math.floor(quota.resetAt / 1000)),
+          },
+        },
+      );
+    }
 
     const body = yield* request.text.pipe(Effect.catch(() => Effect.succeed("")));
 
@@ -93,6 +147,13 @@ export const mcpProxyRoute = HttpRouter.add(
     return HttpServerResponse.text(text, {
       status: res.status,
       contentType: res.headers.get("content-type") ?? "application/json",
+      headers: Number.isFinite(quota.limit)
+        ? {
+            "x-ratelimit-limit": String(quota.limit),
+            "x-ratelimit-remaining": String(quota.remaining),
+            "x-ratelimit-reset": String(Math.floor(quota.resetAt / 1000)),
+          }
+        : {},
     });
   }),
 );
