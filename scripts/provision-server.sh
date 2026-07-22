@@ -98,6 +98,17 @@ if [ -f "$APP_DIR/.env.production" ]; then
     echo "DECK_ROOT=$DECK_ROOT" >> "$APP_DIR/.env.production"
     ok "appended DECK_ROOT to existing .env.production"
   fi
+  # Append the MCP bearer token if missing (existing install upgrading to the
+  # remote protocol-search MCP). Generated once and then stable — rotating it
+  # would break every client until they pick up the new value.
+  if ! grep -q '^PROTOCOLS_MCP_TOKEN=' "$APP_DIR/.env.production"; then
+    echo "PROTOCOLS_MCP_TOKEN=$(openssl rand -hex 32)" >> "$APP_DIR/.env.production"
+    ok "generated PROTOCOLS_MCP_TOKEN in existing .env.production"
+  fi
+  if ! grep -q '^PROTOCOLS_MCP_URL=' "$APP_DIR/.env.production"; then
+    echo "PROTOCOLS_MCP_URL=${PROTOCOLS_MCP_URL:-http://127.0.0.1:3001/mcp}" >> "$APP_DIR/.env.production"
+    ok "appended PROTOCOLS_MCP_URL to existing .env.production"
+  fi
 else
   SESSION_PASSWORD="$(openssl rand -base64 48 | tr -d '\n' | tr '/+' '_-' | cut -c1-48)"
   {
@@ -124,13 +135,18 @@ else
     echo "STRIPE_PRICE_CREDITS_25="
     echo "STRIPE_PRICE_CREDITS_50="
     echo "# LABEE_PUBLIC_URL=https://labee.online"
-    # Protocol-search MCP (apps/mcp-protocols). Set a real contact email for the
+    # Protocol-search MCP (labee-mcp.service). Set a real contact email for the
     # scholarly polite-pools; optionally add a Brave/Google key for reliable
     # reagent-vendor search (see .env.example). Blank = keyless best-effort.
     echo "PROTOCOLS_CONTACT_EMAIL="
     echo "BRAVE_API_KEY="
     echo "# GOOGLE_API_KEY="
     echo "# GOOGLE_CSE_CX="
+    # The MCP server now runs as its own service (labee-mcp) speaking Streamable
+    # HTTP; the app connects to it as a remote MCP over this URL + bearer token.
+    # Loopback by default — nginx exposes it publicly at https://<domain>/mcp.
+    echo "PROTOCOLS_MCP_TOKEN=$(openssl rand -hex 32)"
+    echo "PROTOCOLS_MCP_URL=${PROTOCOLS_MCP_URL:-http://127.0.0.1:3001/mcp}"
   } > "$APP_DIR/.env.production"
   chmod 600 "$APP_DIR/.env.production"
   ok "wrote $APP_DIR/.env.production"
@@ -142,16 +158,21 @@ if [ -n "$DECK_ROOT" ]; then
   ok "deck root ready at $DECK_ROOT"
 fi
 
-# --- systemd unit --------------------------------------------------------
-bold "[6/6] Installing systemd unit"
-UNIT_PATH=/etc/systemd/system/labee.service
-if [ ! -f "$UNIT_PATH" ] || ! diff -q "$APP_DIR/scripts/labee.service" "$UNIT_PATH" >/dev/null 2>&1; then
-  sudo cp "$APP_DIR/scripts/labee.service" "$UNIT_PATH"
-  sudo systemctl daemon-reload
-  sudo systemctl enable labee >/dev/null 2>&1
-  ok "systemd unit installed + enabled"
-else
-  skip "systemd unit up to date"
-fi
+# --- systemd units -------------------------------------------------------
+bold "[6/6] Installing systemd units"
+install_unit() {
+  unit="$1"
+  unit_path="/etc/systemd/system/$unit"
+  if [ ! -f "$unit_path" ] || ! diff -q "$APP_DIR/scripts/$unit" "$unit_path" >/dev/null 2>&1; then
+    sudo cp "$APP_DIR/scripts/$unit" "$unit_path"
+    sudo systemctl daemon-reload
+    sudo systemctl enable "${unit%.service}" >/dev/null 2>&1
+    ok "$unit installed + enabled"
+  else
+    skip "$unit up to date"
+  fi
+}
+install_unit labee.service
+install_unit labee-mcp.service
 
 bold "Provisioning complete."

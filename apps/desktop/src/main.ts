@@ -329,12 +329,14 @@ async function startServer(): Promise<string> {
     COOKIE_SECURE: "false",
   };
 
-  // Point the server at the bundled protocol-search MCP (shipped as an
-  // extraResource beside the server bundle). Only relevant to the embedded
-  // server; remote mode uses the hosted server's own copy.
-  if (app.isPackaged) {
-    env.PROTOCOLS_MCP_PATH = path.join(process.resourcesPath, "mcp-protocols", "dist", "index.mjs");
-  }
+  // The protocol-search MCP is no longer bundled — it's a remote (Streamable
+  // HTTP) server the embedded server reaches over the network. It stays absent
+  // unless PROTOCOLS_MCP_URL *and* PROTOCOLS_MCP_TOKEN are both set, since the
+  // endpoint is bearer-authenticated and a desktop build must not ship the
+  // shared secret. Without them the server simply registers no protocol tools
+  // and chat works as before.
+  if (process.env.PROTOCOLS_MCP_URL) env.PROTOCOLS_MCP_URL = process.env.PROTOCOLS_MCP_URL;
+  if (process.env.PROTOCOLS_MCP_TOKEN) env.PROTOCOLS_MCP_TOKEN = process.env.PROTOCOLS_MCP_TOKEN;
 
   // Local-first: let the embedded server pull the user's agents/skills FROM the
   // hosted Labee server, authenticating with a box session the desktop persists

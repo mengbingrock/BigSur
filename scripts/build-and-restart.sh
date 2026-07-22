@@ -27,11 +27,26 @@ bold "[2/3] build (server + web)"
 bun run turbo run build --filter=@labee/server --filter=@labee/web
 ok "build complete"
 
-bold "[3/3] restart service"
-sudo systemctl restart labee
+bold "[3/3] restart services"
+# labee-mcp first: the app resolves protocol-search tools against it at chat
+# time, so bringing it up before the app avoids a window of missing tools.
+for svc in labee-mcp labee; do
+  sudo systemctl restart "$svc"
+done
 sleep 2
-sudo systemctl is-active labee --quiet && ok "labee is running" || {
-  echo "    service did NOT come up. Last 30 log lines:"
-  sudo journalctl -u labee -n 30 --no-pager
+for svc in labee-mcp labee; do
+  sudo systemctl is-active "$svc" --quiet && ok "$svc is running" || {
+    echo "    $svc did NOT come up. Last 30 log lines:"
+    sudo journalctl -u "$svc" -n 30 --no-pager
+    exit 1
+  }
+done
+
+# Prove the MCP endpoint actually answers, not just that the unit is active.
+if curl -fsS --max-time 5 http://127.0.0.1:3001/healthz >/dev/null 2>&1; then
+  ok "labee-mcp health probe passed"
+else
+  echo "    labee-mcp /healthz did not respond. Last 30 log lines:"
+  sudo journalctl -u labee-mcp -n 30 --no-pager
   exit 1
-}
+fi

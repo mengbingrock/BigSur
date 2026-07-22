@@ -1,0 +1,27 @@
+[Unit]
+Description=Labee protocol-search MCP server (Streamable HTTP)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/labee
+# Shares the app's env file: the MCP server reads the same PROTOCOLS_*/BRAVE_*/
+# GOOGLE_* keys, plus PROTOCOLS_MCP_TOKEN for its bearer auth.
+EnvironmentFile=/home/ubuntu/labee/.env.production
+Environment=PATH=/home/ubuntu/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# Smaller ceiling than the app's 384M — this box has 512M RAM and both processes
+# run on it. PDF extraction is the only memory-hungry path.
+Environment=NODE_OPTIONS=--max-old-space-size=256
+Environment=PROTOCOLS_MCP_PORT=3001
+# Loopback only. nginx terminates TLS and proxies /mcp here; the port itself
+# must never face the internet.
+Environment=PROTOCOLS_MCP_HOST=127.0.0.1
+ExecStart=/usr/bin/node node_modules/@mengbingrock/labee-protocol-searcher/dist/index.mjs --http
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target

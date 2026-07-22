@@ -36,10 +36,6 @@
       {
         "from": "../web/dist",
         "to": "server/client"
-      },
-      {
-        "from": "../../node_modules/@mengbingrock/labee-protocol-searcher/dist",
-        "to": "mcp-protocols/dist"
       }
     ],
     "asar": true,
