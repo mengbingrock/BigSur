@@ -505,6 +505,9 @@ export const chatRoute = HttpRouter.add(
     // Which MCP servers to wire in this turn. Omitted → all available (so old
     // clients keep the protocol server); an explicit list gates each server.
     const protocolsMcpOn = !Array.isArray(body.mcpServers) || body.mcpServers.includes("protocols");
+    // Claude in Chrome (browser automation) is off by default in headless `-p`
+    // runs; `--chrome` opts back in. On unless the client explicitly excludes it.
+    const chromeMcpOn = !Array.isArray(body.mcpServers) || body.mcpServers.includes("chrome");
     // Resolve/refresh the MCP credential before building the CLI args below,
     // which read it synchronously. On a connected desktop this re-mints a
     // short-lived token when it's near expiry.
@@ -760,6 +763,9 @@ export const chatRoute = HttpRouter.add(
         // Register the protocol-search MCP server (no-op when it isn't built).
         // Skipped for edit mode, which runs with no tools.
         ...(mode === "edit" || !protocolsMcpOn ? [] : protocolsMcpArgs()),
+        // Browser automation via the paired Chrome extension. Headless runs
+        // disable it unless asked; edit mode runs with no tools at all.
+        ...(mode === "edit" || !chromeMcpOn ? [] : ["--chrome"]),
         "--effort", mode === "edit" ? "low" : "high",
       ];
       const extraEnv = claudeEnvForCredential(cred);
