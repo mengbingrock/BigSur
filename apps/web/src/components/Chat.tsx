@@ -83,11 +83,20 @@ interface ActiveSelection {
 const SELECTED_KEY = "monterey.selectedSkills.v1";
 
 /** Pluggable MCP servers the agent can be given (toggled from the composer "+"). */
+// Bumped when a server is added, so a stored set from an older build doesn't
+// leave the new server switched off for everyone who has already chatted.
+const MCP_SERVERS_KEY = "labee:mcp-servers:v2";
+
 const MCP_SERVERS: { id: string; label: string; desc: string }[] = [
   {
     id: "protocols",
     label: "Protocol search",
     desc: "Journals, reagent vendors & REBASE enzymes",
+  },
+  {
+    id: "chrome",
+    label: "Claude in Chrome",
+    desc: "Read and drive pages in your paired Chrome browser",
   },
 ];
 
@@ -341,7 +350,7 @@ export default function Chat({
   const [mcpServers, setMcpServers] = useState<Set<string>>(() => {
     if (typeof window !== "undefined") {
       try {
-        const raw = window.localStorage.getItem("labee:mcp-servers");
+        const raw = window.localStorage.getItem(MCP_SERVERS_KEY);
         if (raw) return new Set(JSON.parse(raw) as string[]);
       } catch {
         /* fall through to default */
@@ -351,7 +360,7 @@ export default function Chat({
   });
   useEffect(() => {
     if (typeof window !== "undefined")
-      window.localStorage.setItem("labee:mcp-servers", JSON.stringify([...mcpServers]));
+      window.localStorage.setItem(MCP_SERVERS_KEY, JSON.stringify([...mcpServers]));
   }, [mcpServers]);
   const toggleMcp = (id: string) =>
     setMcpServers((prev) => {
