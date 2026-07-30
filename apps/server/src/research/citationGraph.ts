@@ -129,6 +129,24 @@ async function fetchCiting(ctx: EvidenceCtx, wid: string, cap: number): Promise<
   }
 }
 
+/** Cache a candidate's metadata keyed by its citable ref id. This is what
+ *  makes the work CITABLE downstream: the retrieval-only rule checks for an
+ *  evidence row per ref id, and the entailment judge reads this payload.
+ *  (The raw HTTP responses cached by openAlexGet are the request-level audit
+ *  trail; they carry no ref_id.) */
+async function cacheWorkEvidence(ctx: EvidenceCtx, cand: CandidatePaper): Promise<void> {
+  await cacheEvidence(ctx, {
+    sourceTool: "openalex_work",
+    request: { work: cand.openalexId },
+    refId: cand.refId,
+    payload: {
+      text:
+        `title: ${cand.title}\nyear: ${cand.year ?? "n.d."}\n` +
+        `cited_by_count: ${cand.citedByCount}\nabstract: ${cand.abstract}`,
+    },
+  });
+}
+
 /** 2-hop crawl from the seeds: references + top citations per work, deduped,
  *  capped at maxCandidates. Seeds that don't resolve are skipped (the caller
  *  gates on how much survives). */
@@ -148,6 +166,7 @@ export async function crawlCitationGraph(
     seedWorks.push(work);
     seeds.push(cand);
     seen.set(cand.openalexId, cand);
+    await cacheWorkEvidence(ctx, cand);
   }
 
   const perWorkCiteCap = 100;
@@ -169,6 +188,7 @@ export async function crawlCitationGraph(
         const cand = workToCandidate(w, hop);
         if (seen.has(cand.openalexId) || seen.size >= opts.maxCandidates) continue;
         seen.set(cand.openalexId, cand);
+        await cacheWorkEvidence(ctx, cand);
         if (hop === 1) nextFrontier.push(w);
       }
       opts.onProgress?.(seen.size);
