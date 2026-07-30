@@ -15,9 +15,11 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SkillsIndexRouteImport } from './routes/skills.index'
+import { Route as ResearchIndexRouteImport } from './routes/research.index'
 import { Route as AgentsIndexRouteImport } from './routes/agents.index'
 import { Route as SkillsNewRouteImport } from './routes/skills.new'
 import { Route as SkillsSlugRouteImport } from './routes/skills.$slug'
+import { Route as ResearchRunIdRouteImport } from './routes/research.$runId'
 import { Route as AgentsNewRouteImport } from './routes/agents.new'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as SkillsSlugEditRouteImport } from './routes/skills.$slug.edit'
@@ -53,6 +55,11 @@ const SkillsIndexRoute = SkillsIndexRouteImport.update({
   path: '/skills/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResearchIndexRoute = ResearchIndexRouteImport.update({
+  id: '/research/',
+  path: '/research/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AgentsIndexRoute = AgentsIndexRouteImport.update({
   id: '/agents/',
   path: '/agents/',
@@ -66,6 +73,11 @@ const SkillsNewRoute = SkillsNewRouteImport.update({
 const SkillsSlugRoute = SkillsSlugRouteImport.update({
   id: '/skills/$slug',
   path: '/skills/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResearchRunIdRoute = ResearchRunIdRouteImport.update({
+  id: '/research/$runId',
+  path: '/research/$runId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgentsNewRoute = AgentsNewRouteImport.update({
@@ -97,9 +109,11 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
   '/agents/new': typeof AgentsNewRoute
+  '/research/$runId': typeof ResearchRunIdRoute
   '/skills/$slug': typeof SkillsSlugRouteWithChildren
   '/skills/new': typeof SkillsNewRoute
   '/agents/': typeof AgentsIndexRoute
+  '/research/': typeof ResearchIndexRoute
   '/skills/': typeof SkillsIndexRoute
   '/agents/$id/edit': typeof AgentsIdEditRoute
   '/skills/$slug/edit': typeof SkillsSlugEditRoute
@@ -112,9 +126,11 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
   '/agents/new': typeof AgentsNewRoute
+  '/research/$runId': typeof ResearchRunIdRoute
   '/skills/$slug': typeof SkillsSlugRouteWithChildren
   '/skills/new': typeof SkillsNewRoute
   '/agents': typeof AgentsIndexRoute
+  '/research': typeof ResearchIndexRoute
   '/skills': typeof SkillsIndexRoute
   '/agents/$id/edit': typeof AgentsIdEditRoute
   '/skills/$slug/edit': typeof SkillsSlugEditRoute
@@ -128,9 +144,11 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
   '/agents/new': typeof AgentsNewRoute
+  '/research/$runId': typeof ResearchRunIdRoute
   '/skills/$slug': typeof SkillsSlugRouteWithChildren
   '/skills/new': typeof SkillsNewRoute
   '/agents/': typeof AgentsIndexRoute
+  '/research/': typeof ResearchIndexRoute
   '/skills/': typeof SkillsIndexRoute
   '/agents/$id/edit': typeof AgentsIdEditRoute
   '/skills/$slug/edit': typeof SkillsSlugEditRoute
@@ -145,9 +163,11 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin/users'
     | '/agents/new'
+    | '/research/$runId'
     | '/skills/$slug'
     | '/skills/new'
     | '/agents/'
+    | '/research/'
     | '/skills/'
     | '/agents/$id/edit'
     | '/skills/$slug/edit'
@@ -160,9 +180,11 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin/users'
     | '/agents/new'
+    | '/research/$runId'
     | '/skills/$slug'
     | '/skills/new'
     | '/agents'
+    | '/research'
     | '/skills'
     | '/agents/$id/edit'
     | '/skills/$slug/edit'
@@ -175,9 +197,11 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin/users'
     | '/agents/new'
+    | '/research/$runId'
     | '/skills/$slug'
     | '/skills/new'
     | '/agents/'
+    | '/research/'
     | '/skills/'
     | '/agents/$id/edit'
     | '/skills/$slug/edit'
@@ -191,9 +215,11 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AgentsNewRoute: typeof AgentsNewRoute
+  ResearchRunIdRoute: typeof ResearchRunIdRoute
   SkillsSlugRoute: typeof SkillsSlugRouteWithChildren
   SkillsNewRoute: typeof SkillsNewRoute
   AgentsIndexRoute: typeof AgentsIndexRoute
+  ResearchIndexRoute: typeof ResearchIndexRoute
   SkillsIndexRoute: typeof SkillsIndexRoute
   AgentsIdEditRoute: typeof AgentsIdEditRoute
 }
@@ -242,6 +268,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SkillsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/research/': {
+      id: '/research/'
+      path: '/research'
+      fullPath: '/research/'
+      preLoaderRoute: typeof ResearchIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/agents/': {
       id: '/agents/'
       path: '/agents'
@@ -261,6 +294,13 @@ declare module '@tanstack/react-router' {
       path: '/skills/$slug'
       fullPath: '/skills/$slug'
       preLoaderRoute: typeof SkillsSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/research/$runId': {
+      id: '/research/$runId'
+      path: '/research/$runId'
+      fullPath: '/research/$runId'
+      preLoaderRoute: typeof ResearchRunIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agents/new': {
@@ -314,9 +354,11 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   AdminUsersRoute: AdminUsersRoute,
   AgentsNewRoute: AgentsNewRoute,
+  ResearchRunIdRoute: ResearchRunIdRoute,
   SkillsSlugRoute: SkillsSlugRouteWithChildren,
   SkillsNewRoute: SkillsNewRoute,
   AgentsIndexRoute: AgentsIndexRoute,
+  ResearchIndexRoute: ResearchIndexRoute,
   SkillsIndexRoute: SkillsIndexRoute,
   AgentsIdEditRoute: AgentsIdEditRoute,
 }

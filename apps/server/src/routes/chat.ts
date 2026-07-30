@@ -1,6 +1,3 @@
-import { spawn } from "node:child_process";
-import type { ChildProcessByStdio } from "node:child_process";
-import type { Readable } from "node:stream";
 import fs from "node:fs/promises";
 import path from "node:path";
 import matter from "gray-matter";
@@ -17,6 +14,13 @@ import { openAIChatStream, type OpenAIChatMessage } from "../services/openai";
 import { codexExecStream } from "../services/codex";
 import { ensureProtocolsMcpToken, protocolsMcpArgs } from "../services/protocolsMcp";
 import { handleEvent } from "../services/claudeStream";
+import {
+  CLAUDE_NOT_FOUND,
+  buildClaudeArgs,
+  isMissingClaude,
+  spawnClaudeStream,
+  type ClaudeChild,
+} from "../services/claudeRunner";
 import type { Provider } from "@labee/contracts";
 
 interface ChatMessage {
@@ -43,8 +47,6 @@ interface ChatRequest {
   /** Enabled MCP server ids for this turn. Omitted → all available (back-compat). */
   mcpServers?: string[];
 }
-
-const CLAUDE_BIN = process.env.CLAUDE_BIN || "claude";
 
 const CONTEXT_FILE_MAX_BYTES = 200 * 1024;
 const CONTEXT_TOTAL_MAX_BYTES = 1_000_000;
@@ -335,16 +337,6 @@ async function linkSelectedProtocols(
   return linked;
 }
 
-const CLAUDE_NOT_FOUND =
-  "Claude Code isn't installed (or wasn't found on your PATH). Install it with " +
-  "`npm i -g @anthropic-ai/claude-code`, then restart the app. To use OpenAI " +
-  "Codex instead, set the agent's engine to Codex.";
-
-/** True when a spawn failure means the claude binary couldn't be found. */
-function isMissingClaude(err: unknown): boolean {
-  return (err as NodeJS.ErrnoException | undefined)?.code === "ENOENT";
-}
-
 /** Build the SSE ReadableStream that spawns the claude CLI and forwards events. */
 function buildChatStream(
   cwd: string,
@@ -352,33 +344,13 @@ function buildChatStream(
   linkedSkillNames: string[],
   extraEnv: NodeJS.ProcessEnv = {},
 ): ReadableStream<Uint8Array> {
-  let proc: ChildProcessByStdio<null, Readable, Readable>;
+  let child: ClaudeChild | undefined;
   const encoder = new TextEncoder();
-  let stderrBuf = "";
   // Hoisted so cancel() (client abort) can stop further enqueues; otherwise
   // buffered stdout keeps calling send() after the controller is closed.
   let closed = false;
   return new ReadableStream<Uint8Array>({
     start(controller) {
-      try {
-        proc = spawn(CLAUDE_BIN, args, {
-          cwd,
-          stdio: ["ignore", "pipe", "pipe"],
-          env: { ...process.env, ...extraEnv },
-        });
-      } catch (err) {
-        const message = isMissingClaude(err)
-          ? CLAUDE_NOT_FOUND
-          : err instanceof Error
-            ? err.message
-            : "Failed to spawn claude.";
-        controller.enqueue(
-          encoder.encode(`event: error\ndata: ${JSON.stringify({ message })}\n\n`),
-        );
-        controller.close();
-        return;
-      }
-
       const close = () => {
         if (closed) return;
         closed = true;
@@ -405,68 +377,54 @@ function buildChatStream(
       const stopForQuestion = () => {
         if (closed) return;
         send("end", {});
-        try {
-          proc?.kill("SIGTERM");
-        } catch {
-          // already gone
-        }
+        child?.kill();
         close();
       };
-
-      send("skills_loaded", { linkedNames: linkedSkillNames, cwd });
 
       const blockType = new Map<number, string>();
       const blockId = new Map<number, string>();
       const blockName = new Map<number, string>();
       const blockInputJson = new Map<number, string>();
-      let buffer = "";
 
-      proc.stdout.on("data", (chunk: Buffer) => {
-        buffer += chunk.toString();
-        let nl;
-        while ((nl = buffer.indexOf("\n")) !== -1) {
-          const line = buffer.slice(0, nl);
-          buffer = buffer.slice(nl + 1);
-          if (!line.trim()) continue;
-          let evt: Record<string, unknown>;
-          try {
-            evt = JSON.parse(line);
-          } catch {
-            continue;
-          }
-          handleEvent(evt, send, blockType, blockId, blockName, blockInputJson, stopForQuestion);
-        }
-      });
-
-      proc.stderr.on("data", (chunk: Buffer) => {
-        stderrBuf += chunk.toString();
-        if (stderrBuf.length > 8192) stderrBuf = stderrBuf.slice(-8192);
-      });
-
-      proc.on("error", (err) => {
-        send("error", { message: isMissingClaude(err) ? CLAUDE_NOT_FOUND : err.message });
+      try {
+        child = spawnClaudeStream(
+          { cwd, args, extraEnv },
+          {
+            onEvent: (evt) =>
+              handleEvent(evt, send, blockType, blockId, blockName, blockInputJson, stopForQuestion),
+            onError: (message) => {
+              send("error", { message });
+              close();
+            },
+            onClose: (code, stderrBuf) => {
+              if (code !== 0) {
+                const tail = stderrBuf.trim().split("\n").slice(-5).join(" | ");
+                send("error", {
+                  message: `claude CLI exited with code ${code}${tail ? `: ${tail}` : ""}`,
+                });
+              } else {
+                send("end", {});
+              }
+              close();
+            },
+          },
+        );
+      } catch (err) {
+        const message = isMissingClaude(err)
+          ? CLAUDE_NOT_FOUND
+          : err instanceof Error
+            ? err.message
+            : "Failed to spawn claude.";
+        send("error", { message });
         close();
-      });
+        return;
+      }
 
-      proc.on("close", (code) => {
-        if (code !== 0) {
-          const tail = stderrBuf.trim().split("\n").slice(-5).join(" | ");
-          send("error", {
-            message: `claude CLI exited with code ${code}${tail ? `: ${tail}` : ""}`,
-          });
-        } else {
-          send("end", {});
-        }
-        close();
-      });
+      send("skills_loaded", { linkedNames: linkedSkillNames, cwd });
     },
     cancel() {
       closed = true;
-      try {
-        proc?.kill("SIGTERM");
-      } catch {
-        // already gone
-      }
+      child?.kill();
     },
   });
 }
@@ -743,31 +701,28 @@ export const chatRoute = HttpRouter.add(
           ...(cred.proxyBaseUrl ? { baseUrl: cred.proxyBaseUrl } : {}),
         });
     } else {
-      const args = [
-        "-p", userPrompt,
-        "--system-prompt", systemPrompt,
-        "--model", model,
-        "--tools", mode === "edit" ? "" : "default",
-        "--output-format", "stream-json",
-        "--verbose",
-        "--include-partial-messages",
-        "--permission-mode", claudePermissionMode,
-        "--no-session-persistence",
-        "--setting-sources", mode === "edit" ? "project" : "project,user",
-        "--exclude-dynamic-system-prompt-sections",
+      const args = buildClaudeArgs({
+        prompt: userPrompt,
+        systemPrompt,
+        model,
+        tools: mode === "edit" ? "" : "default",
+        outputFormat: "stream-json",
+        permissionMode: claudePermissionMode,
+        settingSources: mode === "edit" ? "project" : "project,user",
+        excludeDynamicSystemPromptSections: true,
         // Plan / Chat are read-only: keep Skill / AskUserQuestion / Read /
         // WebSearch available, but remove tools that change things or run commands.
         ...(readOnly
-          ? ["--disallowedTools", "Write", "Edit", "MultiEdit", "NotebookEdit", "Bash"]
-          : []),
+          ? { disallowedTools: ["Write", "Edit", "MultiEdit", "NotebookEdit", "Bash"] }
+          : {}),
         // Register the protocol-search MCP server (no-op when it isn't built).
         // Skipped for edit mode, which runs with no tools.
-        ...(mode === "edit" || !protocolsMcpOn ? [] : protocolsMcpArgs()),
+        ...(mode === "edit" || !protocolsMcpOn ? {} : { mcpArgs: protocolsMcpArgs() }),
         // Browser automation via the paired Chrome extension. Headless runs
         // disable it unless asked; edit mode runs with no tools at all.
-        ...(mode === "edit" || !chromeMcpOn ? [] : ["--chrome"]),
-        "--effort", mode === "edit" ? "low" : "high",
-      ];
+        chrome: mode !== "edit" && chromeMcpOn,
+        effort: mode === "edit" ? "low" : "high",
+      });
       const extraEnv = claudeEnvForCredential(cred);
       makeStream = () => buildChatStream(cwd, args, linkedSkillNames, extraEnv);
     }

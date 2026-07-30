@@ -125,6 +125,121 @@ async function openDb(): Promise<SqlDb> {
       "redeemed_at TEXT NOT NULL, " +
       "PRIMARY KEY (code, email));",
   );
+  // ── Research runs (multi-agent pipeline) ─────────────────────────────────
+  // One row per run; spec_json is the frozen RunSpec the run was launched
+  // with. Content artifacts live on disk in workspace_dir — these tables are
+  // the index + event log that make runs listable, replayable, and auditable.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS research_runs (" +
+      "id TEXT PRIMARY KEY, " +
+      "email TEXT NOT NULL, " +
+      "title TEXT NOT NULL, " +
+      "spec_json TEXT NOT NULL, " +
+      "status TEXT NOT NULL, " +
+      "stage TEXT, " +
+      "workspace_dir TEXT NOT NULL, " +
+      "fail_reason TEXT, " +
+      "cost_usd REAL NOT NULL DEFAULT 0, " +
+      "created_at TEXT NOT NULL, " +
+      "updated_at TEXT NOT NULL, " +
+      "finished_at TEXT);",
+  );
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_research_runs_email ON research_runs (email, created_at);",
+  );
+  // One row per CLI child (a sub-agent invocation). branch carries PEE
+  // lineage ("b2" / "b2.i3.v1"); raw transcripts live in tasks/<id>.jsonl.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS research_tasks (" +
+      "id TEXT PRIMARY KEY, " +
+      "run_id TEXT NOT NULL, " +
+      "stage TEXT NOT NULL, " +
+      "role TEXT NOT NULL, " +
+      "branch TEXT, " +
+      "parent_task_id TEXT, " +
+      "attempt INTEGER NOT NULL DEFAULT 1, " +
+      "status TEXT NOT NULL, " +
+      "model TEXT, " +
+      "input_json TEXT, " +
+      "output_path TEXT, " +
+      "cost_usd REAL, " +
+      "duration_ms INTEGER, " +
+      "error TEXT, " +
+      "started_at TEXT, " +
+      "finished_at TEXT);",
+  );
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_research_tasks_run ON research_tasks (run_id, started_at);",
+  );
+  // Append-only event log; SSE replay is `WHERE run_id=? AND seq>?`.
+  // High-frequency agent_delta/agent_tool events are live-only (not inserted).
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS research_events (" +
+      "seq INTEGER PRIMARY KEY AUTOINCREMENT, " +
+      "run_id TEXT NOT NULL, " +
+      "task_id TEXT, " +
+      "stage TEXT, " +
+      "role TEXT, " +
+      "branch TEXT, " +
+      "type TEXT NOT NULL, " +
+      "data TEXT NOT NULL, " +
+      "created_at TEXT NOT NULL);",
+  );
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_research_events_run ON research_events (run_id, seq);",
+  );
+  // Index of file-backed artifacts in the run workspace (provenance metadata
+  // in meta_json: producing task, input artifact ids, evidence ids).
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS research_artifacts (" +
+      "id TEXT PRIMARY KEY, " +
+      "run_id TEXT NOT NULL, " +
+      "stage TEXT NOT NULL, " +
+      "kind TEXT NOT NULL, " +
+      "rel_path TEXT NOT NULL, " +
+      "produced_by_task TEXT, " +
+      "sha256 TEXT NOT NULL, " +
+      "bytes INTEGER NOT NULL, " +
+      "meta_json TEXT, " +
+      "created_at TEXT NOT NULL, " +
+      "UNIQUE (run_id, rel_path));",
+  );
+  // Retrieval cache index (chain-of-evidence): a citation is valid in a run
+  // iff a row exists here for its ref_id. Payloads live in evidence/ev_*.json;
+  // id is the sha256 of the canonical {tool, request}.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS research_evidence (" +
+      "id TEXT NOT NULL, " +
+      "run_id TEXT NOT NULL, " +
+      "source_tool TEXT NOT NULL, " +
+      "ref_id TEXT, " +
+      "request_json TEXT NOT NULL, " +
+      "rel_path TEXT NOT NULL, " +
+      "sha256 TEXT NOT NULL, " +
+      "created_at TEXT NOT NULL, " +
+      "PRIMARY KEY (run_id, id));",
+  );
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_research_evidence_ref ON research_evidence (run_id, ref_id);",
+  );
+  // Per-claim verification ledger for the final draft (typed claims, status,
+  // break codes) — what the ClaimInspector UI renders.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS research_claims (" +
+      "id TEXT PRIMARY KEY, " +
+      "run_id TEXT NOT NULL, " +
+      "artifact_id TEXT NOT NULL, " +
+      "claim_type TEXT NOT NULL, " +
+      "text TEXT NOT NULL, " +
+      "source_tag TEXT NOT NULL, " +
+      "status TEXT NOT NULL, " +
+      "break_code TEXT, " +
+      "detail_json TEXT, " +
+      "checked_at TEXT);",
+  );
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_research_claims_run ON research_claims (run_id, artifact_id);",
+  );
   importLegacyUsersJson(db);
   return db;
 }
