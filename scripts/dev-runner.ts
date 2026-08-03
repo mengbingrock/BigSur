@@ -53,6 +53,12 @@ function startServer() {
   run("server", "bun", ["run", "src/bin.ts"], path.join(ROOT, "apps/server"), {
     LABEE_PORT: String(SERVER_PORT),
     LABEE_HOST: "127.0.0.1",
+    // Pin the data dir to <repo>/data. The server runs with cwd=apps/server,
+    // so the default (cwd/data) would put its SQLite file in
+    // apps/server/data/ — a *different* store from the one every root-level
+    // tool uses (`bun run user`, scripts, anything run from the repo root),
+    // which silently splits users, agents, and research runs across two DBs.
+    LABEE_DATA_DIR: process.env.LABEE_DATA_DIR ?? path.join(ROOT, "data"),
   });
 }
 
