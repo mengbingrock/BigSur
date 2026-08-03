@@ -19,6 +19,8 @@ interface AgentRow {
   is_public: number | null;
   published_at: string | null;
   installs: number | null;
+  team: string | null;
+  team_order: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -46,6 +48,8 @@ function toAgent(row: AgentRow): Agent {
     referenceFolders: parseJsonArray(row.reference_folders),
     engine: parseEngine(row.engine),
     isPublic: Boolean(row.is_public),
+    team: row.team ?? null,
+    teamOrder: Number(row.team_order ?? 0),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -182,6 +186,8 @@ function toPublicAgent(row: AgentRow): PublicAgent {
     author: authorHandle(row.email),
     ...(row.published_at ? { publishedAt: row.published_at } : {}),
     installs: Number(row.installs ?? 0),
+    team: row.team ?? null,
+    teamOrder: Number(row.team_order ?? 0),
   };
 }
 
@@ -214,7 +220,8 @@ export async function setAgentPublic(
 export async function listPublicAgents(): Promise<PublicAgent[]> {
   const db = await getDb();
   const rows = db
-    .prepare("SELECT * FROM agents WHERE is_public = 1 ORDER BY published_at DESC")
+    .prepare("SELECT * FROM agents WHERE is_public = 1 " +
+      "ORDER BY (team IS NULL), team, team_order, published_at DESC")
     .all() as unknown as AgentRow[];
   return rows.map(toPublicAgent);
 }
@@ -253,8 +260,8 @@ export async function installPublicAgent(
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
   db.prepare(
-    "INSERT INTO agents (id, email, name, description, skill_slugs, working_dir, reference_folders, engine, created_at, updated_at) " +
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO agents (id, email, name, description, skill_slugs, working_dir, reference_folders, engine, team, team_order, created_at, updated_at) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   ).run(
     id,
     email,
@@ -264,6 +271,8 @@ export async function installPublicAgent(
     "", // installer picks their own working directory
     "[]",
     parseEngine(row.engine),
+    row.team,
+    Number(row.team_order ?? 0),
     now,
     now,
   );
