@@ -23,6 +23,11 @@ export const Agent = Schema.Struct({
   engine: Schema.optional(AgentEngine),
   /** Listed in the public agent marketplace. */
   isPublic: Schema.optional(Schema.Boolean),
+  /** Name of the team this agent belongs to, when it's one of a set designed
+   *  to work together (marketplace groups listings by it). */
+  team: Schema.optional(Schema.NullOr(Schema.String)),
+  /** Position in the team's hand-off order (1-based; 0 = unordered). */
+  teamOrder: Schema.optional(Schema.Number),
   createdAt: Schema.optional(Schema.String),
   updatedAt: Schema.optional(Schema.String),
 });
@@ -43,6 +48,10 @@ export const PublicAgent = Schema.Struct({
   author: Schema.String,
   publishedAt: Schema.optional(Schema.String),
   installs: Schema.Number,
+  /** Set when this listing is part of a team meant to be used together. */
+  team: Schema.optional(Schema.NullOr(Schema.String)),
+  /** Position in the team's hand-off order (1-based). */
+  teamOrder: Schema.optional(Schema.Number),
 });
 export type PublicAgent = typeof PublicAgent.Type;
 

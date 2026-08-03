@@ -78,6 +78,10 @@ async function openDb(): Promise<SqlDb> {
   ensureColumn(db, "agents", "is_public", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "agents", "published_at", "TEXT");
   ensureColumn(db, "agents", "installs", "INTEGER NOT NULL DEFAULT 0");
+  // Teams: a set of agents published together because they hand off to each
+  // other. `team_order` is the position in that hand-off (1-based).
+  ensureColumn(db, "agents", "team", "TEXT");
+  ensureColumn(db, "agents", "team_order", "INTEGER NOT NULL DEFAULT 0");
   // Per-user billing: Stripe customer/subscription + a credit balance (cents).
   db.exec(
     "CREATE TABLE IF NOT EXISTS billing (" +
