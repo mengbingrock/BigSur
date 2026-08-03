@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as MarketplaceRouteImport } from './routes/marketplace'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
@@ -33,6 +34,11 @@ const SignupRoute = SignupRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketplaceRoute = MarketplaceRouteImport.update({
+  id: '/marketplace',
+  path: '/marketplace',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -105,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
   '/login': typeof LoginRoute
+  '/marketplace': typeof MarketplaceRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
   '/login': typeof LoginRoute
+  '/marketplace': typeof MarketplaceRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
   '/login': typeof LoginRoute
+  '/marketplace': typeof MarketplaceRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/'
     | '/chat'
     | '/login'
+    | '/marketplace'
     | '/settings'
     | '/signup'
     | '/admin/users'
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/'
     | '/chat'
     | '/login'
+    | '/marketplace'
     | '/settings'
     | '/signup'
     | '/admin/users'
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/'
     | '/chat'
     | '/login'
+    | '/marketplace'
     | '/settings'
     | '/signup'
     | '/admin/users'
@@ -211,6 +223,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatRoute: typeof ChatRoute
   LoginRoute: typeof LoginRoute
+  MarketplaceRoute: typeof MarketplaceRoute
   SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
   AdminUsersRoute: typeof AdminUsersRoute
@@ -238,6 +251,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketplace': {
+      id: '/marketplace'
+      path: '/marketplace'
+      fullPath: '/marketplace'
+      preLoaderRoute: typeof MarketplaceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -350,6 +370,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRoute: ChatRoute,
   LoginRoute: LoginRoute,
+  MarketplaceRoute: MarketplaceRoute,
   SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
   AdminUsersRoute: AdminUsersRoute,
