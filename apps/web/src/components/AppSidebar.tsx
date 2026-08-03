@@ -13,6 +13,7 @@ import {
   Plus,
   Settings,
   ShieldCheck,
+  Store,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
@@ -58,6 +59,12 @@ const WORKSPACE_ITEMS: NavItem[] = [
     to: "/skills",
     icon: Boxes,
     match: (p) => p === "/skills" || p.startsWith("/skills"),
+  },
+  {
+    label: "Marketplace",
+    to: "/marketplace",
+    icon: Store,
+    match: (p) => p.startsWith("/marketplace"),
   },
 ];
 

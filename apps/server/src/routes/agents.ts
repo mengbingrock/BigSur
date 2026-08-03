@@ -45,13 +45,18 @@ export const agentEnginesRoute = HttpRouter.add(
   }),
 );
 
-/** GET /api/agents/market — all publicly listed agents. */
+/**
+ * GET /api/agents/market — all publicly listed agents.
+ *
+ * Deliberately unauthenticated: the marketplace is a shop window, browsable
+ * before signing up. Listings carry no machine paths and no full email
+ * addresses (see toPublicAgent), so this exposes only what a publisher opted
+ * into sharing. Installing still requires an account.
+ */
 export const agentMarketRoute = HttpRouter.add(
   "GET",
   "/api/agents/market",
   Effect.gen(function* () {
-    const user = yield* sessionUser;
-    if (!user) return yield* error("Authentication required.", 401);
     const agents = yield* Effect.promise(() => listPublicAgents());
     return yield* json({ agents });
   }),
