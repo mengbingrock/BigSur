@@ -13,6 +13,7 @@ import { llmEditRoute } from "./routes/llmEdit";
 import { llmProxyRoutes } from "./routes/llmProxy";
 import { llmRoutes } from "./routes/llmSettings";
 import { mcpProxyRoute, mcpTokenRoute } from "./routes/protocolsMcp";
+import { researchRoutes } from "./routes/research";
 import { skillsRoutes } from "./routes/skills";
 import { transcribeRoute } from "./routes/transcribe";
 import { staticRoute } from "./routes/static";
@@ -29,6 +30,7 @@ export const routesLayer = Layer.mergeAll(
   ...llmProxyRoutes,
   ...billingRoutes,
   ...agentRoutes,
+  ...researchRoutes,
   ...fsRoutes,
   mcpTokenRoute,
   mcpProxyRoute,

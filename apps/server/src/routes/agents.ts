@@ -7,7 +7,10 @@ import {
   createAgent,
   deleteAgent,
   getAgent,
+  installPublicAgent,
   listAgents,
+  listPublicAgents,
+  setAgentPublic,
   updateAgent,
 } from "../services/agents";
 import { agentRoots, listAgentDir, readAgentFile } from "../services/agentFiles";
@@ -39,6 +42,68 @@ export const agentEnginesRoute = HttpRouter.add(
     const user = yield* sessionUser;
     if (!user) return yield* error("Authentication required.", 401);
     return yield* json(availableEngines());
+  }),
+);
+
+/** GET /api/agents/market — all publicly listed agents. */
+export const agentMarketRoute = HttpRouter.add(
+  "GET",
+  "/api/agents/market",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const agents = yield* Effect.promise(() => listPublicAgents());
+    return yield* json({ agents });
+  }),
+);
+
+/** POST /api/agents/market/:id/install — copy a listing into the caller's account. */
+export const agentInstallRoute = HttpRouter.add(
+  "POST",
+  "/api/agents/market/:id/install",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const { id } = yield* params;
+    const result = yield* Effect.tryPromise({
+      try: () => installPublicAgent(user.email, id ?? ""),
+      catch: (e) => e,
+    }).pipe(
+      Effect.map((r) => ({ ok: true as const, r })),
+      Effect.catch((e) => Effect.succeed({ ok: false as const, e })),
+    );
+    if (!result.ok) {
+      const { status, message } = statusForError(result.e);
+      return yield* error(message, status);
+    }
+    return yield* json(result.r);
+  }),
+);
+
+/** POST /api/agents/:id/publish — list/unlist the caller's agent publicly. */
+export const agentPublishRoute = HttpRouter.add(
+  "POST",
+  "/api/agents/:id/publish",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const { id } = yield* params;
+    const body = yield* safeBody<{ public?: boolean }>();
+    if (!body || typeof body.public !== "boolean") {
+      return yield* error("Body must be { public: boolean }.", 400);
+    }
+    const result = yield* Effect.tryPromise({
+      try: () => setAgentPublic(user.email, id ?? "", body.public!),
+      catch: (e) => e,
+    }).pipe(
+      Effect.map((agent) => ({ ok: true as const, agent })),
+      Effect.catch((e) => Effect.succeed({ ok: false as const, e })),
+    );
+    if (!result.ok) {
+      const { status, message } = statusForError(result.e);
+      return yield* error(message, status);
+    }
+    return yield* json({ agent: result.agent });
   }),
 );
 
@@ -255,6 +320,9 @@ export const agentRoutes = [
   syncAgentsRoute,
   listAgentsRoute,
   agentEnginesRoute,
+  agentMarketRoute,
+  agentInstallRoute,
+  agentPublishRoute,
   getAgentRoute,
   createAgentRoute,
   updateAgentRoute,

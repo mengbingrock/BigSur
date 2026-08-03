@@ -21,10 +21,39 @@ export const Agent = Schema.Struct({
   referenceFolders: Schema.Array(Schema.String),
   /** Which local CLI runs the agent (defaults to "claude"). */
   engine: Schema.optional(AgentEngine),
+  /** Listed in the public agent marketplace. */
+  isPublic: Schema.optional(Schema.Boolean),
   createdAt: Schema.optional(Schema.String),
   updatedAt: Schema.optional(Schema.String),
 });
 export type Agent = typeof Agent.Type;
+
+/**
+ * A marketplace listing: the shareable subset of a published agent. Machine
+ * paths (workingDir, referenceFolders) never leave the owner's account — an
+ * installer picks their own folders after installing.
+ */
+export const PublicAgent = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  description: Schema.optional(Schema.String),
+  skillSlugs: Schema.Array(Schema.String),
+  engine: Schema.optional(AgentEngine),
+  /** Display handle of the publisher (email local part, not the full email). */
+  author: Schema.String,
+  publishedAt: Schema.optional(Schema.String),
+  installs: Schema.Number,
+});
+export type PublicAgent = typeof PublicAgent.Type;
+
+/** Result of installing a marketplace agent into the caller's account. */
+export const AgentInstallResult = Schema.Struct({
+  agent: Agent,
+  /** Skill slugs from the listing that don't resolve for the installer
+   *  (private skills of the publisher) and were left off the copy. */
+  droppedSkillSlugs: Schema.Array(Schema.String),
+});
+export type AgentInstallResult = typeof AgentInstallResult.Type;
 
 /** Create/update payload for an agent. */
 export const AgentUpdate = Schema.Struct({

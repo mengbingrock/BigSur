@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import type { Agent } from "@labee/contracts";
-import { Bot, Folder, Loader2, Pencil, Play, Plus, Trash2 } from "lucide-react";
+import type { Agent, AgentInstallResult, PublicAgent } from "@labee/contracts";
+import { Bot, Download, Folder, Globe, Loader2, Pencil, Play, Plus, Store, Trash2 } from "lucide-react";
 
 import { ApiError, apiGet, apiSend } from "~/lib/api";
 import { chatStore } from "~/store/chat-store";
@@ -142,6 +142,131 @@ function AgentsPage() {
           </ul>
         )}
       </div>
+
+      {user ? <Marketplace ownAgents={agents} /> : null}
+    </div>
+  );
+}
+
+function Marketplace({ ownAgents }: { ownAgents: Agent[] }) {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [installMsg, setInstallMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const marketQ = useQuery({
+    queryKey: ["agent-market"],
+    queryFn: () => apiGet<{ agents: PublicAgent[] }>("/api/agents/market"),
+  });
+
+  const install = useMutation({
+    mutationFn: (id: string) =>
+      apiSend<AgentInstallResult>("POST", `/api/agents/market/${id}/install`),
+    onSuccess: (r) => {
+      void qc.invalidateQueries({ queryKey: ["agents"] });
+      void qc.invalidateQueries({ queryKey: ["agent-market"] });
+      setInstallMsg({
+        ok: true,
+        text:
+          `Installed "${r.agent.name}". Pick a working folder in the editor to start using it.` +
+          (r.droppedSkillSlugs.length
+            ? ` Skipped ${r.droppedSkillSlugs.length} private skill${r.droppedSkillSlugs.length === 1 ? "" : "s"} of the publisher (${r.droppedSkillSlugs.join(", ")}).`
+            : ""),
+      });
+      void navigate({ to: "/agents/$id/edit", params: { id: r.agent.id } });
+    },
+    onError: (e) =>
+      setInstallMsg({ ok: false, text: e instanceof Error ? e.message : "Install failed." }),
+  });
+
+  // Listings the caller published themselves are shown but not installable.
+  const ownIds = new Set(ownAgents.map((a) => a.id));
+  const listings = marketQ.data?.agents ?? [];
+
+  return (
+    <div className="mt-12">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-2xl text-ink tracking-tight">
+            <Store className="size-5 text-ink-faint" />
+            Marketplace
+          </h2>
+          <p className="mt-1 text-ink-light text-sm">
+            Public agents shared by other users. Installing copies the preset — skills and engine —
+            into your account; you pick your own working folder.
+          </p>
+        </div>
+      </div>
+      {installMsg ? (
+        <p className={`mt-2 text-sm ${installMsg.ok ? "text-ink-light" : "text-destructive"}`}>
+          {installMsg.text}
+        </p>
+      ) : null}
+
+      <div className="mt-5">
+        {marketQ.isLoading ? (
+          <div className="flex items-center gap-2 text-ink-light text-sm">
+            <Loader2 className="size-4 animate-spin" /> Loading marketplace…
+          </div>
+        ) : marketQ.isError ? (
+          <p className="text-destructive text-sm">Failed to load the marketplace.</p>
+        ) : listings.length === 0 ? (
+          <p className="rounded-lg border border-border border-dashed bg-card px-4 py-8 text-center text-ink-light text-sm">
+            No public agents yet. Publish one of yours with the globe button on its card.
+          </p>
+        ) : (
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {listings.map((listing) => (
+              <li
+                key={listing.id}
+                className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="truncate font-medium text-ink">{listing.name}</h3>
+                    {listing.description ? (
+                      <p className="mt-0.5 line-clamp-2 text-ink-light text-sm">
+                        {listing.description}
+                      </p>
+                    ) : null}
+                  </div>
+                  <Globe className="size-5 shrink-0 text-ink-faint" />
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Badge variant="secondary">
+                    {listing.skillSlugs.length} skill{listing.skillSlugs.length === 1 ? "" : "s"}
+                  </Badge>
+                  <Badge variant="outline">{listing.engine ?? "claude"}</Badge>
+                  <Badge variant="outline">by {listing.author}</Badge>
+                  {listing.installs > 0 ? (
+                    <Badge variant="outline">
+                      <Download className="size-3" />
+                      {listing.installs}
+                    </Badge>
+                  ) : null}
+                </div>
+                <div className="mt-1">
+                  {ownIds.has(listing.id) ? (
+                    <span className="text-ink-faint text-xs">Your listing</span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      disabled={install.isPending}
+                      onClick={() => install.mutate(listing.id)}
+                    >
+                      {install.isPending ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Download className="size-4" />
+                      )}
+                      Install
+                    </Button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
@@ -173,6 +298,17 @@ function AgentCard({ agent }: { agent: Agent }) {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["agents"] }),
   });
 
+  const publish = useMutation({
+    mutationFn: () =>
+      apiSend<{ agent: Agent }>("POST", `/api/agents/${agent.id}/publish`, {
+        public: !agent.isPublic,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["agents"] });
+      void qc.invalidateQueries({ queryKey: ["agent-market"] });
+    },
+  });
+
   return (
     <li className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-2">
@@ -194,6 +330,12 @@ function AgentCard({ agent }: { agent: Agent }) {
           {agent.referenceFolders.length} ref folder
           {agent.referenceFolders.length === 1 ? "" : "s"}
         </Badge>
+        {agent.isPublic ? (
+          <Badge variant="outline">
+            <Globe className="size-3" />
+            public
+          </Badge>
+        ) : null}
       </div>
 
       <div className="flex items-center gap-1.5 rounded-md bg-surface px-2 py-1">
@@ -223,6 +365,24 @@ function AgentCard({ agent }: { agent: Agent }) {
         >
           <Pencil className="size-4" />
           Edit
+        </Button>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label={agent.isPublic ? "Remove from marketplace" : "Publish to marketplace"}
+          title={
+            agent.isPublic
+              ? "Remove from the public marketplace"
+              : "Publish to the public marketplace (name, description, skills, engine — never your folders)"
+          }
+          disabled={publish.isPending}
+          onClick={() => publish.mutate()}
+        >
+          {publish.isPending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Globe className={agent.isPublic ? "text-ink" : "text-ink-faint"} />
+          )}
         </Button>
         <div className="ml-auto">
           {confirming ? (

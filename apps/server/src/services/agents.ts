@@ -1,8 +1,11 @@
 // Saved agent presets (per user): selected skills + a working artifact
 // directory + folders of reference protocols. Backed by the `agents` table.
+// Publishing flips is_public, which lists the shareable subset (name,
+// description, skills, engine — never machine paths) in the marketplace.
 import crypto from "node:crypto";
-import type { Agent, AgentEngine, AgentUpdate } from "@labee/contracts";
+import type { Agent, AgentEngine, AgentUpdate, PublicAgent } from "@labee/contracts";
 import { getDb } from "./db";
+import { getAllSkills } from "./skills";
 
 interface AgentRow {
   id: string;
@@ -13,6 +16,9 @@ interface AgentRow {
   working_dir: string;
   reference_folders: string;
   engine: string | null;
+  is_public: number | null;
+  published_at: string | null;
+  installs: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -39,6 +45,7 @@ function toAgent(row: AgentRow): Agent {
     workingDir: row.working_dir,
     referenceFolders: parseJsonArray(row.reference_folders),
     engine: parseEngine(row.engine),
+    isPublic: Boolean(row.is_public),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -156,6 +163,114 @@ export async function updateAgent(
 export async function deleteAgent(email: string, id: string): Promise<void> {
   const db = await getDb();
   db.prepare("DELETE FROM agents WHERE email = ? AND id = ?").run(email, id);
+}
+
+// ── marketplace ──────────────────────────────────────────────────────────
+
+/** Display handle for a publisher: the email local part, never the domain. */
+function authorHandle(email: string): string {
+  return email.split("@")[0] || "someone";
+}
+
+function toPublicAgent(row: AgentRow): PublicAgent {
+  return {
+    id: row.id,
+    name: row.name,
+    ...(row.description ? { description: row.description } : {}),
+    skillSlugs: parseJsonArray(row.skill_slugs),
+    engine: parseEngine(row.engine),
+    author: authorHandle(row.email),
+    ...(row.published_at ? { publishedAt: row.published_at } : {}),
+    installs: Number(row.installs ?? 0),
+  };
+}
+
+/** Publish or unpublish one of the caller's agents. */
+export async function setAgentPublic(
+  email: string,
+  id: string,
+  isPublic: boolean,
+): Promise<Agent> {
+  const db = await getDb();
+  const existing = await getAgent(email, id);
+  if (!existing) {
+    const e = new Error("Agent not found.") as Error & { code: string };
+    e.code = "NOT_FOUND";
+    throw e;
+  }
+  db.prepare(
+    "UPDATE agents SET is_public = ?, published_at = ?, updated_at = ? WHERE email = ? AND id = ?",
+  ).run(
+    isPublic ? 1 : 0,
+    isPublic ? new Date().toISOString() : null,
+    new Date().toISOString(),
+    email,
+    id,
+  );
+  return (await getAgent(email, id))!;
+}
+
+/** All published agents, newest first. */
+export async function listPublicAgents(): Promise<PublicAgent[]> {
+  const db = await getDb();
+  const rows = db
+    .prepare("SELECT * FROM agents WHERE is_public = 1 ORDER BY published_at DESC")
+    .all() as unknown as AgentRow[];
+  return rows.map(toPublicAgent);
+}
+
+/**
+ * Copy a marketplace agent into the caller's account. Machine paths are never
+ * copied — the installed agent starts with an empty workingDir and no
+ * reference folders (the same "pick a local folder" flow that synced agents
+ * use). Skill slugs that don't resolve for the installer (the publisher's
+ * private `user--*` skills) are dropped and reported.
+ */
+export async function installPublicAgent(
+  email: string,
+  publicAgentId: string,
+): Promise<{ agent: Agent; droppedSkillSlugs: string[] }> {
+  const db = await getDb();
+  const row = db
+    .prepare("SELECT * FROM agents WHERE id = ? AND is_public = 1")
+    .get(publicAgentId) as AgentRow | undefined;
+  if (!row) {
+    const e = new Error("Marketplace agent not found.") as Error & { code: string };
+    e.code = "NOT_FOUND";
+    throw e;
+  }
+  if (row.email === email) {
+    const e = new Error("This is already your agent.") as Error & { code: string };
+    e.code = "INVALID";
+    throw e;
+  }
+
+  const listed = parseJsonArray(row.skill_slugs);
+  const resolvable = new Set(getAllSkills(email).map((s) => s.slug));
+  const skillSlugs = listed.filter((slug) => resolvable.has(slug));
+  const droppedSkillSlugs = listed.filter((slug) => !resolvable.has(slug));
+
+  const now = new Date().toISOString();
+  const id = crypto.randomUUID();
+  db.prepare(
+    "INSERT INTO agents (id, email, name, description, skill_slugs, working_dir, reference_folders, engine, created_at, updated_at) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  ).run(
+    id,
+    email,
+    row.name,
+    row.description,
+    JSON.stringify(skillSlugs),
+    "", // installer picks their own working directory
+    "[]",
+    parseEngine(row.engine),
+    now,
+    now,
+  );
+  db.prepare("UPDATE agents SET installs = installs + 1 WHERE id = ?").run(publicAgentId);
+  const agent = await getAgent(email, id);
+  if (!agent) throw new Error("Failed to install agent.");
+  return { agent, droppedSkillSlugs };
 }
 
 /**

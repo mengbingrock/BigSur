@@ -6,6 +6,7 @@ import {
   BookOpen,
   Bot,
   Boxes,
+  FlaskConical,
   Loader2,
   LogOut,
   MessageSquare,
@@ -40,6 +41,12 @@ interface NavItem {
 }
 
 const WORKSPACE_ITEMS: NavItem[] = [
+  {
+    label: "Research",
+    to: "/research",
+    icon: FlaskConical,
+    match: (p) => p === "/research" || p.startsWith("/research"),
+  },
   {
     label: "Agents",
     to: "/agents",
