@@ -43,6 +43,33 @@ GOOGLE_REDIRECT_URI=https://your.host/api/auth/google/callback  # optional; deri
 3. Set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`. The login/signup pages show a
    Google button automatically once both are present.
 
+One client can hold several redirect URIs, so the production and local-dev
+entries live side by side — a separate OAuth client for dev isn't needed.
+
+#### Troubleshooting `Error 400: redirect_uri_mismatch`
+
+Google compares the redirect URI **byte for byte**: scheme, host, port, and path
+must all match a registered entry. The error page prints the URI the app sent but
+not which part is wrong — in practice it is usually the scheme.
+
+- **`http` vs `https`.** The dev server serves plain HTTP, so the local entry must
+  be `http://localhost:5733/api/auth/google/callback`. A registration for
+  `https://localhost:5733/...` looks right at a glance and never matches.
+- **Port.** `5733` is this repo's Vite default (`scripts/dev-runner.ts`), not
+  Vite's generic `5173`.
+- **Trailing slash.** `.../callback/` is a different URI from `.../callback`.
+
+To see exactly what the server sends, with it running:
+
+```sh
+curl -s -i http://127.0.0.1:3000/api/auth/google | grep -o 'redirect_uri=[^&]*'
+```
+
+That value must appear verbatim under *Authorized redirect URIs* on the OAuth
+client named by `GOOGLE_CLIENT_ID`. The client id's leading digits are the Google
+Cloud **project number**, which is how you find the right project when several
+have credentials. Console changes take effect within a few minutes.
+
 Accounts are linked by email: signing in with Google for an existing email
 attaches the Google identity to that account; otherwise a new, password-less
 account is created (the first account on a fresh instance becomes admin).
