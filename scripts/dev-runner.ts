@@ -7,6 +7,7 @@
 //   dev:web      web only (proxies /api to the server)
 //   dev:desktop  server + web + electron
 import { type ChildProcess, spawn } from "node:child_process";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -49,10 +50,31 @@ function run(name: string, command: string, args: string[], cwd: string, env: No
   return child;
 }
 
+/** Electron's `app.getPath("userData")` for @labee/desktop, computed without
+ *  Electron. In dev the server is started here rather than forked by the
+ *  desktop main process, so anything main.ts injects into the embedded
+ *  server's env has to be mirrored here or the dev app silently loses it. */
+function desktopUserData(): string {
+  const name = "@labee/desktop"; // apps/desktop/package.json "name"
+  if (process.platform === "darwin") {
+    return path.join(os.homedir(), "Library", "Application Support", name);
+  }
+  if (process.platform === "win32") {
+    return path.join(process.env.APPDATA ?? path.join(os.homedir(), "AppData", "Roaming"), name);
+  }
+  return path.join(process.env.XDG_CONFIG_HOME ?? path.join(os.homedir(), ".config"), name);
+}
+
 function startServer() {
   run("server", "bun", ["run", "src/bin.ts"], path.join(ROOT, "apps/server"), {
     LABEE_PORT: String(SERVER_PORT),
     LABEE_HOST: "127.0.0.1",
+    // "Connect to Labee" (desktop) writes the box session here; the server
+    // reads it to sync agents/skills and to mint protocol-MCP tokens. Without
+    // it, "Sync from Labee" always fails with "Not connected to Labee" even
+    // after a successful connect.
+    LABEE_REMOTE_SESSION_FILE:
+      process.env.LABEE_REMOTE_SESSION_FILE ?? path.join(desktopUserData(), "remote-session.txt"),
     // Pin the data dir to <repo>/data. The server runs with cwd=apps/server,
     // so the default (cwd/data) would put its SQLite file in
     // apps/server/data/ — a *different* store from the one every root-level
