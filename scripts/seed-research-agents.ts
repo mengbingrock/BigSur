@@ -28,6 +28,9 @@ const EVIDENCE_RULE =
   "reconstruct a citation you cannot re-open. When you cannot source a claim, say so plainly " +
   "rather than dressing it up.";
 
+/** The four agents are published as one team: each hands off to the next. */
+const TEAM = "ScientistOne Research";
+
 interface Seed {
   skill: string; // folder + frontmatter name
   skillDescription: string;
@@ -215,28 +218,49 @@ function writeSkill(seed: Seed): string {
 const db = new DatabaseSync(DB_PATH);
 const now = new Date().toISOString();
 
-for (const seed of SEEDS) {
+/** The marketplace columns are normally added by the server on boot
+ *  (services/db.ts). Add them here too so this script is safe to run against a
+ *  database the current server hasn't opened yet. */
+function ensureColumn(table: string, column: string, decl: string): void {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (cols.some((c) => c.name === column)) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${decl};`);
+}
+ensureColumn("agents", "is_public", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("agents", "published_at", "TEXT");
+ensureColumn("agents", "installs", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("agents", "team", "TEXT");
+ensureColumn("agents", "team_order", "INTEGER NOT NULL DEFAULT 0");
+
+for (const [i, seed] of SEEDS.entries()) {
+  const order = i + 1; // hand-off position within the team
   const slug = writeSkill(seed);
   const existing = db
     .prepare("SELECT id FROM agents WHERE email = ? AND name = ?")
     .get(OWNER, seed.agent) as { id?: string } | undefined;
   if (existing?.id) {
     db.prepare(
-      "UPDATE agents SET description = ?, skill_slugs = ?, is_public = 1, " +
+      "UPDATE agents SET description = ?, skill_slugs = ?, is_public = 1, team = ?, team_order = ?, " +
         "published_at = COALESCE(published_at, ?), updated_at = ? WHERE id = ?",
-    ).run(seed.agentDescription, JSON.stringify([slug]), now, now, existing.id);
+    ).run(seed.agentDescription, JSON.stringify([slug]), TEAM, order, now, now, existing.id);
     console.log(`updated  ${seed.agent}  (${slug})`);
   } else {
     db.prepare(
       "INSERT INTO agents (id, email, name, description, skill_slugs, working_dir, " +
-        "reference_folders, engine, is_public, published_at, installs, created_at, updated_at) " +
-        "VALUES (?, ?, ?, ?, ?, '', '[]', 'claude', 1, ?, 0, ?, ?)",
-    ).run(crypto.randomUUID(), OWNER, seed.agent, seed.agentDescription, JSON.stringify([slug]), now, now, now);
+        "reference_folders, engine, is_public, team, team_order, published_at, installs, created_at, updated_at) " +
+        "VALUES (?, ?, ?, ?, ?, '', '[]', 'claude', 1, ?, ?, ?, 0, ?, ?)",
+    ).run(
+      crypto.randomUUID(), OWNER, seed.agent, seed.agentDescription, JSON.stringify([slug]),
+      TEAM, order, now, now, now,
+    );
     console.log(`created  ${seed.agent}  (${slug})`);
   }
 }
 
 console.log("\nmarketplace now lists:");
-for (const r of db.prepare("SELECT name, skill_slugs FROM agents WHERE is_public = 1 ORDER BY name").all()) {
-  console.log(`  - ${(r as { name: string }).name}  ${(r as { skill_slugs: string }).skill_slugs}`);
+for (const r of db
+  .prepare("SELECT name, team, team_order FROM agents WHERE is_public = 1 ORDER BY (team IS NULL), team, team_order, name")
+  .all()) {
+  const row = r as { name: string; team: string | null; team_order: number };
+  console.log(`  - ${row.team ? `[${row.team} #${row.team_order}] ` : ""}${row.name}`);
 }
