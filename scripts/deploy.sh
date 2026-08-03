@@ -64,6 +64,7 @@ rsync -az --delete \
   --exclude='.next' \
   --exclude='out' \
   --exclude='.git' \
+  --exclude='.claude' \
   --exclude='data' \
   --exclude='.env*' \
   --exclude='*.log' \
