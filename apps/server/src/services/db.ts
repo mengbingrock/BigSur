@@ -73,6 +73,11 @@ async function openDb(): Promise<SqlDb> {
       "updated_at TEXT NOT NULL);",
   );
   ensureColumn(db, "agents", "engine", "TEXT NOT NULL DEFAULT 'claude'");
+  // Agent marketplace: owners can list an agent publicly; installs are counted
+  // on the listing. Machine paths are never exposed through the marketplace.
+  ensureColumn(db, "agents", "is_public", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn(db, "agents", "published_at", "TEXT");
+  ensureColumn(db, "agents", "installs", "INTEGER NOT NULL DEFAULT 0");
   // Per-user billing: Stripe customer/subscription + a credit balance (cents).
   db.exec(
     "CREATE TABLE IF NOT EXISTS billing (" +
