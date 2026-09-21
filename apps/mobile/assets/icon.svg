@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <clipPath id="flask"><path d="M-82 -420 h164 v170 l150 300 a40 40 0 0 1 -34 60 h-396 a40 40 0 0 1 -34 -60 l150 -300 z"/></clipPath>
+    <clipPath id="body"><ellipse cx="0" cy="0" rx="112" ry="150"/></clipPath>
+  </defs>
+  <rect width="1024" height="1024" fill="#2F5D50"/>
+  <circle cx="512" cy="470" r="430" fill="#3A6E5F"/>
+
+  <!-- bench top -->
+  <rect x="60" y="790" width="904" height="52" rx="26" fill="#24483E"/>
+  <rect x="60" y="790" width="904" height="14" rx="7" fill="#1B3A31" opacity="0.6"/>
+
+  <!-- flask standing on the bench, mouth at (330, 370) -->
+  <g transform="translate(300 790) scale(0.85)">
+    <g clip-path="url(#flask)">
+      <rect x="-320" y="-150" width="640" height="200" fill="#8FD3B5"/>
+      <rect x="-320" y="-150" width="640" height="24" fill="#C6EEDB"/>
+      <circle cx="-40" cy="-60" r="20" fill="#C6EEDB"/>
+      <circle cx="60" cy="-30" r="13" fill="#C6EEDB"/>
+      <circle cx="10" cy="-110" r="10" fill="#C6EEDB"/>
+    </g>
+    <path d="M-82 -420 h164 v170 l150 300 a40 40 0 0 1 -34 60 h-396 a40 40 0 0 1 -34 -60 l150 -300 z" fill="none" stroke="#FAFAF7" stroke-width="30" stroke-linejoin="round"/>
+    <rect x="-108" y="-450" width="216" height="42" rx="21" fill="#FAFAF7"/>
+    <line x1="-46" y1="-380" x2="-46" y2="-280" stroke="#FAFAF7" stroke-width="13" stroke-linecap="round" opacity="0.6"/>
+  </g>
+  <!-- drop -->
+  <path d="M300 300 c-22 34 -26 46 -26 58 a26 26 0 0 0 52 0 c0 -12 -4 -24 -26 -58 z" fill="#C6EEDB"/>
+
+  <!-- test tube rack at far right for lab context -->
+  <g transform="translate(905 790) scale(0.9)">
+    <rect x="-70" y="-40" width="140" height="40" rx="10" fill="#24483E"/>
+    <g stroke="#FAFAF7" stroke-width="12" fill="none">
+      <path d="M-46 -200 v150 a16 16 0 0 0 32 0 v-150"/>
+      <path d="M14 -200 v150 a16 16 0 0 0 32 0 v-150"/>
+    </g>
+    <rect x="-40" y="-120" width="20" height="70" rx="8" fill="#F2C14E"/>
+    <rect x="20" y="-100" width="20" height="50" rx="8" fill="#8FD3B5"/>
+  </g>
+
+  <!-- bee standing on the bench -->
+  <g transform="translate(660 545) scale(1.3)">
+    <!-- wings -->
+    <ellipse cx="60" cy="-140" rx="90" ry="46" fill="#FAFAF7" opacity="0.85" transform="rotate(-35)"/>
+    <ellipse cx="120" cy="-90" rx="80" ry="40" fill="#FAFAF7" opacity="0.65" transform="rotate(-20)"/>
+    <!-- legs -->
+    <g stroke="#1E1E1E" stroke-width="16" stroke-linecap="round" fill="none">
+      <path d="M-50 130 q-10 40 -30 60"/>
+      <path d="M40 130 q10 40 30 60"/>
+    </g>
+    <!-- body -->
+    <ellipse cx="0" cy="0" rx="112" ry="150" fill="#F2C14E"/>
+    <g clip-path="url(#body)">
+      <rect x="-120" y="-70" width="240" height="40" fill="#1E1E1E"/>
+      <rect x="-120" y="0" width="240" height="40" fill="#1E1E1E"/>
+      <rect x="-120" y="70" width="240" height="40" fill="#1E1E1E"/>
+    </g>
+    <ellipse cx="0" cy="0" rx="112" ry="150" fill="none" stroke="#1E1E1E" stroke-width="14"/>
+    <!-- head + goggles -->
+    <circle cx="0" cy="-200" r="78" fill="#1E1E1E"/>
+    <circle cx="-30" cy="-212" r="27" fill="#FAFAF7"/>
+    <circle cx="26" cy="-212" r="27" fill="#FAFAF7"/>
+    <rect x="-8" y="-220" width="12" height="16" fill="#FAFAF7"/>
+    <circle cx="-34" cy="-210" r="11" fill="#1E1E1E"/>
+    <circle cx="22" cy="-210" r="11" fill="#1E1E1E"/>
+    <path d="M-24 -166 q24 18 48 0" stroke="#FAFAF7" stroke-width="8" fill="none" stroke-linecap="round"/>
+    <path d="M-36 -270 q-20 -50 -70 -60" stroke="#1E1E1E" stroke-width="12" fill="none" stroke-linecap="round"/>
+    <path d="M30 -272 q10 -56 60 -70" stroke="#1E1E1E" stroke-width="12" fill="none" stroke-linecap="round"/>
+    <circle cx="-108" cy="-332" r="13" fill="#1E1E1E"/>
+    <circle cx="92" cy="-344" r="13" fill="#1E1E1E"/>
+    <!-- back arm resting on the body -->
+    <path d="M90 -20 q50 30 40 80" stroke="#1E1E1E" stroke-width="16" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- pipette held over the flask: tip at (330, 250), bulb toward the bee's hand -->
+  <g transform="translate(300 286) rotate(58)">
+    <path d="M0 0 l-15 -34 h30 z" fill="#FAFAF7"/>
+    <rect x="-13" y="-210" width="26" height="180" rx="13" fill="#FAFAF7"/>
+    <rect x="-30" y="-282" width="60" height="80" rx="30" fill="#F2C14E" stroke="#1E1E1E" stroke-width="8"/>
+  </g>
+  <!-- front arm from the bee to the bulb (bulb ≈ 330+240*sin62, 250-240*cos62 ≈ 542, 137) -->
+  <path d="M540 520 q-70 -150 -20 -340" stroke="#1E1E1E" stroke-width="20" fill="none" stroke-linecap="round"/>
+  <circle cx="522" cy="172" r="24" fill="#1E1E1E"/>
+</svg>
