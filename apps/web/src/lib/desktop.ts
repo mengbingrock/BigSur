@@ -3,6 +3,8 @@
 
 export interface LabeeDesktopBridge {
   isDesktop?: boolean;
+  /** Run the labee.online sign-in and persist the box session (see main.ts). */
+  connectToLabee?: () => Promise<boolean>;
   platform?: string;
   signInWithGoogle?: (next?: string) => Promise<void>;
   pickFolder?: (defaultPath?: string) => Promise<string | null>;

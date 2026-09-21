@@ -212,10 +212,31 @@ function heuristicExtractChoices(
   return out;
 }
 
+/** One event on a server-owned session's SSE stream. */
+interface ServerSessionEvent {
+  seq: number;
+  sessionId: string;
+  turnId: string | null;
+  type: string;
+  ts: string;
+  data: Record<string, unknown>;
+}
+
+function deviceLabel(): string {
+  if (typeof navigator === "undefined") return "web";
+  const ua = navigator.userAgent;
+  if (/Electron/i.test(ua)) return /Windows/i.test(ua) ? "PC" : "Mac";
+  if (/iPhone/i.test(ua)) return "iPhone";
+  if (/iPad/i.test(ua)) return "iPad";
+  return "web";
+}
+
 export interface ChatMsg {
   id: string;
   role: "user" | "assistant";
   content: string;
+  /** Which device sent/started this message ("Mac", "iPhone", …). */
+  device?: string;
   pending?: boolean;
   errored?: boolean;
   activity?: ActivityItem[];
@@ -264,6 +285,12 @@ export interface SessionMeta {
   updatedAt: number;
   /** The agent this chat is bound to (chats are always agent-scoped). */
   agentId?: string;
+  /** Server-owned session id (created on first send). Sessions with a
+   *  serverId are attachable from other devices; the transcript of record
+   *  lives on the server and this store mirrors it. */
+  serverId?: string;
+  /** Highest server event seq this device has applied (for resume). */
+  lastSeq?: number;
 }
 
 export interface ChatState {
@@ -348,6 +375,8 @@ function readSessionsIndex(): SessionMeta[] {
         title: typeof s.title === "string" ? s.title : "New chat",
         updatedAt: typeof s.updatedAt === "number" ? s.updatedAt : 0,
         ...(typeof s.agentId === "string" ? { agentId: s.agentId } : {}),
+        ...(typeof s.serverId === "string" ? { serverId: s.serverId } : {}),
+        ...(typeof s.lastSeq === "number" ? { lastSeq: s.lastSeq } : {}),
       }))
       .filter((s) => s.id);
   } catch {
@@ -510,6 +539,8 @@ class ChatStore {
       // synchronously (otherwise the browser kills the network call and the
       // promise rejects with TypeError after we've already lost control).
       this.abort?.abort();
+      this.stopTail();
+      this.persist();
     };
     window.addEventListener("beforeunload", onUnload);
     window.addEventListener("pagehide", onUnload);
@@ -546,6 +577,11 @@ class ChatStore {
 
     const messages = readPersistedMessages(sessionMsgKey(currentId));
     this.state = { ...this.state, messages, sessions, currentSessionId: currentId };
+    const meta = sessions.find((s) => s.id === currentId);
+    this.serverId = meta?.serverId;
+    this.serverSeq = meta?.lastSeq ?? 0;
+    this.lastAgentId = meta?.agentId;
+    if (this.serverId) void this.startTail(this.serverId);
   }
 
   getState = (): ChatState => {
@@ -576,13 +612,16 @@ class ChatStore {
     const id = this.state.currentSessionId;
     if (!id) return;
     persistMessages(this.state.messages, sessionMsgKey(id));
+    const prev = readSessionsIndex().find((s) => s.id === id);
     const list = readSessionsIndex().filter((s) => s.id !== id);
-    if (this.state.messages.length > 0) {
+    if (this.state.messages.length > 0 || this.serverId) {
       list.unshift({
         id,
         title: deriveTitle(this.state.messages),
         updatedAt: Date.now(),
         ...(this.lastAgentId ? { agentId: this.lastAgentId } : {}),
+        ...((this.serverId ?? prev?.serverId) ? { serverId: this.serverId ?? prev?.serverId } : {}),
+        lastSeq: Math.max(this.serverSeq, prev?.lastSeq ?? 0),
       });
     }
     list.sort((a, b) => b.updatedAt - a.updatedAt);
@@ -595,8 +634,11 @@ class ChatStore {
   newSession = (agentId?: string) => {
     this.ensureHydrated();
     this.cancel();
+    this.stopTail();
     const id = newSessionId();
     this.lastAgentId = agentId;
+    this.serverId = undefined;
+    this.serverSeq = 0;
     if (typeof window !== "undefined") window.localStorage.setItem(CURRENT_SESSION_KEY, id);
     this.state = {
       ...this.state,
@@ -613,7 +655,11 @@ class ChatStore {
     this.ensureHydrated();
     if (id === this.state.currentSessionId) return;
     this.cancel();
-    this.lastAgentId = this.state.sessions.find((s) => s.id === id)?.agentId;
+    this.stopTail();
+    const meta = this.state.sessions.find((s) => s.id === id);
+    this.lastAgentId = meta?.agentId;
+    this.serverId = meta?.serverId;
+    this.serverSeq = meta?.lastSeq ?? 0;
     if (typeof window !== "undefined") window.localStorage.setItem(CURRENT_SESSION_KEY, id);
     this.state = {
       ...this.state,
@@ -623,11 +669,21 @@ class ChatStore {
       currentSessionId: id,
     };
     this.notify();
+    if (this.serverId) void this.startTail(this.serverId);
   };
 
   /** Delete a session; if it was open, fall back to the next most recent. */
   deleteSession = (id: string) => {
     this.ensureHydrated();
+    const meta = this.state.sessions.find((s) => s.id === id);
+    if (meta?.serverId) {
+      void fetch(`/api/sessions/${meta.serverId}`, { method: "DELETE" }).catch(() => {});
+    }
+    if (id === this.state.currentSessionId) {
+      this.stopTail();
+      this.serverId = undefined;
+      this.serverSeq = 0;
+    }
     if (typeof window !== "undefined") {
       try {
         window.localStorage.removeItem(sessionMsgKey(id));
@@ -661,6 +717,216 @@ class ChatStore {
     }
     this.notify();
   };
+
+  // ---- server-owned session plumbing (docs/mobile-companion-design.md §4) ----
+  private serverId: string | undefined;
+  private serverSeq = 0;
+  private tail: AbortController | null = null;
+  private tailFor: string | null = null;
+  /** turnId → local assistant message id receiving that turn's events. */
+  private turnToMessage = new Map<string, string>();
+  /** Queued turns we sent: user text → assistant bubble waiting for it. */
+  private pendingByText = new Map<string, string>();
+  /** Resolvers waiting for a turn (by turnId or queued text) to end. */
+  private turnWaiters = new Map<string, () => void>();
+
+  /** The server session id of the open chat, if it has one. */
+  get currentServerId(): string | undefined {
+    this.ensureHydrated();
+    return this.serverId;
+  }
+
+  private async ensureServerSession(agentId?: string): Promise<string> {
+    if (this.serverId) return this.serverId;
+    const res = await fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...(agentId ? { agentId } : {}), title: deriveTitle(this.state.messages) }),
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      throw new Error(errJson.error ?? `HTTP ${res.status}`);
+    }
+    const { session } = (await res.json()) as { session: { id: string } };
+    this.serverId = session.id;
+    this.serverSeq = 0;
+    this.persist();
+    return session.id;
+  }
+
+  private stopTail() {
+    this.tail?.abort();
+    this.tail = null;
+    this.tailFor = null;
+  }
+
+  /** Open (once) the session's event stream and keep applying events until the
+   *  session is switched away. Reconnects with backoff on network loss. */
+  private async startTail(serverId: string): Promise<void> {
+    if (this.tail && this.tailFor === serverId) return;
+    this.stopTail();
+    const ctrl = new AbortController();
+    this.tail = ctrl;
+    this.tailFor = serverId;
+    void (async () => {
+      let backoff = 500;
+      while (!ctrl.signal.aborted) {
+        try {
+          const res = await fetch(`/api/sessions/${serverId}/events?after=${this.serverSeq}`, {
+            signal: ctrl.signal,
+            headers: { accept: "text/event-stream" },
+          });
+          if (res.status === 404) return; // deleted elsewhere
+          if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+          backoff = 500;
+          await this.consumeSessionStream(res.body, ctrl.signal);
+        } catch (err) {
+          if (ctrl.signal.aborted) return;
+          void err;
+        }
+        if (ctrl.signal.aborted) return;
+        await new Promise((r) => setTimeout(r, backoff));
+        backoff = Math.min(backoff * 2, 10_000);
+      }
+    })();
+  }
+
+  private waitForTurnEnd(key: string, signal: AbortSignal): Promise<void> {
+    return new Promise((resolve) => {
+      const done = () => {
+        this.turnWaiters.delete(key);
+        resolve();
+      };
+      this.turnWaiters.set(key, done);
+      signal.addEventListener("abort", done, { once: true });
+    });
+  }
+
+  private async consumeSessionStream(body: ReadableStream<Uint8Array>, signal: AbortSignal) {
+    const reader = body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    try {
+      while (!signal.aborted) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let sep;
+        while ((sep = buffer.indexOf("\n\n")) !== -1) {
+          const chunk = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          if (!chunk.trim()) continue;
+          const { ev, payload } = parseSSE(chunk);
+          if (ev !== "session_event" || !payload) continue;
+          this.applySessionEvent(payload as unknown as ServerSessionEvent);
+        }
+      }
+    } finally {
+      try {
+        await reader.cancel();
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  private applySessionEvent(evt: ServerSessionEvent) {
+    if (evt.seq > 0) {
+      if (evt.seq <= this.serverSeq) return; // replayed duplicate
+      this.serverSeq = evt.seq;
+    }
+    const d = evt.data ?? {};
+    const turnId = evt.turnId ?? "";
+    switch (evt.type) {
+      case "session_status":
+        return;
+      case "turn_queued":
+      case "turn_dequeued":
+      case "session_renamed":
+        return;
+      case "turn_started": {
+        const text = String(d.text ?? "");
+        let aid = this.turnToMessage.get(turnId);
+        if (!aid) {
+          // A queued turn of ours, or a turn started from another device.
+          const queuedAid = this.pendingByText.get(text);
+          if (queuedAid) {
+            this.pendingByText.delete(text);
+            aid = queuedAid;
+          } else {
+            const assistant: ChatMsg = {
+              id: makeId(),
+              role: "assistant",
+              content: "",
+              pending: true,
+              activity: [],
+              loadedSkills: [],
+            };
+            if (d.fromAnswer !== true) {
+              const user: ChatMsg = { id: makeId(), role: "user", content: text, device: typeof d.device === "string" ? d.device : undefined };
+              this.appendMessages(user, assistant);
+            } else {
+              this.appendMessages(assistant);
+            }
+            aid = assistant.id;
+          }
+          this.turnToMessage.set(turnId, aid);
+        }
+        if (typeof d.device === "string") {
+          const dev = d.device;
+          this.mutateMessage(aid, (m) => ({ ...m, device: dev }));
+        }
+        this.state = { ...this.state, streaming: true, error: null };
+        this.notify();
+        return;
+      }
+      case "question_answered": {
+        const user: ChatMsg = {
+          id: makeId(),
+          role: "user",
+          content: String(d.text ?? ""),
+          device: typeof d.device === "string" ? d.device : undefined,
+        };
+        // Our own answer path already appended this message via send().
+        if (this.lastSentText !== user.content) this.appendMessages(user);
+        return;
+      }
+      case "turn_cancelled": {
+        const aid = this.turnToMessage.get(turnId);
+        if (aid) {
+          this.mutateMessage(aid, (m) => ({ ...m, pending: false, content: m.content || "(cancelled)" }));
+        }
+        return;
+      }
+      case "turn_ended": {
+        const aid = this.turnToMessage.get(turnId);
+        if (aid) {
+          this.finalizePendingTools(aid);
+          const content = typeof d.content === "string" ? d.content : "";
+          this.mutateMessage(aid, (m) => ({
+            ...m,
+            pending: false,
+            content: m.content || content,
+            ...(typeof d.error === "string" && !m.errored ? { errored: true, content: m.content || humanizeAgentError(d.error) } : {}),
+          }));
+          this.turnToMessage.delete(turnId);
+          const w = this.turnWaiters.get(aid);
+          if (w) w();
+        }
+        this.setState({ streaming: false });
+        this.persist();
+        return;
+      }
+      default: {
+        const aid = this.turnToMessage.get(turnId);
+        if (!aid) return;
+        this.handleSSE(evt.type, d, aid);
+        return;
+      }
+    }
+  }
+
+  private lastSentText: string | null = null;
 
   private mutateMessage(id: string, mutator: (m: ChatMsg) => ChatMsg) {
     this.state = {
@@ -700,6 +966,9 @@ class ChatStore {
   }
 
   cancel = () => {
+    if (this.serverId && this.state.streaming) {
+      void fetch(`/api/sessions/${this.serverId}/cancel`, { method: "POST" }).catch(() => {});
+    }
     this.abort?.abort();
     this.abort = null;
     this.setState({ streaming: false });
@@ -787,7 +1056,8 @@ class ChatStore {
     if (mcpServers !== undefined) this.lastMcpServers = mcpServers;
     if (agentId) this.lastAgentId = agentId;
 
-    const userMsg: ChatMsg = { id: makeId(), role: "user", content: text };
+    const userMsg: ChatMsg = { id: makeId(), role: "user", content: text, device: deviceLabel() };
+    this.lastSentText = text;
     const assistantMsg: ChatMsg = {
       id: makeId(),
       role: "assistant",
@@ -797,11 +1067,6 @@ class ChatStore {
       loadedSkills: snapshot,
     };
 
-    const history = [...this.state.messages, userMsg].map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
-
     this.appendMessages(userMsg, assistantMsg);
     this.setState({ streaming: true, error: null });
 
@@ -809,11 +1074,19 @@ class ChatStore {
     this.abort = ctrl;
 
     try {
-      const res = await fetch("/api/chat", {
+      // Server-owned session: the turn runs on the server and survives this
+      // tab going away; we render it from the session's event tail, which is
+      // also how a phone attached to the same session sees it.
+      const serverId = await this.ensureServerSession(agentId ?? this.lastAgentId);
+      // Map the turn to our bubble by text BEFORE posting: an already-open tail
+      // can deliver turn_started before the POST response arrives.
+      this.pendingByText.set(text, assistantMsg.id);
+      await this.startTail(serverId);
+      const started = await fetch(`/api/sessions/${serverId}/turns`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-labee-device": deviceLabel() },
         body: JSON.stringify({
-          messages: history,
+          text,
           skillSlugs,
           contextFiles: contextFiles ?? [],
           artifactNotes: artifactNotes ?? {},
@@ -826,11 +1099,18 @@ class ChatStore {
         }),
         signal: ctrl.signal,
       });
-      if (!res.ok || !res.body) {
-        const errJson = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-        throw new Error(errJson.error ?? `HTTP ${res.status}`);
+      if (!started.ok) {
+        const errJson = await started.json().catch(() => ({ error: `HTTP ${started.status}` }));
+        throw new Error(errJson.error ?? `HTTP ${started.status}`);
       }
-      await this.consumeStream(res.body, assistantMsg.id);
+      const startBody = (await started.json()) as { turnId?: string; queued?: boolean; queueId?: string };
+      if (startBody.turnId && !this.turnToMessage.has(startBody.turnId)) {
+        this.turnToMessage.set(startBody.turnId, assistantMsg.id);
+        this.pendingByText.delete(text);
+      }
+      // Queued (another device is mid-turn) or running: either way the tail
+      // streams the turn into this bubble and resolves when it ends.
+      await this.waitForTurnEnd(assistantMsg.id, ctrl.signal);
     } catch (err) {
       if (this.wasCancelled(err)) {
         this.mutateMessage(assistantMsg.id, (m) => ({

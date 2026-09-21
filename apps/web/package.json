@@ -13,6 +13,7 @@
   "dependencies": {
     "@base-ui/react": "1.2.0",
     "@labee/contracts": "workspace:*",
+    "@labee/session-core": "workspace:*",
     "@labee/shared": "workspace:*",
     "@tanstack/react-query": "^5.90.0",
     "@tanstack/react-router": "^1.160.2",
