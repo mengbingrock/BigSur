@@ -35,3 +35,6 @@ AuthKey_*.p8
 
 # Local Claude Code tooling, worktrees, caches — never commit
 .claude/
+
+# local Stripe test key for scripts/stripe-verify-local.sh
+scripts/.stripe-test.env
