@@ -16,6 +16,7 @@ import {
   Store,
   Trash2,
   type LucideIcon,
+  Laptop,
 } from "lucide-react";
 
 import { apiGet } from "~/lib/api";
@@ -42,6 +43,12 @@ interface NavItem {
 }
 
 const WORKSPACE_ITEMS: NavItem[] = [
+  {
+    label: "Your Macs",
+    to: "/macs",
+    icon: Laptop,
+    match: (p) => p === "/macs" || p.startsWith("/macs/"),
+  },
   {
     label: "Research",
     to: "/research",

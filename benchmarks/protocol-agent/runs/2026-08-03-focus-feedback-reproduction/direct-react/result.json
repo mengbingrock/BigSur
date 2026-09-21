@@ -1,0 +1,15 @@
+{
+  "score": null,
+  "hardPass": false,
+  "casePass": false,
+  "valid": false,
+  "supersededBy": "../direct-react-strict/result.json",
+  "invalidationReason": "Post-run audit found a search result published after the cutoff: DOI 10.1002/cpz1.70420, published in July 2026. The search wrapper had relied on Crossref's request filter without response-side date filtering, so the run was not cutoff-clean.",
+  "cutoffAudit": {
+    "path": "cutoff-audit.json",
+    "strictPass": false,
+    "violations": 1,
+    "unresolved": 12
+  },
+  "previousScoreWithdrawn": 0.902
+}

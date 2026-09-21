@@ -22,6 +22,9 @@ export class ServerConfig extends ServiceMap.Service<ServerConfig, ServerConfigS
 /** Locate the built web client: the bundled copy beside the server binary
  *  (desktop/prod) or the monorepo `apps/web/dist` (local build). */
 function resolveStaticDir(): string | undefined {
+  // Explicit override (e.g. serve the mobile web build for an end-to-end run).
+  const override = process.env.LABEE_STATIC_DIR;
+  if (override && fs.existsSync(path.join(override, "index.html"))) return override;
   const here = path.dirname(fileURLToPath(import.meta.url));
   const candidates = [
     path.resolve(here, "client"), // bundled next to dist/bin.mjs

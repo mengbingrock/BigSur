@@ -1,0 +1,36 @@
+{
+  "harness": "minimal-direct-react-v1",
+  "model": "claude-opus-5",
+  "exclusiveCutoff": "2026-07-01",
+  "labeeUsed": false,
+  "protocolSkillUsed": false,
+  "protocolSearchMcpUsed": false,
+  "exitCode": 1,
+  "durationMs": 665,
+  "toolCalls": [],
+  "result": {
+    "isError": true,
+    "durationMs": 5,
+    "costUsd": 0,
+    "turns": 1,
+    "usage": {
+      "input_tokens": 0,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "output_tokens": 0,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    }
+  },
+  "stderr": ""
+}

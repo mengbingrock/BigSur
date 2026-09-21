@@ -1,0 +1,118 @@
+{
+  "score": 0.879,
+  "unroundedScore": 0.878571,
+  "hardPass": true,
+  "casePass": true,
+  "passThreshold": 0.85,
+  "valid": true,
+  "formula": {
+    "quality": "0.40*fidelity + 0.20*procedureStructure + 0.20*provenance + 0.20*usefulness",
+    "caseScore": "hardPass ? quality : 0",
+    "casePass": "hardPass && quality >= 0.85",
+    "subscoresUse": "Only fixed 0, 0.5, or 1 atom/check credit."
+  },
+  "components": {
+    "fidelity": {
+      "score": 0.946429,
+      "formula": "sum(atomWeight*atomCredit)/sum(atomWeight)",
+      "earnedWeight": 26.5,
+      "possibleWeight": 28,
+      "atoms": [
+        {"id": 1, "requirement": "single-plane primary acquisition", "weight": 3, "credit": 1},
+        {"id": 2, "requirement": "cylindrical-lens astigmatic PSF", "weight": 3, "credit": 1},
+        {"id": 3, "requirement": "infer z from calibrated PSF shape", "weight": 3, "credit": 1},
+        {"id": 4, "requirement": "bead-based axial calibration", "weight": 3, "credit": 1},
+        {"id": 5, "requirement": "closed-loop focus feedback", "weight": 3, "credit": 1},
+        {"id": 6, "requirement": "microscope-software integration", "weight": 2, "credit": 1},
+        {"id": 7, "requirement": "low-dose live time-lapse acquisition", "weight": 2, "credit": 1},
+        {"id": 8, "requirement": "pre-live validation", "weight": 2, "credit": 1},
+        {"id": 9, "requirement": "position, intensity, and kymographic/equivalent outputs", "weight": 2, "credit": 0.5, "reason": "Position, displacement, and intensity-related logging were explicit; no kymograph deliverable."},
+        {"id": 10, "requirement": "alignment or drift correction", "weight": 2, "credit": 1},
+        {"id": 11, "requirement": "practical timing including one-day-after-setup framing", "weight": 1, "credit": 0.5, "reason": "Per-session timing was explicit, but the complete configured workflow was not explicitly framed as a one-day task after setup."},
+        {"id": 12, "requirement": "separate evidence from assumptions", "weight": 2, "credit": 1}
+      ]
+    },
+    "procedureStructure": {
+      "score": 1,
+      "formula": "sum(applicableCheckCredit)/applicableCheckCount",
+      "checks": {
+        "orderedEndToEndProcedure": 1,
+        "setupBeforeCalibration": 1,
+        "calibrationBeforeLiveAcquisition": 1,
+        "validationGateBeforeBiologicalAnalysis": 1,
+        "completeExactScoredTranscriptPersisted": 1
+      },
+      "notApplicable": ["planQuestionsAnswered", "explicitPlanToBuildTransition"]
+    },
+    "provenance": {
+      "score": 0.666667,
+      "formula": "sum(checkCredit)/6",
+      "checks": {
+        "cutoffComplianceObserved": 1,
+        "noProhibitedSearchOrFetchTools": 1,
+        "evidenceAndAssumptionsLabeled": 1,
+        "citedIdentifiersObservedInSearchResults": 1,
+        "sourceTextActuallyRead": 0,
+        "claimLevelSourceSupportVerifiable": 0
+      },
+      "citationTrace": {
+        "uniqueCitedIdentifiers": 8,
+        "observedInToolTrace": 8,
+        "identifierPrecision": 1
+      }
+    },
+    "usefulness": {
+      "score": 0.833333,
+      "formula": "sum(checkCredit)/6",
+      "checks": {
+        "implementableSetup": 1,
+        "calibrationWorkflow": 1,
+        "acquisitionAndControlWorkflow": 1,
+        "validationWorkflow": 1,
+        "analysisDeliverables": 0.5,
+        "practicalTimingFraming": 0.5
+      }
+    }
+  },
+  "calculation": "0.40*(26.5/28) + 0.20*(5/5) + 0.20*(4/6) + 0.20*(5/6) = 0.878571",
+  "criticalErrors": [],
+  "gates": {
+    "labeeUsed": false,
+    "protocolSkillUsed": false,
+    "protocolSearchMcpUsed": false,
+    "goldArticleSeenByAgent": false,
+    "hiddenAnswerTextSeenByAgent": false,
+    "articleFetchUsed": false,
+    "generalWebUsed": false,
+    "chromeUsed": false,
+    "userConfigIgnored": true,
+    "projectRulesIgnored": true,
+    "ephemeralSession": true,
+    "unsupportedNumbersLabeled": true,
+    "strictCutoffAuditPassed": true
+  },
+  "cutoffAudit": {
+    "path": "cutoff-audit.json",
+    "exclusiveCutoff": "2026-07-01",
+    "allowedSearchTool": "mcp__literature__search",
+    "toolCalls": 10,
+    "uniqueReturnedDois": 94,
+    "passedDateChecks": 94,
+    "violations": 0,
+    "unresolved": 0,
+    "hiddenAnswerMatches": 0,
+    "strictPass": true
+  },
+  "telemetry": {
+    "model": "gpt-5.6-sol",
+    "harness": "minimal-direct-codex-react-v1",
+    "durationMs": 330846,
+    "inputTokens": 232898,
+    "cachedInputTokens": 195584,
+    "outputTokens": 12418,
+    "reasoningOutputTokens": 8482,
+    "toolCalls": 10,
+    "costUsd": null
+  },
+  "verdict": "The isolated Codex direct-ReAct run passed. It reproduced the core method without Labee, protocol skills, or the protocol-search MCP. Conservative partial credit remains for the missing explicit kymograph and incomplete one-day framing; provenance is metadata-only."
+}

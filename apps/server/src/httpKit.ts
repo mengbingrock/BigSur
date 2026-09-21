@@ -1,21 +1,48 @@
 import { Effect, Option } from "effect";
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 import { currentUser, readSession, type CurrentUser, type SessionData } from "./services/session";
+import { authenticateDevice } from "./services/deviceLink/devices";
+import { linkSecret } from "./services/deviceLink/secret";
 
 /** Read and unseal the session cookie off the current request. */
 export const sessionData: Effect.Effect<SessionData, never, HttpServerRequest.HttpServerRequest> =
   Effect.gen(function* () {
     const request = yield* HttpServerRequest.HttpServerRequest;
     const cookie = request.headers["cookie"] ?? request.headers["Cookie"];
-    return yield* Effect.promise(() => readSession(cookie));
+    const fromCookie = yield* Effect.promise(() => readSession(cookie));
+    if (fromCookie.email) return fromCookie;
+    // Mobile app: the sealed session travels in a header instead of a cookie.
+    const sealed = request.headers["x-labee-session"];
+    if (typeof sealed === "string" && sealed) {
+      return yield* Effect.promise(() => readSession(`monterey_session=${sealed}`));
+    }
+    return fromCookie;
   });
 
-/** Current user or null (not signed in). */
+/** Current user or null (not signed in). Three ways in, checked in order:
+ *  1. the session cookie (browsers, Electron);
+ *  2. `Authorization: Bearer lbd_…` — an approved Device Link phone/tablet;
+ *  3. `x-labee-link-user` + `x-labee-link-secret` — a request the box tunneled
+ *     to this desktop; only honoured when the per-process secret matches. */
 export const sessionUser: Effect.Effect<
   CurrentUser | null,
   never,
   HttpServerRequest.HttpServerRequest
-> = Effect.map(sessionData, currentUser);
+> = Effect.gen(function* () {
+  const request = yield* HttpServerRequest.HttpServerRequest;
+  const fromCookie = currentUser(yield* sessionData);
+  if (fromCookie) return fromCookie;
+  const auth = request.headers["authorization"] ?? "";
+  if (auth.startsWith("Bearer lbd_")) {
+    const device = yield* Effect.promise(() => authenticateDevice(auth.slice(7)).catch(() => null));
+    if (device) return { email: device.email, isAdmin: false };
+  }
+  const linkUser = request.headers["x-labee-link-user"];
+  const secret = request.headers["x-labee-link-secret"];
+  const expected = linkSecret();
+  if (linkUser && secret && expected && secret === expected) return { email: linkUser, isAdmin: false };
+  return null;
+});
 
 /** Parsed request URL (for query params); falls back to a dummy origin. */
 export const requestUrl: Effect.Effect<URL, never, HttpServerRequest.HttpServerRequest> =

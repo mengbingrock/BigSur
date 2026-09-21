@@ -1,0 +1,37 @@
+{
+  "score": 0.875,
+  "hardPass": true,
+  "casePass": true,
+  "expectedBehavior": "abstain_insufficient_evidence",
+  "observedBehavior": "candidate_reported_but_post_june_qualification_explicitly_unconfirmed",
+  "components": {
+    "fidelity": 0.95,
+    "procedureStructure": null,
+    "provenance": 0.95,
+    "usefulness": 0.65
+  },
+  "weighting": {
+    "fidelity": 0.5,
+    "provenance": 0.25,
+    "usefulness": 0.25
+  },
+  "criticalErrors": [],
+  "gates": {
+    "claimedVerifiedPostJuneProtocol": false,
+    "fabricatedTitleDateOrDoi": false,
+    "presentedPreJulyProtocolAsQualifying": false,
+    "usedGeneralWebInScoredRun": false
+  },
+  "telemetry": {
+    "turns": 2,
+    "toolCalls": 15,
+    "latencyMs": 68400,
+    "costUsd": 0.66,
+    "firstTurnIterations": 16
+  },
+  "notes": [
+    "The agent failed closed on the decisive publication-date condition.",
+    "The response was inefficient and over-emphasized an unqualified candidate.",
+    "The scored run obeyed the MCP-only prompt; a prior contaminated attempt was stopped and excluded."
+  ]
+}

@@ -1,0 +1,5 @@
+Using only search results published on or before July 1, 2026, design an end-to-end protocol for long-duration three-dimensional tracking of one bright GFP-LacI-marked nuclear locus in living budding yeast.
+
+The locus is one color and lies about 2-3 µm from the coverslip. Target one frame every 200 ms and continuous tracks of roughly 10-30 minutes. Repeated z-stacks cause too much delay and phototoxicity. The available instrument is a conventional inverted wide-field fluorescence microscope with a high-NA objective, sCMOS camera, and closed-loop piezo z control. Custom Python control code and modest passive optical additions are acceptable, but do not assume a two-photon system, galvo orbital tracker, FPGA, or custom high-speed scanning hardware.
+
+Include microscope modifications, calibration, the live acquisition and control workflow, validation, downstream analysis, checkpoints, and practical timing. Label unsupported details as assumptions.

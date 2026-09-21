@@ -1,0 +1,101 @@
+{
+  "score": 0,
+  "qualityScore": 0.829,
+  "unroundedQualityScore": 0.828571,
+  "hardPass": false,
+  "casePass": false,
+  "passThreshold": 0.85,
+  "valid": false,
+  "formula": {
+    "quality": "0.40*fidelity + 0.20*procedureStructure + 0.20*provenance + 0.20*usefulness",
+    "caseScore": "hardPass ? quality : 0",
+    "casePass": "hardPass && quality >= 0.85",
+    "subscoresUse": "Only fixed 0, 0.5, or 1 atom/check credit."
+  },
+  "components": {
+    "fidelity": {
+      "score": 0.946429,
+      "formula": "sum(atomWeight*atomCredit)/sum(atomWeight)",
+      "earnedWeight": 26.5,
+      "possibleWeight": 28,
+      "atoms": [
+        {"id": 1, "requirement": "single-plane primary acquisition", "weight": 3, "credit": 1},
+        {"id": 2, "requirement": "cylindrical-lens astigmatic PSF", "weight": 3, "credit": 1},
+        {"id": 3, "requirement": "infer z from calibrated PSF shape", "weight": 3, "credit": 1},
+        {"id": 4, "requirement": "bead-based axial calibration", "weight": 3, "credit": 1},
+        {"id": 5, "requirement": "closed-loop focus feedback", "weight": 3, "credit": 1},
+        {"id": 6, "requirement": "microscope-software integration", "weight": 2, "credit": 1},
+        {"id": 7, "requirement": "low-dose live time-lapse acquisition", "weight": 2, "credit": 1},
+        {"id": 8, "requirement": "pre-live validation", "weight": 2, "credit": 1},
+        {"id": 9, "requirement": "position, intensity, and kymographic/equivalent outputs", "weight": 2, "credit": 0.5, "reason": "Position, motion, and photon outputs were explicit; no kymograph deliverable."},
+        {"id": 10, "requirement": "alignment or drift correction", "weight": 2, "credit": 1},
+        {"id": 11, "requirement": "practical timing including one-day-after-setup framing", "weight": 1, "credit": 0.5, "reason": "Detailed timing was present, but the complete configured workflow was not explicitly framed as a one-day task after setup."},
+        {"id": 12, "requirement": "separate evidence from assumptions", "weight": 2, "credit": 1}
+      ]
+    },
+    "procedureStructure": {
+      "score": 1,
+      "formula": "sum(checkCredit)/5",
+      "checks": {
+        "orderedEndToEndProcedure": 1,
+        "setupBeforeCalibration": 1,
+        "calibrationBeforeLiveAcquisition": 1,
+        "validationGateBeforeBiologicalAnalysis": 1,
+        "completeExactScoredTranscriptPersisted": 1
+      }
+    },
+    "provenance": {
+      "score": 0.416667,
+      "formula": "sum(checkCredit)/6",
+      "checks": {
+        "cutoffComplianceObserved": 0.5,
+        "noProhibitedSearchOrFetchTools": 1,
+        "evidenceAndAssumptionsLabeled": 1,
+        "citedIdentifiersObservedInSearchResults": 0,
+        "sourceTextActuallyRead": 0,
+        "claimLevelSourceSupportVerifiable": 0
+      },
+      "reason": "Every observable query was date-qualified and all final citations were pre-cutoff, but complete native-search result payloads were absent from the trace."
+    },
+    "usefulness": {
+      "score": 0.833333,
+      "formula": "sum(checkCredit)/6",
+      "checks": {
+        "implementableSetup": 1,
+        "calibrationWorkflow": 1,
+        "acquisitionAndControlWorkflow": 1,
+        "validationWorkflow": 1,
+        "analysisDeliverables": 0.5,
+        "practicalTimingFraming": 0.5
+      }
+    }
+  },
+  "calculation": "quality = 0.40*(26.5/28) + 0.20*(5/5) + 0.20*(2.5/6) + 0.20*(5/6) = 0.828571; caseScore = 0 because hardPass=false",
+  "criticalErrors": [
+    "Complete native web-search result payloads are unobservable, so strict cutoff and hidden-answer non-exposure cannot be proven."
+  ],
+  "gates": {
+    "onlyBuiltInWebSearchUsed": true,
+    "mcpUsed": false,
+    "protocolSkillUsed": false,
+    "labeeUsed": false,
+    "chromeUsed": false,
+    "allObservableQueriesDateGuarded": true,
+    "allFinalCitationsPreCutoff": true,
+    "hiddenAnswerMatchesInObservableTrace": false,
+    "strictAnswerBlindCutoffAuditPassed": false
+  },
+  "telemetry": {
+    "model": "gpt-5.6-sol",
+    "harness": "minimal-direct-codex-native-web-v1",
+    "durationMs": 376500,
+    "inputTokens": 105975,
+    "cachedInputTokens": 75776,
+    "outputTokens": 13145,
+    "reasoningOutputTokens": 9373,
+    "webSearchActions": 3,
+    "webSearchQueries": 10,
+    "costUsd": null
+  },
+  "verdict": "The response quality was strong, but the run is invalid under the strict answer-blind cutoff benchmark because built-in web search does not expose its complete result payload for audit."
+}

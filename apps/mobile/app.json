@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "Labee",
+    "slug": "labee-mobile",
+    "version": "0.1.0",
+    "scheme": "labee",
+    "orientation": "default",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "online.labee.mobile",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Labee uses the microphone so you can talk to your agent.",
+        "UIBackgroundModes": [
+          "audio",
+          "remote-notification"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "appleTeamId": "W3X4ZUG72V",
+      "icon": "./assets/icon.png"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Labee uses the microphone so you can talk to your agent."
+        }
+      ],
+      "expo-notifications",
+      "expo-secure-store",
+      "expo-status-bar",
+      "./plugins/withSceneLifecycle",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FAFAF7"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5867c3e7-6f90-4d9e-9aad-711bc7e48e85"
+      }
+    },
+    "owner": "menbinwan"
+  }
+}

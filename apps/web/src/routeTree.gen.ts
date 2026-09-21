@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as MarketplaceRouteImport } from './routes/marketplace'
+import { Route as MacsRouteImport } from './routes/macs'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
@@ -24,6 +25,7 @@ import { Route as ResearchRunIdRouteImport } from './routes/research.$runId'
 import { Route as AgentsNewRouteImport } from './routes/agents.new'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as SkillsSlugEditRouteImport } from './routes/skills.$slug.edit'
+import { Route as MacsHostIdSessionIdRouteImport } from './routes/macs.$hostId.$sessionId'
 import { Route as AgentsIdEditRouteImport } from './routes/agents.$id.edit'
 
 const SignupRoute = SignupRouteImport.update({
@@ -39,6 +41,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const MarketplaceRoute = MarketplaceRouteImport.update({
   id: '/marketplace',
   path: '/marketplace',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MacsRoute = MacsRouteImport.update({
+  id: '/macs',
+  path: '/macs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -101,6 +108,11 @@ const SkillsSlugEditRoute = SkillsSlugEditRouteImport.update({
   path: '/edit',
   getParentRoute: () => SkillsSlugRoute,
 } as any)
+const MacsHostIdSessionIdRoute = MacsHostIdSessionIdRouteImport.update({
+  id: '/$hostId/$sessionId',
+  path: '/$hostId/$sessionId',
+  getParentRoute: () => MacsRoute,
+} as any)
 const AgentsIdEditRoute = AgentsIdEditRouteImport.update({
   id: '/agents/$id/edit',
   path: '/agents/$id/edit',
@@ -111,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
   '/login': typeof LoginRoute
+  '/macs': typeof MacsRouteWithChildren
   '/marketplace': typeof MarketplaceRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
@@ -123,12 +136,14 @@ export interface FileRoutesByFullPath {
   '/research/': typeof ResearchIndexRoute
   '/skills/': typeof SkillsIndexRoute
   '/agents/$id/edit': typeof AgentsIdEditRoute
+  '/macs/$hostId/$sessionId': typeof MacsHostIdSessionIdRoute
   '/skills/$slug/edit': typeof SkillsSlugEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
   '/login': typeof LoginRoute
+  '/macs': typeof MacsRouteWithChildren
   '/marketplace': typeof MarketplaceRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
@@ -141,6 +156,7 @@ export interface FileRoutesByTo {
   '/research': typeof ResearchIndexRoute
   '/skills': typeof SkillsIndexRoute
   '/agents/$id/edit': typeof AgentsIdEditRoute
+  '/macs/$hostId/$sessionId': typeof MacsHostIdSessionIdRoute
   '/skills/$slug/edit': typeof SkillsSlugEditRoute
 }
 export interface FileRoutesById {
@@ -148,6 +164,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
   '/login': typeof LoginRoute
+  '/macs': typeof MacsRouteWithChildren
   '/marketplace': typeof MarketplaceRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
@@ -160,6 +177,7 @@ export interface FileRoutesById {
   '/research/': typeof ResearchIndexRoute
   '/skills/': typeof SkillsIndexRoute
   '/agents/$id/edit': typeof AgentsIdEditRoute
+  '/macs/$hostId/$sessionId': typeof MacsHostIdSessionIdRoute
   '/skills/$slug/edit': typeof SkillsSlugEditRoute
 }
 export interface FileRouteTypes {
@@ -168,6 +186,7 @@ export interface FileRouteTypes {
     | '/'
     | '/chat'
     | '/login'
+    | '/macs'
     | '/marketplace'
     | '/settings'
     | '/signup'
@@ -180,12 +199,14 @@ export interface FileRouteTypes {
     | '/research/'
     | '/skills/'
     | '/agents/$id/edit'
+    | '/macs/$hostId/$sessionId'
     | '/skills/$slug/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/chat'
     | '/login'
+    | '/macs'
     | '/marketplace'
     | '/settings'
     | '/signup'
@@ -198,12 +219,14 @@ export interface FileRouteTypes {
     | '/research'
     | '/skills'
     | '/agents/$id/edit'
+    | '/macs/$hostId/$sessionId'
     | '/skills/$slug/edit'
   id:
     | '__root__'
     | '/'
     | '/chat'
     | '/login'
+    | '/macs'
     | '/marketplace'
     | '/settings'
     | '/signup'
@@ -216,6 +239,7 @@ export interface FileRouteTypes {
     | '/research/'
     | '/skills/'
     | '/agents/$id/edit'
+    | '/macs/$hostId/$sessionId'
     | '/skills/$slug/edit'
   fileRoutesById: FileRoutesById
 }
@@ -223,6 +247,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatRoute: typeof ChatRoute
   LoginRoute: typeof LoginRoute
+  MacsRoute: typeof MacsRouteWithChildren
   MarketplaceRoute: typeof MarketplaceRoute
   SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
@@ -258,6 +283,13 @@ declare module '@tanstack/react-router' {
       path: '/marketplace'
       fullPath: '/marketplace'
       preLoaderRoute: typeof MarketplaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/macs': {
+      id: '/macs'
+      path: '/macs'
+      fullPath: '/macs'
+      preLoaderRoute: typeof MacsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -344,6 +376,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SkillsSlugEditRouteImport
       parentRoute: typeof SkillsSlugRoute
     }
+    '/macs/$hostId/$sessionId': {
+      id: '/macs/$hostId/$sessionId'
+      path: '/$hostId/$sessionId'
+      fullPath: '/macs/$hostId/$sessionId'
+      preLoaderRoute: typeof MacsHostIdSessionIdRouteImport
+      parentRoute: typeof MacsRoute
+    }
     '/agents/$id/edit': {
       id: '/agents/$id/edit'
       path: '/agents/$id/edit'
@@ -353,6 +392,16 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface MacsRouteChildren {
+  MacsHostIdSessionIdRoute: typeof MacsHostIdSessionIdRoute
+}
+
+const MacsRouteChildren: MacsRouteChildren = {
+  MacsHostIdSessionIdRoute: MacsHostIdSessionIdRoute,
+}
+
+const MacsRouteWithChildren = MacsRoute._addFileChildren(MacsRouteChildren)
 
 interface SkillsSlugRouteChildren {
   SkillsSlugEditRoute: typeof SkillsSlugEditRoute
@@ -370,6 +419,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRoute: ChatRoute,
   LoginRoute: LoginRoute,
+  MacsRoute: MacsRouteWithChildren,
   MarketplaceRoute: MarketplaceRoute,
   SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,

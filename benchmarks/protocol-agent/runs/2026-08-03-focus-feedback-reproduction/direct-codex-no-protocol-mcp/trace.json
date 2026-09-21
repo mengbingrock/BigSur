@@ -1,0 +1,435 @@
+[
+  {
+    "type": "thread.started",
+    "thread_id": "019fcdb4-1ddc-7e52-ab18-af55c6c57d07"
+  },
+  {
+    "type": "turn.started"
+  },
+  {
+    "type": "item.completed",
+    "item": {
+      "id": "item_0",
+      "type": "agent_message",
+      "text": "I’ll use only cutoff-controlled Crossref metadata searches, stopping once the evidence is sufficient. I’ll clearly separate literature-backed design choices from engineering assumptions, then provide one executable end-to-end protocol."
+    }
+  },
+  {
+    "type": "item.started",
+    "item": {
+      "id": "item_1",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "astigmatism three-dimensional single particle tracking cylindrical lens real time feedback fluorescence microscopy",
+        "limit": 8
+      },
+      "result": null,
+      "error": null,
+      "status": "in_progress"
+    }
+  },
+  {
+    "type": "item.completed",
+    "item": {
+      "id": "item_1",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "astigmatism three-dimensional single particle tracking cylindrical lens real time feedback fluorescence microscopy",
+        "limit": 8
+      },
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "# Literature metadata search: \"astigmatism three-dimensional single particle tracking cylindrical lens real time feedback fluorescence microscopy\"\nCutoff rule: publicationDate < 2026-07-01\n\n- Automatic real‐time three‐dimensional cell tracking by fluorescence microscopy\n  `doi:10.1111/j.0022-2720.2004.01404.x` · published 2004-10-28 · Journal of Microscopy\n  Abstract: Summary Live cell imaging has become an indispensable technique for cell biologists. However, when grown on coverslip glass used for live cell imaging many cultured cells move even during relatively short observation times and focus can drift as a result of mechanical instabilities and/or temperature fluctuations. Time‐lapse imaging therefore requires constant adjustment of the imaging field and focus position to keep the cell of interest centred in the imaged volume. We show here that this limitation can be overcome by tracking cells in a fully automated way using the mass centre of cellular \n- Three‐Dimensional Particle Tracking in a Laser Scanning Fluorescence Microscope\n  `doi:10.1002/9783527628360.ch1` · published 2009-12-14 · Single Particle Tracking and Single Molecule Energy Transfer\n- Particle-by-Particle in Situ Characterization of the Protein Corona via Real-Time 3D Single Particle Tracking Microscopy\n  `doi:10.26434/chemrxiv.13521332.v1` · published 2021-1-5\n  Abstract: Nanoparticles (NPs) adsorb proteins when exposed to biological fluids, forming a dynamic protein corona that affects their fate in biological environments. A comprehensive understanding of the protein corona is lacking due to the inability of current techniques to precisely measure the full corona in situ at the single particle level. Herein, we introduce a 3D real-time single-particle tracking spectroscopy to \"lock-on\" to single freely-diffusing polystyrene NPs and probe their individual protein coronas. The diffusive motions of the tracked NPs enable quantification of the \"hard corona\" using\n- Single Particle Tracking\n  `doi:10.1201/9781420078893-11` · published 2010-4-26 · Nanoscopy and Multidimensional Optical Fluorescence Microscopy\n- Adaptive Precision Real-Time 3D Single Particle Tracking Microscopy\n  `doi:10.1016/j.bpj.2017.11.929` · published 2018-2 · Biophysical Journal\n- A Motion Transformer for Single Particle Tracking in Fluorescence Microscopy Images\n  `doi:10.1101/2023.07.20.549804` · published 2023-7-22\n  Abstract: Abstract Single particle tracking is an important image analysis technique widely used in biomedical sciences to follow the movement of sub-cellular structures, which typically appear as individual particles in fluorescence microscopy images. In practice, the low signal-to-noise ratio (SNR) of fluorescence microscopy images as well as the high density and complex movement of subcellular structures pose substantial technical challenges for accurate and robust tracking. In this paper, we propose a novel Transformer-based single particle tracking method called Motion Transformer Tracker (MoTT). B\n- Real-Time 3D Single Particle Tracking: Towards Active Feedback Single Molecule Spectroscopy in Live Cells\n  `doi:10.3390/molecules24152826` · published 2019-8-2 · Molecules\n  Abstract: Single molecule fluorescence spectroscopy has been largely implemented using methods which require tethering of molecules to a substrate in order to make high temporal resolution measurements. However, the act of tethering a molecule requires that the molecule be removed from its environment. This is especially perturbative when measuring biomolecules such as enzymes, which may rely on the non-equilibrium and crowded cellular environment for normal function. A method which may be able to un-tether single molecule fluorescence spectroscopy is real-time 3D single particle tracking (RT-3D-SPT). R\n- Real‐time three‐dimensional single‐particle tracking spectroscopy for complex systems\n  `doi:10.1002/lpor.200910012` · published 2010-4-23 · Laser &amp; Photonics Reviews\n  Abstract: Abstract Complex systems are characterized by dynamical processes spread over multiple time and length scales. At a given instant, these systems can display spatial heterogeneities in which the local physical and chemical properties are nonuniform, depending on the location. They can also exhibit dynamical heterogeneities in which the local dynamical characteristics vary with time. These types of systems pose unique experimental challenges for their characterization and test of theoretical ideas. Recently, real‐time three‐dimensional (3D) single‐particle tracking spectroscopy has been develope"
+          }
+        ],
+        "structured_content": null
+      },
+      "error": null,
+      "status": "completed"
+    }
+  },
+  {
+    "type": "item.started",
+    "item": {
+      "id": "item_2",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "astigmatic three dimensional localization fluorescence microscopy cylindrical lens calibration z position PSF",
+        "limit": 10
+      },
+      "result": null,
+      "error": null,
+      "status": "in_progress"
+    }
+  },
+  {
+    "type": "item.completed",
+    "item": {
+      "id": "item_2",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "astigmatic three dimensional localization fluorescence microscopy cylindrical lens calibration z position PSF",
+        "limit": 10
+      },
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "# Literature metadata search: \"astigmatic three dimensional localization fluorescence microscopy cylindrical lens calibration z position PSF\"\nCutoff rule: publicationDate < 2026-07-01\n\n- 3‐D PSF fitting for fluorescence microscopy: implementation and localization application\n  `doi:10.1111/j.1365-2818.2012.03675.x` · published 2012-11-5 · Journal of Microscopy\n  Abstract: Summary Localization microscopy relies on computationally efficient Gaussian approximations of the point spread function for the calculation of fluorophore positions. Theoretical predictions show that under specific experimental conditions, localization accuracy is significantly improved when the localization is performed using a more realistic model. Here, we show how this can be achieved by considering three‐dimensional (3‐D) point spread function models for the wide field microscope. We introduce a least‐squares point spread function fitting framework that utilizes the Gibson and Lanni mode\n- A study of Gaussian approximations of fluorescence microscopy PSF models\n  `doi:10.1117/12.645650` · published 2006-2-9 · SPIE Proceedings\n- Advances in Three Dimensional Super Resolution Fluorescence Localization Microscopy\n  `doi:10.1016/j.bpj.2010.12.980` · published 2011-2 · Biophysical Journal\n- Double helix PSF engineering for computational fluorescence microscopy imaging\n  `doi:10.1117/12.909757` · published 2012-2-9 · SPIE Proceedings\n- A Review on Dual-Lens Fluorescence Microscopy for Three-Dimensional Imaging\n  `doi:10.3389/fphy.2020.606217` · published 2020-12-7 · Frontiers in Physics\n  Abstract: Three-dimensional (3D) imaging using dual-lens fluorescence microscopies is popular in observing fluorescently labeled biological samples, such as mammalian/model animal cells, tissues, and embryos. Specifically, dual-lens super-resolution fluorescence microscopy methods using two opposing objective lenses allow significantly higher axial resolution and better signal to noise ratio than traditional single-lens counterparts, and thus distinguish more details in 3D images of fine intracellular structures. For 3D imaging of thick tissues and entire embryos, dual-lens light-sheet fluorescence micr\n- Method of Measuring Spherical and Astigmatic Aberrations of an Electron Lens\n  `doi:10.1093/oxfordjournals.jmicro.a050275` · published 1954 · Journal of Electron Microscopy\n- Effect of aberration on height calibration in three-dimensional localization-based microscopy and particle tracking\n  `doi:10.1364/ao.48.001886` · published 2009-3-25 · Applied Optics\n- Wave-optical calibration of a light-field fluorescence microscopy\n  `doi:10.1117/12.2509635` · published 2019-2-21 · Three-Dimensional and Multidimensional Microscopy: Image Acquisition and Processing XXVI\n- Resonance fluorescence microscopy via three-dimensional atom localization\n  `doi:10.1007/s11128-017-1787-4` · published 2017-12-15 · Quantum Information Processing\n- Three-Dimensional Photoactivated Localization Microscopy with Genetically Expressed Probes\n  `doi:10.1007/978-1-4939-2080-8_13` · published 2014-10-30 · Methods in Molecular Biology"
+          }
+        ],
+        "structured_content": null
+      },
+      "error": null,
+      "status": "completed"
+    }
+  },
+  {
+    "type": "item.started",
+    "item": {
+      "id": "item_3",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "astigmatism imaging cylindrical lens axial position single fluorescent particle width x y",
+        "limit": 10
+      },
+      "result": null,
+      "error": null,
+      "status": "in_progress"
+    }
+  },
+  {
+    "type": "item.completed",
+    "item": {
+      "id": "item_3",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "astigmatism imaging cylindrical lens axial position single fluorescent particle width x y",
+        "limit": 10
+      },
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "# Literature metadata search: \"astigmatism imaging cylindrical lens axial position single fluorescent particle width x y\"\nCutoff rule: publicationDate < 2026-07-01\n\n- Tracking of single fluorescent particles in three dimensions: use of cylindrical optics to encode particle position\n  `doi:10.1016/s0006-3495(94)80601-0` · published 1994-9 · Biophysical Journal\n- Axial displacement and position measurement of single particle using optical tweezers\n  `doi:10.1364/biomed.2012.bsu3a.1` · published 2012 · Biomedical Optics and 3-D Imaging\n- The Influence of Incision-Induced Astigmatism and Axial Lens Position on the Correction of Myopic Astigmatism with the Artisan Toric Phakic Intraocular Lens\n  `doi:10.1016/j.ophtha.2006.02.017` · published 2006-7 · Ophthalmology\n- Axial IntraOcular Lens position and posterior capsule opacification with a microincisional single-piece open-loop hydrophilic IntraOcular Lens: a randomised trial (XCelens Idea versus single-piece Acrysof IntraOcular Lens)\n  `doi:10.1186/isrctn88407981` · published 2012-12-6 · http://isrctn.org/&gt;\n- Bayesian Estimation of the Axial Position in Astigmatism‐Based Three‐Dimensional Particle Tracking\n  `doi:10.1155/2009/896208` · published 2009-3-10 · International Journal of Optics\n  Abstract: Accurate estimation of the axial position of a molecule using a single lateral image remains a challenge in fluorescent single particle tracking. Here, a principled algorithm for the Bayesian estimation of the axial position of a molecule in three‐dimensional astigmatism‐based particle tracking is proposed. This technique uses the data from a calibration image set to derive the position without assuming a functional form for the abberated defocusing curve. Using a calibration image set from forty 57 nm beads, the axial position is calculated, and the error associated with position estimation i\n- Astigmatism-corrected miniature czerny-turner spectrometer with freeform cylindrical lens\n  `doi:10.3788/col201210.081201` · published 2012 · Chinese Optics Letters\n- Relationship between effective lens position and axial position of a thick intraocular lens\n  `doi:10.1371/journal.pone.0198824` · published 2018-6-14 · PLOS ONE\n- Proximate Raytrace, Astigmatism and Field Curvature\n  `doi:10.1002/9783527851508.ch19` · published 2026-6-12 · Lens Design for Imaging\n- Axial nanodisplacement measurement based on astigmatism effect of crossed cylindrical lenses\n  `doi:10.1364/ao.51.002379` · published 2012-4-26 · Applied Optics\n- Single-Molecule and Single-Particle Imaging of Molecular Motors In Vitro and In Vivo\n  `doi:10.1007/978-3-0348-0856-9_7` · published 2014-7-16 · Experientia Supplementum"
+          }
+        ],
+        "structured_content": null
+      },
+      "error": null,
+      "status": "completed"
+    }
+  },
+  {
+    "type": "item.started",
+    "item": {
+      "id": "item_4",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "budding yeast GFP LacI lacO locus three dimensional tracking live cell chromatin motion",
+        "limit": 10
+      },
+      "result": null,
+      "error": null,
+      "status": "in_progress"
+    }
+  },
+  {
+    "type": "item.completed",
+    "item": {
+      "id": "item_4",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "budding yeast GFP LacI lacO locus three dimensional tracking live cell chromatin motion",
+        "limit": 10
+      },
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "# Literature metadata search: \"budding yeast GFP LacI lacO locus three dimensional tracking live cell chromatin motion\"\nCutoff rule: publicationDate < 2026-07-01\n\n- Visualization of a Specific Genome Locus by the lacO /LacI-GFP System\n  `doi:10.1101/pdb.prot091934` · published 2017-7-21 · Cold Spring Harbor Protocols\n  Abstract: Observing the dynamics of a specific chromosome locus in living cells can provide important information as to the molecular mechanisms underlying events such as chromosome segregation, homologous chromosome pairing, chromosome arrangement, and gene expression. The lacO /LacI-GFP system provides a simple and useful method in which a chromosome locus is visualized by inserting lacO repeat arrays and then expressing an LacI–GFP fusion that specifically binds to the lacO sequence. This system has been adapted for use in Schizosaccharomyces pombe by expressing the LacI–GFP under a promoter of the d\n- Photoactivatable GFP tagging cassettes for protein‐tracking studies in the budding yeast Saccharomyces cerevisiae\n  `doi:10.1002/yea.1611` · published 2008-8-26 · Yeast\n  Abstract: Abstract Yeast cell biologists use a variety of fluorescent protein tags for determining protein localization and for measuring protein dynamics using fluorescence recovery after photobleaching (FRAP). Although many modern fluorescent proteins, such as those with photoactivatable and photoconvertible characteristics, have been developed, none has been exploited for studies in budding yeast. We describe here the construction of yeast‐tagging vectors containing photoactivatable green fluorescent protein (PA–GFP) for analysis of protein behaviour. We tagged two yeast proteins, Erg6p and Num1p, wi\n- Benchmarking three simple DNA staining-based image metrics for live-cell tracking of chromatin organization\n  `doi:10.64898/2026.03.30.715467` · published 2026-4-1\n  Abstract: Abstract Quantifying chromatin-state dynamics in living cells remains challenging, in part because most methods require fixation or cell lysis. Here, we benchmark and introduce three simple live-cell image-derived metrics computed from routine DNA staining—the coefficient of variation (CV), 1-Gini, and the Diffuse Signal Index (DSI), introduced here—as fixation-free readouts of chromatin state. Using HL60-derived neutrophils (dHL-60) undergoing NETosis as a model system with a pronounced compact-to-decompact chromatin transition, we show that all three metrics track progressive chromatin reorg\n- Chromatin Boundaries in Budding Yeast\n  `doi:10.1016/s0092-8674(02)00756-0` · published 2002-5 · Cell\n- Three-dimensional Imaging of the Yeast Actin Cytoskeleton through the Budding Cell Cycle\n  `doi:10.1091/mbc.9.12.3259` · published 1998-12 · Molecular Biology of the Cell\n- A fully-automated, robust, and versatile algorithm for long-term budding yeast segmentation and tracking\n  `doi:10.1101/444018` · published 2018-10-15\n  Abstract: Abstract Live cell time-lapse microscopy, a widely-used technique to study gene expression and protein dynamics in single cells, relies on segmentation and tracking of individual cells for data generation. The potential of the data that can be extracted from this technique is limited by the inability to accurately segment a large number of cells from such microscopy images and track them over long periods of time. Existing segmentation and tracking algorithms either require additional dyes or markers specific to segmentation or they are highly specific to one imaging condition and cell morphol\n- High Temporal Resolution 3D Live-Cell Imaging of Budding Yeast Meiosis Defines Discontinuous Actin/Telomere-Mediated Chromosome Motion, Correlated Nuclear Envelope Deformation and Actin Filament Dynamics\n  `doi:10.3389/fcell.2021.687132` · published 2021-11-25 · Frontiers in Cell and Developmental Biology\n  Abstract: Chromosome movement is prominent at mid-meiotic prophase and is proposed to enhance the efficiency and/or stringency of homolog pairing and/or to help prevent or resolve topological entanglements. Here, we combine fluorescent repressor operator system (FROS) labeling with three-dimensional (3D) live-cell imaging at high spatio-temporal resolution to define the detailed kinetics of mid-meiotic prophase motion for a single telomere-proximal locus in budding yeast. Telomere motions can be grouped into three general categories: (i) pauses, in which the telomere “jiggles in place”; (ii) rapid, stra\n- Chromatin loops are involved in spatial organization of replication in budding yeast\n  `doi:10.18699/sbb-2022-069` · published 2022-7-6 · The Thirteenth International Multiconference\n- Three-Dimensional, Live-Cell Imaging of Chromatin Dynamics in Plant Nuclei Using Chromatin Tagging Systems\n  `doi:10.1007/978-1-4939-4931-1_15` · published 2016-8-25 · Methods in Molecular Biology\n- Live cell Imaging of yeast cells expressing human PINK1-GFP and the TOM complex subunits v1\n  `doi:10.17504/protocols.io.dm6gp3p71vzp/v1` · published 2024-2-20\n  Abstract: The PINK1-Parkin axis plays a major role in mitochondrial quality control and mutations have been closely associated with familial cases of Parkinson's disease [1]. To assess the correct functioning of mitochondria, PINK1 acts as a sensor by monitoring their import capabilities [2]. While proper import leads to degradation of PINK1, failed import causes PINK1 to form a complex with the translocon of the outer mitochondrial membrane, allowing it to be stabilized and activated by cross- phosphorylation [3]. Here we describe a protocol for live-cell imaging of Saccharomyces cerevisiae cells expre"
+          }
+        ],
+        "structured_content": null
+      },
+      "error": null,
+      "status": "completed"
+    }
+  },
+  {
+    "type": "item.started",
+    "item": {
+      "id": "item_5",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "Saccharomyces cerevisiae chromatin locus GFP LacI time-lapse tracking 3D MSD confinement",
+        "limit": 10
+      },
+      "result": null,
+      "error": null,
+      "status": "in_progress"
+    }
+  },
+  {
+    "type": "item.completed",
+    "item": {
+      "id": "item_5",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "Saccharomyces cerevisiae chromatin locus GFP LacI time-lapse tracking 3D MSD confinement",
+        "limit": 10
+      },
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "# Literature metadata search: \"Saccharomyces cerevisiae chromatin locus GFP LacI time-lapse tracking 3D MSD confinement\"\nCutoff rule: publicationDate < 2026-07-01\n\n- Tracking Individual Chromosomes with Intergrated Arrays of lacop Sites and GFP-laci RepressorAnalyzing Position and Dynamics of Chromosomal Loci in Saccharomyces cerevisiae\n  `doi:10.1016/b978-012164730-8/50118-0` · published 2006 · Cell Biology\n- Single-Copy Gene Locus Chromatin Purification in &lt;em&gt;Saccharomyces cerevisiae&lt;/em&gt;\n  `doi:10.3791/65460` · published 2023-11-17 · Journal of Visualized Experiments\n- Chromatin Remodeling Factors Isw2 and Ino80 Regulate Chromatin, Replication, and Copy Number of the Saccharomyces cerevisiae Ribosomal DNA Locus\n  `doi:10.1534/genetics.118.301579` · published 2018-10-24 · Genetics\n  Abstract: Abstract In the budding yeast Saccharomyces cerevisiae, ribosomal RNA genes are encoded in a highly repetitive tandem array referred to as the ribosomal DNA (rDNA) locus. The yeast rDNA is the site of a diverse set of DNA-dependent processes, including transcription of ribosomal RNAs by RNA polymerases I and III, transcription of noncoding RNAs by RNA polymerase II, DNA replication initiation, replication fork blocking, and recombination-mediated regulation of rDNA repeat copy number. All of this takes place in the context of chromatin, but little is known about the roles played by ATP-depende\n- Cbf1p modulates chromatin structure, transcription and repair at the Saccharomyces cerevisiae MET16 locus\n  `doi:10.1093/nar/gkh324` · published 2004-3-8 · Nucleic Acids Research\n- A novel tracking and analysis system for time-lapse cell imaging of &lt;i&gt;Saccharomyces cerevisiae&lt;/i&gt;\n  `doi:10.1266/ggs.19-00061` · published 2020-4-1 · Genes &amp; Genetic Systems\n- Photoactivatable GFP tagging cassettes for protein‐tracking studies in the budding yeast Saccharomyces cerevisiae\n  `doi:10.1002/yea.1611` · published 2008-8-26 · Yeast\n  Abstract: Abstract Yeast cell biologists use a variety of fluorescent protein tags for determining protein localization and for measuring protein dynamics using fluorescence recovery after photobleaching (FRAP). Although many modern fluorescent proteins, such as those with photoactivatable and photoconvertible characteristics, have been developed, none has been exploited for studies in budding yeast. We describe here the construction of yeast‐tagging vectors containing photoactivatable green fluorescent protein (PA–GFP) for analysis of protein behaviour. We tagged two yeast proteins, Erg6p and Num1p, wi\n- Transcriptional silencing in Saccharomyces cerevisiae: known unknowns\n  `doi:10.1186/s13072-024-00553-7` · published 2024-9-14 · Epigenetics &amp; Chromatin\n  Abstract: Abstract Transcriptional silencing in Saccharomyces cerevisiae is a persistent and highly stable form of gene repression. It involves DNA silencers and repressor proteins that bind nucleosomes. The silenced state is influenced by numerous factors including the concentration of repressors, nature of activators, architecture of regulatory elements, modifying enzymes and the dynamics of chromatin.Silencers function to increase the residence time of repressor Sir proteins at silenced domains while clustering of silenced domains enables increased concentrations of repressors and helps facilitate lo\n- Editor's evaluation: Distinguishing between recruitment and spread of silent chromatin structures in Saccharomyces cerevisiae\n  `doi:10.7554/elife.75653.sa0` · published 2022-1-7\n- Real-time flow cytometric quantification of GFP expression and Gfp-fluorescence generation in Saccharomyces cerevisiae\n  `doi:10.1016/s0167-7012(00)00176-7` · published 2000-9 · Journal of Microbiological Methods\n- Single-Cell Tracking of Brewing Yeast Dynamics in Baijiu Fermentation Using GFP-Labeled Engineered Saccharomyces cerevisiae FSC01\n  `doi:10.3390/fermentation12010045` · published 2026-1-13 · Fermentation\n  Abstract: In view of the technical bottleneck of microbial dynamic monitoring during the solid-state fermentation of traditional Baijiu, this study introduced green fluorescent protein (GFP) labeling technology into the dominant Saccharomyces cerevisiae of Jiang-flavored Baijiu to construct the chromosomal integration engineering strain named FSC01. By designing an integrated recombinant plasmid containing the GFP gene and the geneticmycin resistance gene, an engineered strain that stably expresses fluorescent proteins was obtained by electroconversion. Flow cytometry verification showed that FSC01 show"
+          }
+        ],
+        "structured_content": null
+      },
+      "error": null,
+      "status": "completed"
+    }
+  },
+  {
+    "type": "item.started",
+    "item": {
+      "id": "item_6",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "single particle tracking localization error motion blur mean squared displacement correction exposure time",
+        "limit": 10
+      },
+      "result": null,
+      "error": null,
+      "status": "in_progress"
+    }
+  },
+  {
+    "type": "item.completed",
+    "item": {
+      "id": "item_6",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "single particle tracking localization error motion blur mean squared displacement correction exposure time",
+        "limit": 10
+      },
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "# Literature metadata search: \"single particle tracking localization error motion blur mean squared displacement correction exposure time\"\nCutoff rule: publicationDate < 2026-07-01\n\n- The Asymptotic Distribution of The Pathwise Mean Squared Displacement in Single Particle Tracking Experiments\n  `doi:10.1111/jtsa.12208` · published 2016-8-21 · Journal of Time Series Analysis\n  Abstract: Microrheology is the study of the properties of biological complex fluids through the anomalous diffusion of small embedded particles. The main statistic for characterizing anomalous diffusion is the so‐named mean squared displacement (MSD) of the particles. Notwithstanding the central statistical role of the MSD, its asymptotic distribution has not yet been established. In this paper, we assume that the particle motion is a Gaussian, stationary‐increment stochastic process. We show that as the sample and the increment lag sizes go to infinity, the MSD displays Gaussian or non‐Gaussian limitin\n- Mean square displacement analysis of single-particle trajectories with localization error: Brownian motion in an isotropic medium\n  `doi:10.1103/physreve.82.041914` · published 2010-10-20 · Physical Review E\n- Mean Square Displacement Analysis of Single-Particle Trajectories with Localization Error\n  `doi:10.1016/j.bpj.2010.12.1593` · published 2011-2 · Biophysical Journal\n- Trajectory Analysis in Single-Particle Tracking: From Mean Squared Displacement to Machine Learning Approaches\n  `doi:10.3390/ijms25168660` · published 2024-8-8 · International Journal of Molecular Sciences\n  Abstract: Single-particle tracking is a powerful technique to investigate the motion of molecules or particles. Here, we review the methods for analyzing the reconstructed trajectories, a fundamental step for deciphering the underlying mechanisms driving the motion. First, we review the traditional analysis based on the mean squared displacement (MSD), highlighting the sometimes-neglected factors potentially affecting the accuracy of the results. We then report methods that exploit the distribution of parameters other than displacements, e.g., angles, velocities, and times and probabilities of reaching \n- Erratum: Mean square displacement analysis of single-particle trajectories with localization error: Brownian motion in an isotropic medium [Phys. Rev. E 82 , 041914 (2010)]\n  `doi:10.1103/physreve.83.059904` · published 2011-5-11 · Physical Review E\n- Measuring a diffusion coefficient by single-particle tracking: statistical analysis of experimental mean squared displacement curves\n  `doi:10.1039/c2cp43433d` · published 2013 · Phys. Chem. Chem. Phys.\n- Fluid heterogeneity detection based on the asymptotic distribution of the time-averaged mean squared displacement in single particle tracking experiments\n  `doi:10.1088/1751-8121/aae0af` · published 2018-10-3 · Journal of Physics A: Mathematical and Theoretical\n  Abstract: Abstract A tracer particle is called anomalously diffusive if its mean squared displacement grows approximately as as a function of time t for some constant , where the diffusion exponent satisfies . In this article, we use recent results on the asymptotic distribution of the time-averaged mean squared displacement (Didier and Zhang 2017 J. Time Ser. Anal . 38 395–416) to construct statistical tests for detecting physical heterogeneity in viscoelastic fluid samples starting from one or multiple observed anomalously diffusive paths. The methods are asymptotically valid for the range and involve\n- R-squared and Root Mean Squared Error (RMSE)\n  `doi:10.4135/9781473996991` · published 2014\n- Trajectory Analysis in Single Particle Tracking: From Mean Square Displacement to Machine Learning Approaches\n  `doi:10.20944/preprints202406.1834.v1` · published 2024-6-27\n  Abstract: Single particle tracking is a powerful technique to investigate the motion of molecules or particles. Here we review methods for analyzing the reconstructed trajectories, step needed for deciphering the underlying mechanisms driving the motion. First, we review the traditional analysis based on the mean square displacement (MSD), highlighting sometimes-neglected factors potentially affecting results accuracy. We then report methods that exploit distributions of parameters other than displacements, e.g. angles, velocities, and times and probabilities of reaching a target, discussing how they ar\n- Mean Squared Displacement of a Probe Particle in a Viscoelastic Fluid\n  `doi:10.1063/1.2204560` · published 2006 · AIP Conference Proceedings"
+          }
+        ],
+        "structured_content": null
+      },
+      "error": null,
+      "status": "completed"
+    }
+  },
+  {
+    "type": "item.started",
+    "item": {
+      "id": "item_7",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "static dynamic errors particle tracking motion blur localization microscopy Savin Doyle",
+        "limit": 8
+      },
+      "result": null,
+      "error": null,
+      "status": "in_progress"
+    }
+  },
+  {
+    "type": "item.completed",
+    "item": {
+      "id": "item_7",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "static dynamic errors particle tracking motion blur localization microscopy Savin Doyle",
+        "limit": 8
+      },
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "# Literature metadata search: \"static dynamic errors particle tracking motion blur localization microscopy Savin Doyle\"\nCutoff rule: publicationDate < 2026-07-01\n\n- Static and Dynamic Errors in Particle Tracking Microrheology\n  `doi:10.1529/biophysj.104.042457` · published 2005-1 · Biophysical Journal\n- A rational approach to noise discrimination in video microscopy particle tracking\n  `doi:10.1063/1.2957464` · published 2008-7-14 · Applied Physics Letters\n  Abstract: The authors describe a rational approach to an important step in video microscopy particle tracking called noise discrimination. Using the morphology of the brightness profiles produced by the particles, false and dubious detections are eliminated from the valid tracking data. This selection process is found to affect the spatial resolution ε and the depth zb of the tracking. Accordingly, it is shown that a stringent selection of the particles closest to the focal plane improves the spatial resolution (i.e., decreases ε) but also diminishes zb. The authors further demonstrate that the statisti\n- Errors in Energy Landscapes Measured with Particle Tracking\n  `doi:10.1016/j.bpj.2018.05.035` · published 2018-7 · Biophysical Journal\n- Statistical and sampling issues when using multiple particle tracking\n  `doi:10.1103/physreve.76.021501` · published 2007-8-8 · Physical Review E\n- A Motion Transformer for Single Particle Tracking in Fluorescence Microscopy Images\n  `doi:10.1101/2023.07.20.549804` · published 2023-7-22\n  Abstract: Abstract Single particle tracking is an important image analysis technique widely used in biomedical sciences to follow the movement of sub-cellular structures, which typically appear as individual particles in fluorescence microscopy images. In practice, the low signal-to-noise ratio (SNR) of fluorescence microscopy images as well as the high density and complex movement of subcellular structures pose substantial technical challenges for accurate and robust tracking. In this paper, we propose a novel Transformer-based single particle tracking method called Motion Transformer Tracker (MoTT). B\n- Electrostatically tuned rate of peptide self-assembly resolved by multiple particle tracking\n  `doi:10.1039/b700434f` · published 2007 · Soft Matter\n- High-Speed Localization Microscopy and Single-Particle Tracking\n  `doi:10.1016/b978-0-12-394447-4.20096-5` · published 2016 · Encyclopedia of Cell Biology\n- Resampling single-particle tracking data eliminates localization errors and reveals proper diffusion anomalies\n  `doi:10.1103/physreve.100.042125` · published 2019-10-17 · Physical Review E"
+          }
+        ],
+        "structured_content": null
+      },
+      "error": null,
+      "status": "completed"
+    }
+  },
+  {
+    "type": "item.started",
+    "item": {
+      "id": "item_8",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "budding yeast live cell fluorescence microscopy phototoxicity GFP time lapse illumination viability",
+        "limit": 10
+      },
+      "result": null,
+      "error": null,
+      "status": "in_progress"
+    }
+  },
+  {
+    "type": "item.completed",
+    "item": {
+      "id": "item_8",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "budding yeast live cell fluorescence microscopy phototoxicity GFP time lapse illumination viability",
+        "limit": 10
+      },
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "# Literature metadata search: \"budding yeast live cell fluorescence microscopy phototoxicity GFP time lapse illumination viability\"\nCutoff rule: publicationDate < 2026-07-01\n\n- Time-Lapse Fluorescence Microscopy of Budding Yeast Cells\n  `doi:10.1007/978-1-4939-3145-3_1` · published 2016 · Methods in Molecular Biology\n- Acquiring Fluorescence Time-lapse Movies of Budding Yeast and Analyzing Single-cell Dynamics using GRAFTS\n  `doi:10.3791/50456-v` · published 2013-7-18 · Journal of Visualized Experiments\n- Acquiring Fluorescence Time-lapse Movies of Budding Yeast and Analyzing Single-cell Dynamics using GRAFTS\n  `doi:10.3791/50456` · published 2013-7-18 · Journal of Visualized Experiments\n- Controlled Light Exposure Microscopy\n  `doi:10.1002/imic.200790220` · published 2007-11-26 · Imaging &amp; Microscopy\n- Live Cell Imaging Course\n  `doi:10.1002/imic.200790108` · published 2007-4-11 · Imaging &amp; Microscopy\n- Time-Lapse Microscopy Reveals Unique Roles for Kinesins during Anaphase in Budding Yeast\n  `doi:10.1083/jcb.143.3.687` · published 1998-11-2 · The Journal of Cell Biology\n  Abstract: The mitotic spindle is a complex and dynamic structure. Genetic analysis in budding yeast has identified two sets of kinesin-like motors, Cin8p and Kip1p, and Kar3p and Kip3p, that have overlapping functions in mitosis. We have studied the role of three of these motors by video microscopy of motor mutants whose microtubules and centromeres were marked with green fluorescent protein. Despite their functional overlap, each motor mutant has a specific defect in mitosis: cin8Δ mutants lack the rapid phase of anaphase B, kip1Δ mutants show defects in the slow phase of anaphase B, and kip3Δ mutants \n- Uniform Total Internal Reflection Fluorescence Illumination Enables Live Cell Fluorescence Resonance Energy Transfer Microscopy\n  `doi:10.1017/s1431927612014420` · published 2013-3-11 · Microscopy and Microanalysis\n  Abstract: Abstract Fluorescence resonance energy transfer (FRET) microscopy is a powerful technique to quantify dynamic protein-protein interactions in live cells. Total internal reflection fluorescence (TIRF) microscopy can selectively excite molecules within about 150 nm of the glass-cell interface. Recently, these two approaches were combined to enable high-resolution FRET imaging on the adherent surface of living cells. Here, we show that interference fringing of the coherent laser excitation used in TIRF creates lateral heterogeneities that impair quantitative TIRF-FRET measurements. We overcome th\n- Phototoxicity of Hoechst 33342 in time-lapse fluorescence microscopy\n  `doi:10.1039/c0pp00234h` · published 2010-12-1 · Photochemical &amp; Photobiological Sciences\n- Determination of Anaphase Duration by Time-Lapse Microscopy in Budding Yeast\n  `doi:10.1007/978-1-0716-4236-8_6` · published 2024-11-30 · Methods in Molecular Biology\n- Digital time-lapse microscopy of yeast cell growth\n  `doi:10.1016/s0076-6879(02)51838-3` · published 2002 · Methods in Enzymology"
+          }
+        ],
+        "structured_content": null
+      },
+      "error": null,
+      "status": "completed"
+    }
+  },
+  {
+    "type": "item.started",
+    "item": {
+      "id": "item_9",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "widefield fluorescence microscopy focus stabilization live cell image based autofocus piezo long term",
+        "limit": 10
+      },
+      "result": null,
+      "error": null,
+      "status": "in_progress"
+    }
+  },
+  {
+    "type": "item.completed",
+    "item": {
+      "id": "item_9",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "widefield fluorescence microscopy focus stabilization live cell image based autofocus piezo long term",
+        "limit": 10
+      },
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "# Literature metadata search: \"widefield fluorescence microscopy focus stabilization live cell image based autofocus piezo long term\"\nCutoff rule: publicationDate < 2026-07-01\n\n- Implementation of miniaturized modular-array fluorescence microscopy for long-term live-cell imaging\n  `doi:10.1364/opticaopen.22080692.v1` · published 2023-2-13\n  Abstract: Fluorescence microscopy imaging of live cells has provided consistent monitoring of dynamic cellular activities and interactions. However, due to the limited adaptability of current live-cell imaging systems, portable cell imaging system has been adapted by broad strategies, including miniaturized fluorescence microscopy. Here, we provide a protocol for the construction and operational process of miniaturized modular-array fluorescence microscopy (MAM). The MAM system is built in a portable size (15 cm × 15 cm × 3 cm) and provides in situ cell imaging inside an incubator with a subcellular lat\n- Implementation of miniaturized modular-array fluorescence microscopy for long-term live-cell imaging\n  `doi:10.1364/opticaopen.22080692` · published 2023-2-13\n  Abstract: Fluorescence microscopy imaging of live cells has provided consistent monitoring of dynamic cellular activities and interactions. However, due to the limited adaptability of current live-cell imaging systems, portable cell imaging system has been adapted by broad strategies, including miniaturized fluorescence microscopy. Here, we provide a protocol for the construction and operational process of miniaturized modular-array fluorescence microscopy (MAM). The MAM system is built in a portable size (15 cm × 15 cm × 3 cm) and provides in situ cell imaging inside an incubator with a subcellular lat\n- An affordable fiducial marker strategy for reliable autofocus in long‐term live microscopy\n  `doi:10.1111/jmi.70127` · published 2026-6-11 · Journal of Microscopy\n  Abstract: Abstract Long‐term time‐lapse imaging of biological samples requires correcting for focal drift, which would otherwise gradually push the sample out of focus. We present a software‐based method that eliminates this time‐dependent blur using only a motorised Z ‐drive, with no additional hardware. The method relies on imaging marks made on the side of the coverslip opposite to the sample. We provide a Beanshell script implementation, evaluate its performance across multiple objectives, and benchmark it against a hardware autofocus system, finding comparable results. Finally, we demonstrate its e\n- Preparation of cells for live-cell imaging of a FOXO-based AKT kinase translocation reporter by widefield microscopy v1\n  `doi:10.17504/protocols.io.261gedjkjv47/v1` · published 2023-11-24\n  Abstract: This protocol provides detailed instructions for imaging of cells with stable expression of a kinase translocation reporter, alongside a nuclear marker for segmentation. We have used this approach to measure the nuclear-cytoplasmic shuttling of a FOXO-based AKT reporter in both HeLa cells and human induced pluripotent stem cells (iPSCs). Note that we culture our cells without antibiotics except during live-cell imaging as indicated. For subsequent data analysis, please refer to the pipeline provided on the Open Science Framework under doi: 10.17605/OSF.IO/4F69N.\n- Using Beads as a Focus Fiduciary to Aid Software-based Autofocus Accuracy in Microscopy\n  `doi:10.1101/2025.03.18.643916` · published 2025-3-19\n  Abstract: Abstract Brightfield microscopy is an ideal application for studying live cell systems in a minimally invasive manner. This is advantageous in long-term experiments to study dynamic cellular processes such as stress response. Depending on the sample type and preparation, the inherent qualities of brightfield microscopy, being very low contrast, can contribute to technical issues such as focal drift, sequencing lags, and complete failure of software autofocus systems. Here, we describe the use of microbeads as a focus aid for long-term live cell imaging to address these autofocus issues. This p\n- Live Cell Fluorescence Microscopy – An End-to-End Workflow for High-Throughput Image and Data Analysis\n  `doi:10.1101/2024.03.28.587214` · published 2024-3-30\n  Abstract: Abstract Fluorescence microscopy images of biological samples contain valuable information but require rigor-ous analysis for accurate and reliable determination of changes in protein localization, fluorescence intensity and morphology of the studied objects. Traditionally, cells for microscopy are immobilized using chemicals, which can introduce stress. Analysis often focuses only on colocalization and in-volves manual segmentation and measurement, which are time-consuming and can introduce bias. Our new workflow addresses these issues by gently immobilizing cells using a small agarose block \n- Implementation of miniaturized modular-array fluorescence microscopy for long-term live-cell imaging\n  `doi:10.1364/ao.483279` · published 2023-3-21 · Applied Optics\n  Abstract: Fluorescence microscopy imaging of live cells has provided consistent monitoring of dynamic cellular activities and interactions. However, because current live-cell imaging systems are limited in their adaptability, portable cell imaging systems have been adapted by a variety of strategies, including miniaturized fluorescence microscopy. Here, we provide a protocol for the construction and operational process of miniaturized modular-array fluorescence microscopy (MAM). The MAM system is built in a portable size (15cm×15cm×3cm) and provides in situ cell imaging inside an incubator with a subcel\n- Simultaneous two-angle axial ratiometry for fast live and long-term axial super-resolution fluorescence imaging\n  `doi:10.22443/rms.emc2020.1273` · published 2021-3-1 · Proceedings of the European Microscopy Congress 2020\n- Widefield fluorescence microscopy with extended resolution\n  `doi:10.1007/s00418-008-0506-8` · published 2008-9-23 · Histochemistry and Cell Biology\n- Investigate molecular dynamics in live cells and organisms using fluorescence correlation-based microscopy methods\n  `doi:10.14293/apmc13-2025-0192` · published 2025 · Investigate molecular dynamics in live cells and organisms using fluorescence correlation-based microscopy methods"
+          }
+        ],
+        "structured_content": null
+      },
+      "error": null,
+      "status": "completed"
+    }
+  },
+  {
+    "type": "item.started",
+    "item": {
+      "id": "item_10",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "three dimensional tracking fluorescent chromosomal locus yeast astigmatism single plane imaging",
+        "limit": 10
+      },
+      "result": null,
+      "error": null,
+      "status": "in_progress"
+    }
+  },
+  {
+    "type": "item.completed",
+    "item": {
+      "id": "item_10",
+      "type": "mcp_tool_call",
+      "server": "literature",
+      "tool": "search",
+      "arguments": {
+        "query": "three dimensional tracking fluorescent chromosomal locus yeast astigmatism single plane imaging",
+        "limit": 10
+      },
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "# Literature metadata search: \"three dimensional tracking fluorescent chromosomal locus yeast astigmatism single plane imaging\"\nCutoff rule: publicationDate < 2026-07-01\n\n- Three-dimensional tracking of multiple particles in large depth of field using dual-objective bifocal plane imaging\n  `doi:10.3788/col202018.071701` · published 2020 · Chinese Optics Letters\n- ZHARP: Three-Dimensional Motion Tracking from a Single Image Plane\n  `doi:10.1007/11505730_53` · published 2005 · Lecture Notes in Computer Science\n- Three-Dimensional Tracking of Single Fluorescent Particles with Submillisecond Temporal Resolution\n  `doi:10.1021/nl1028792` · published 2010-10-12 · Nano Letters\n- Deep Learning for Single View Focal Plane Reconstruction in Integral Imaging\n  `doi:10.1364/dh.2019.m3b.2` · published 2019 · Digital Holography and Three-Dimensional Imaging 2019\n- Three-dimensional Nanorod Tracking with Holographic Video Microscopy\n  `doi:10.1364/dh.2011.dwc35` · published 2011 · Digital Holography and Three-Dimensional Imaging\n- Dynamic three-dimensional tracking of single fluorescent nanoparticles deep inside living tissue\n  `doi:10.1364/oe.20.019697` · published 2012-8-13 · Optics Express\n- Three-dimensional tracking of a single fluorescent nanoparticle using four-focus excitation in a confocal microscope\n  `doi:10.1364/oe.22.005641` · published 2014-3-4 · Optics Express\n- Three-dimensional tracking of fluorescent particles\n  `doi:10.1117/12.650191` · published 2006-2-9 · SPIE Proceedings\n- Three-dimensional single particle tracking in dense dust clouds by stereoscopy of fluorescent particles\n  `doi:10.1063/1.4771687` · published 2012-12-19 · Physics of Plasmas\n  Abstract: In dense dust clouds of a dusty plasma single particle trajectories are impossible to follow due to occlusion of particles and ambiguities in particle correspondences. By stereoscopic imaging of fluorescent tracer particles, we were able to reconstruct 3D single particle trajectories within dense dust clouds. Several measurements are shown that justify to regard the tracer particles as suitable representatives for the whole dust system. A first analysis of dust density waves in dense clouds already shows that these waves exhibit three-dimensional dynamics at larger wave amplitudes that cannot \n- Three-dimensional fluorescent particle tracking at micron-scale using a single camera\n  `doi:10.1007/s00348-004-0925-9` · published 2005-2-26 · Experiments in Fluids"
+          }
+        ],
+        "structured_content": null
+      },
+      "error": null,
+      "status": "completed"
+    }
+  },
+  {
+    "type": "item.completed",
+    "item": {
+      "id": "item_11",
+      "type": "agent_message",
+      "text": "The practical solution is single-plane astigmatic 3D localization plus piezo feedback. A weak cylindrical lens encodes axial position in the spot’s ellipticity, so every 200-ms cycle yields \\(x,y,z\\) without acquiring a z-stack. The piezo keeps the locus inside the calibrated axial range; its encoder record restores the motion removed by feedback.\n\n## Evidence and assumptions\n\nRetrieved Crossref metadata supports the general design:\n\n- Cylindrical optics can encode a fluorescent particle’s 3D position in a single image ([Kao and Verkman, 1994](https://doi.org/10.1016/S0006-3495(94)80601-0)).\n- Astigmatic z estimation can use an empirical bead calibration rather than an assumed analytical defocus curve, while estimating localization error ([Bayesian axial estimation, 2009](https://doi.org/10.1155/2009/896208)).\n- Realistic 3D PSF fitting is applicable to wide-field microscopy ([Aguet et al., 2012](https://doi.org/10.1111/j.1365-2818.2012.03675.x)).\n- lacO/LacI-GFP is an established locus-labeling method ([2017 protocol](https://doi.org/10.1101/pdb.prot091934)); FROS labeling has been used for high-temporal-resolution 3D chromosome imaging in budding yeast ([2021 study](https://doi.org/10.3389/fcell.2021.687132)).\n- Long-term microscopy benefits from automated position/focus correction ([2004 tracking study](https://doi.org/10.1111/j.0022-2720.2004.01404.x)).\n- Localization error and exposure-time blur must be included in trajectory analysis ([Savin and Doyle, 2005](https://doi.org/10.1529/biophysj.104.042457); [Michalet, 2010](https://doi.org/10.1103/physreve.82.041914)).\n\nAll exact focal lengths, exposures, controller gains, precision thresholds, sample preparation details, and timings below are engineering assumptions and must be accepted or adjusted from measured performance.\n\n# Executable protocol\n\n## 1. Modify and stabilize the microscope\n\n1. Use the existing high-NA objective with the immersion medium and correction collar normally used for live yeast. Enclose the objective, stage, and sample sufficiently to hold the selected growth temperature.\n\n2. Insert a weak cylindrical lens in a collimated portion of the emission relay, with its powered axis aligned to a camera axis.  \n   **Assumption:** start with a 0.5–1 m focal-length cylindrical lens and adjust its position until the \\(x\\)- and \\(y\\)-focus planes are separated enough to give a unique calibration over at least ±0.8 µm. Do not use such strong astigmatism that the in-focus spot becomes photon-inefficient.\n\n3. Use LED illumination if available, or hardware-gate the existing excitation source from the camera exposure signal. The piezo must never move during an exposure.\n\n4. Use a fixed camera ROI large enough to contain the entire expected cell and drift range.  \n   **Assumption:** 256×256 pixels is usually adequate at approximately 100× magnification; use 512×512 if the calibrated field is smaller or drift is substantial. Fit only a small software window around the spot.\n\n5. Record on every frame:\n\n   - Camera hardware timestamp and exposure duration.\n   - Raw 16-bit image.\n   - Piezo command and closed-loop encoder position.\n   - Excitation state and nominal power.\n   - Online spot parameters, uncertainty, and controller state.\n\n6. If possible, provide weak transmitted illumination at a wavelength passed by the GFP emission path but inefficient at exciting GFP.  \n   **Assumption:** a 535–545 nm condenser LED can supply occasional 1–3 ms cell-reference images without moving the fluorescence filter cube. Verify experimentally that it does not measurably bleach GFP or obscure the spot.\n\n## 2. Prepare the sample\n\n1. Immobilize exponentially growing cells in a sealed or perfused chamber containing the normal growth medium.  \n   **Assumption:** concanavalin-A attachment and approximately 30 °C are suitable for standard *S. cerevisiae* strains; substitute the strain’s validated conditions.\n\n2. Avoid compressing cells under a thick agar pad unless normal budding under that geometry has already been demonstrated.\n\n3. Choose an isolated cell with one unsaturated locus, low diffuse GFP background, and sufficient clearance from neighboring fluorescent cells.\n\n4. Bring the locus, located approximately 2–3 µm above the coverslip, to the midpoint of the astigmatic calibration range.\n\n## 3. Perform session calibration\n\n### Camera and lateral scale\n\n1. Acquire at least 100 dark frames at every production exposure time. Construct per-pixel offset, variance, bad-pixel, and—if available—gain maps.\n\n2. Measure effective pixel size with a stage micrometer or calibrated piezo displacement.\n\n3. Avoid changing ROI, relay spacing, cylindrical-lens position, camera orientation, objective, correction collar, or immersion after calibration.\n\n### Astigmatic z calibration\n\n1. Prepare sub-resolution fluorescent beads whose emission approximates GFP. Place beads at approximately the same 2–3 µm optical depth in medium with similar refractive index. A coverslip-surface bead calibration alone is insufficient if its curve differs measurably from the live-cell depth.\n\n2. At live-cell-like photon counts, scan an immobilized bead from −1.5 to +1.5 µm in 50-nm steps. Acquire 10 frames per step and repeat the scan three times in alternating directions.\n\n3. Fit each image with a pixel-integrated elliptical Gaussian or measured-PSF likelihood, including position, amplitude, background, \\(\\sigma_x\\), \\(\\sigma_y\\), and orientation.\n\n4. Calculate an axial observable such as\n\n\\[\nq=\\frac{\\sigma_x^2-\\sigma_y^2}{\\sigma_x^2+\\sigma_y^2}.\n\\]\n\nFit a monotonic spline \\(z=f(q)\\), or use a bead-derived PSF template library. Do not extrapolate beyond the unique calibrated interval.\n\n5. Validate on withheld scans and multiple beads.  \n   **Assumed acceptance criteria:** median error ≤40 nm laterally, ≤75–100 nm axially, negligible hysteresis, and a usable range of at least ±0.8 µm at production brightness.\n\n6. Repeat at several field positions. If z bias changes by more than the chosen accuracy limit, use a local calibration or restrict cells to a central calibrated region.\n\n### Piezo polarity and cross-talk\n\n1. With an immobilized bead, command ±100- and ±200-nm z steps. Determine the sign converting piezo motion into optical defocus.\n\n2. Fit lateral shifts caused by piezo motion, \\(x_p(p)\\) and \\(y_p(p)\\), for later subtraction.\n\n3. Determine \\(\\beta\\) in\n\n\\[\nZ_{\\mathrm{microscope}}(t)\n =z_{\\mathrm{residual}}(t)+\\beta[p(t)-p_0],\n\\]\n\nchoosing its sign and scale so that a stationary bead remains stationary when feedback moves the piezo.\n\n4. Run a 30-minute, 5-Hz stationary-bead test with the production controller. Reject the setup if reconstruction shows drift, oscillation, or periodic errors comparable to the intended biological displacements.\n\n### Optional cell-reference calibration\n\nImmediately before production, acquire one low-dose transmitted-light stack of the selected cell over ±1 µm in 100-nm steps. Return to the initial piezo position and wait 2 seconds. Store these images as templates relating cell appearance to cell-plane defocus. This is a one-time, nonfluorescent calibration stack—not a repeated fluorescence stack.\n\n## 4. Set illumination\n\n1. Start with a 20–50 ms GFP exposure every 200 ms.  \n   **Assumption:** 30 ms is a useful initial value, leaving most of each cycle dark for fitting, disk writing, and piezo settling.\n\n2. Adjust irradiance—not exposure period—to obtain the lowest photon count that passes the calibrated localization-precision threshold.\n\n3. Keep the brightest pixel below approximately 70% of full well and verify that background subtraction is stable.\n\n4. Acquire a 60-second test. Proceed only if:\n\n   - No saturated frames occur.\n   - At least 99% of frames produce valid fits.\n   - Estimated precision passes the calibration threshold.\n   - The piezo is not oscillating.\n   - Extrapolated intensity remains adequate for the requested duration.\n\n## 5. Run live acquisition and feedback\n\nExecute the following hardware-timed loop for 3,000–9,000 cycles:\n\n```text\nEvery 200 ms:\n    1. Freeze piezo command.\n    2. Expose GFP for 20–50 ms.\n    3. Read the fixed camera ROI and timestamp it.\n    4. Correct offset/bad pixels for online fitting.\n    5. Detect the locus near its predicted x-y position.\n    6. Fit the astigmatic PSF and calculate x, y, z_residual and uncertainty.\n    7. If fit quality passes:\n           update the z controller.\n       Else:\n           hold the piezo; never chase an uncertain detection.\n    8. Command the piezo only after exposure; require settling before the next exposure.\n    9. Save raw frame, encoder value, fit diagnostics and controller state.\n```\n\nUse a PI controller:\n\n\\[\n\\Delta p=s\\left(K_Pz_{\\mathrm{residual}}\n              +K_I\\sum z_{\\mathrm{residual}}\\Delta t\\right),\n\\]\n\nwhere \\(s\\) is the measured polarity.\n\n**Assumed initial tuning:** \\(K_P=0.4\\)–0.7, weak integral action, a 20–30 nm deadband, and a maximum command of 150–200 nm per frame. Tune on beads; reduce gain if the residual z alternates in sign or the encoder spectrum develops a peak near the loop frequency.\n\nEvery 1–2 seconds, fit a 1–3 ms transmitted-light reference image acquired during the dark interval. Template-match it to the initial cell stack to estimate the cell plane and cell centroid. Do not let this slower, noisier estimate drive the fast piezo loop.\n\nLoss handling:\n\n- One failed frame: hold the piezo and enlarge the search window.\n- Two to five failures: use only the last valid position for prediction; keep holding z.\n- More than 1 second without a valid localization: terminate the continuous track and label it broken. Do not silently bridge it or start a fluorescence z-stack.\n- A single diagnostic recovery stack may be acquired after termination, but it is not part of the continuous trajectory.\n\n## 6. Live checkpoints\n\nAt 60-second intervals, automatically evaluate:\n\n- Valid-fit fraction ≥99%.\n- No saturation.\n- Residual z inside the central half of the calibrated interval for ≥95% of frames.\n- Piezo encoder comfortably inside its travel range.\n- Online localization uncertainty below the preregistered limit.\n- No controller oscillation or sustained maximum-step commands.\n- Spot intensity still sufficient for the remaining duration.\n\n**Assumed abort limits:** stop if intensity falls below that required for 150-nm axial precision, if more than 1% of frames fail within a rolling minute, or if the residual reaches 80% of the calibrated range.\n\nAfter 10–30 minutes, stop continuous excitation and acquire:\n\n1. One transmitted-light image.\n2. One terminal low-dose fluorescence stack, for example seven planes at 200-nm spacing, solely to verify the final single-frame z estimate.\n3. A 30–60 minute low-dose transmitted-light follow-up to confirm continued budding or outgrowth.\n\n## 7. Validate before collecting the biological dataset\n\n1. **Static precision:** Image depth-matched immobilized beads for 30 minutes at 5 Hz and production brightness. Report RMS displacement, slow drift, fit-failure rate, and power spectra.\n\n2. **Known displacement:** With feedback disabled, drive an immobilized bead through known steps and sinusoids spanning approximately 50–500 nm and 0.01–1 Hz. Compare reconstructed amplitude, sign, phase, and cross-axis motion with the piezo encoder.\n\n3. **Closed-loop reconstruction:** Repeat with feedback enabled. Confirm that residual defocus plus encoder displacement recovers the programmed trajectory.\n\n4. **Calibration transfer:** On separate cells, briefly compare single-frame astigmatic z with occasional conventional stacks. These validation cells are not used for long-duration biological analysis.\n\n5. **Phototoxicity:** Compare imaged and stage-resident nonfluorescence controls under identical chamber conditions.  \n   **Assumed acceptance criterion:** no material reduction in survival, outgrowth, or budding rate and no obvious cell-shape abnormality. Reduce irradiance before shortening the 200-ms interval.\n\n## 8. Reconstruct and analyze trajectories\n\n1. Refit all raw fluorescence frames offline using the measured sCMOS noise model and bead-derived PSF/template calibration. Online coordinates are for control, not final analysis.\n\n2. Retain per-frame covariance or bootstrap uncertainty. Exclude saturated, nonunique, boundary, and out-of-calibration fits; do not interpolate them for displacement statistics.\n\n3. Correct lateral piezo cross-talk:\n\n\\[\nX=x_{\\mathrm{fit}}-x_p(p),\\qquad\nY=y_{\\mathrm{fit}}-y_p(p).\n\\]\n\n4. Produce two axial coordinates:\n\n\\[\nZ_{\\mathrm{microscope}}\n =z_{\\mathrm{residual}}+\\beta(p-p_0),\n\\]\n\nand, where the transmitted-light cell reference is reliable,\n\n\\[\nZ_{\\mathrm{cell}}\n =z_{\\mathrm{residual}}-z_{\\mathrm{cell\\,plane}}.\n\\]\n\nThe second quantity cancels stage motion directly. Correct \\(X,Y\\) for cell-centroid drift in the same way. Because there is no nuclear-envelope marker, do not interpret cell-center distance as nuclear radial position.\n\n5. Preserve unsmoothed coordinates as the primary data. Any Kalman filter used by the controller must not replace raw-frame localization offline.\n\n6. Calculate 3D displacements, coordinate covariance, displacement distributions, directional persistence, and time-averaged MSD. For each lag, subtract the summed endpoint localization variances from the observed squared displacement.\n\n7. Account for finite exposure. For a Brownian comparison model and nonoverlapping exposures, use an effective lag approximately \\(\\Delta t-T_{\\mathrm{exp}}/3\\); for confined or anomalous models, forward-simulate exposure averaging instead of applying that Brownian correction blindly.\n\n8. Fit only lags up to roughly one-quarter of each track and report both raw and error-aware results. Bootstrap contiguous time blocks and, for population conclusions, resample whole cells rather than treating frames as independent replicates.\n\n9. Archive raw images, calibrations, controller logs, analysis code version, rejected-frame masks, and all assumptions needed to reproduce the trajectory.\n\n## Practical timing\n\n| Activity | Assumed duration |\n|---|---:|\n| Install and align cylindrical lens, once | 2–4 h |\n| Camera, depth, and piezo calibration per session | 45–90 min |\n| Prepare and equilibrate cells | 30–60 min |\n| Select cell and acquire reference templates | 2–5 min |\n| Test exposure and feedback | 1–2 min |\n| Continuous acquisition | 10–30 min |\n| Terminal QC and viability follow-up | 35–65 min |\n| Automated reconstruction per track | 5–15 min |\n\nThe decisive go/no-go checkpoint is the 30-minute depth-matched bead run: production imaging should begin only after it demonstrates stable 5-Hz feedback, unique astigmatic z recovery, and reconstruction errors below the biological displacement scale."
+    }
+  },
+  {
+    "type": "turn.completed",
+    "usage": {
+      "input_tokens": 232898,
+      "cached_input_tokens": 195584,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 12418,
+      "reasoning_output_tokens": 8482
+    }
+  }
+]

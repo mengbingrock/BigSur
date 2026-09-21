@@ -9,6 +9,7 @@ import {
   generatePkce,
   isGoogleEnabled,
   isLoopbackCallback,
+  isMobileCallback,
   readStateCookie,
   resolveRedirectUri,
   sealStateCookie,
@@ -71,6 +72,9 @@ export const googleStartRoute = HttpRouter.add(
     // Desktop remote mode: a loopback URL to deliver the session back to the app.
     const desktopParam = url.searchParams.get("desktop");
     const desktop = isLoopbackCallback(desktopParam) ? desktopParam! : undefined;
+    // Mobile app: a custom-scheme URL (labee://auth) to deliver the sealed session to.
+    const mobileParam = url.searchParams.get("mobile");
+    const mobile = isMobileCallback(mobileParam) ? mobileParam! : undefined;
 
     const cookie = yield* Effect.promise(() =>
       sealStateCookie({
@@ -79,6 +83,7 @@ export const googleStartRoute = HttpRouter.add(
         redirectUri,
         codeVerifier: verifier,
         ...(desktop ? { desktop } : {}),
+        ...(mobile ? { mobile } : {}),
       } satisfies OAuthState),
     );
     return yield* redirectTo(
@@ -149,6 +154,14 @@ export const googleCallbackRoute = HttpRouter.add(
         value,
       )}&next=${encodeURIComponent(next)}`;
       return yield* redirectTo(location, clearStateCookie());
+    }
+
+    // Mobile app: the OAuth ran in an in-app auth session; bounce the sealed
+    // session back through the app's custom scheme.
+    if (saved.mobile && isMobileCallback(saved.mobile)) {
+      const value = yield* Effect.promise(() => sealSession(session));
+      const sep = saved.mobile.includes("?") ? "&" : "?";
+      return yield* redirectTo(`${saved.mobile}${sep}session=${encodeURIComponent(value)}`, clearStateCookie());
     }
 
     // Desktop (embedded): hand the sealed session to the Electron main process

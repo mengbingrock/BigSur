@@ -147,16 +147,16 @@ let proxyCache: ProxyCred | null = null;
 const PROXY_CACHE_MS = 45 * 60 * 1000; // refetch before the 1h server TTL
 
 /** True when this server is the local desktop instance (vs the hosted box). */
-function isDesktop(): boolean {
+export function isDesktop(): boolean {
   return process.env.LABEE_MODE === "desktop";
 }
 
-function proxyServerBase(): string {
+export function proxyServerBase(): string {
   return (process.env.LABEE_SKILLS_SERVER || "https://labee.online").replace(/\/+$/, "");
 }
 
 /** The box session the desktop persisted at "Connect to Labee", as a Cookie. */
-function boxSessionCookie(): string | null {
+export function boxSessionCookie(): string | null {
   const file = process.env.LABEE_REMOTE_SESSION_FILE;
   if (!file) return null;
   try {

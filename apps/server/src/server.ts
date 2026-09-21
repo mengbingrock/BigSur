@@ -15,6 +15,9 @@ const HttpServerLive = Layer.unwrap(
       );
       return BunHttpServer.layer({
         port: config.port,
+        // Agent turns can spend well over Bun's 10-second default idle window
+        // reasoning or waiting on tools before emitting the first SSE event.
+        idleTimeout: 255,
         ...(config.host ? { hostname: config.host } : {}),
       });
     }

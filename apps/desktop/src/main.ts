@@ -460,7 +460,21 @@ function chromeUserAgent(): string {
     .replace(/ Labee\/[\d.]+/g, "");
 }
 
+/** In dev the Dock shows Electron's default icon (electron-builder only sets
+ *  the packaged app's icon). Point the Dock at the built bee icon so the dev
+ *  app matches the released app and the iOS icon. */
+function setDevDockIcon(): void {
+  if (!isDev || process.platform !== "darwin" || !app.dock) return;
+  const iconPath = path.join(__dirname, "..", "build", "icon.png");
+  try {
+    if (fs.existsSync(iconPath)) app.dock.setIcon(iconPath);
+  } catch {
+    // best-effort; a bad path must not stop the app from launching
+  }
+}
+
 async function createWindow(): Promise<void> {
+  setDevDockIcon();
   let url: string;
   if (isDev) {
     url = DEV_URL;

@@ -17,6 +17,7 @@
     "@effect/platform-bun": "catalog:",
     "@effect/platform-node": "catalog:",
     "@labee/contracts": "workspace:*",
+    "@labee/session-core": "workspace:*",
     "@labee/shared": "workspace:*",
     "@mengbingrock/labee-protocol-searcher": "^0.4.0",
     "bcryptjs": "^3.0.3",
