@@ -2,6 +2,7 @@ import { Effect, Option } from "effect";
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 import { currentUser, readSession, type CurrentUser, type SessionData } from "./services/session";
 import { authenticateDevice } from "./services/deviceLink/devices";
+import { isDeletedAccount } from "./services/account";
 import { linkSecret } from "./services/deviceLink/secret";
 
 /** Read and unseal the session cookie off the current request. */
@@ -31,6 +32,9 @@ export const sessionUser: Effect.Effect<
 > = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest;
   const fromCookie = currentUser(yield* sessionData);
+  // A sealed cookie is stateless; once the account is deleted it must stop
+  // working immediately rather than at its 30-day expiry.
+  if (fromCookie && isDeletedAccount(fromCookie.email)) return null;
   if (fromCookie) return fromCookie;
   const auth = request.headers["authorization"] ?? "";
   if (auth.startsWith("Bearer lbd_")) {

@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { HttpRouter, HttpServerResponse } from "effect/unstable/http";
 import { bodyJson, error, sessionUser } from "../httpKit";
+import { deleteAccount } from "../services/account";
 import {
   clearSessionCookie,
   sealSessionCookie,
@@ -88,4 +89,21 @@ export const meRoute = HttpRouter.add(
   }),
 );
 
-export const authRoutes = [loginRoute, signupRoute, logoutRoute, meRoute] as const;
+/** DELETE /api/account — erase the signed-in person's account and everything
+ *  stored under it (sessions, transcripts, mirrors, devices, billing, keys,
+ *  files), cancel their Stripe subscription, and end the session. Required by
+ *  App Store guideline 5.1.1(v). The client asks for confirmation first; the
+ *  server does not, because a stolen device token could already do far worse. */
+export const deleteAccountRoute = HttpRouter.add(
+  "DELETE",
+  "/api/account",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Not signed in.", 401);
+    const result = yield* Effect.promise(() => deleteAccount(user.email));
+    const res = yield* HttpServerResponse.json({ ok: true, deleted: result.rows });
+    return HttpServerResponse.setHeader(res, "set-cookie", clearSessionCookie());
+  }),
+);
+
+export const authRoutes = [loginRoute, signupRoute, logoutRoute, meRoute, deleteAccountRoute] as const;
