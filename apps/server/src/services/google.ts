@@ -74,6 +74,19 @@ export interface OAuthState {
   /** Desktop (remote mode): a loopback URL to hand the sealed session back to,
    *  so system-browser sign-in can return the session to the app. */
   desktop?: string;
+  /** Mobile app: a custom-scheme URL (labee://auth) to hand the sealed session to. */
+  mobile?: string;
+}
+
+/** A safe mobile handoff target: the app's own custom scheme only. */
+export function isMobileCallback(u: string | null | undefined): boolean {
+  if (!u) return false;
+  try {
+    const url = new URL(u);
+    return url.protocol === "labee:";
+  } catch {
+    return false;
+  }
 }
 
 /** A safe desktop handoff target: an http loopback URL (127.0.0.1/localhost).

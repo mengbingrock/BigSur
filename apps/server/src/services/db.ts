@@ -249,6 +249,106 @@ async function openDb(): Promise<SqlDb> {
   db.exec(
     "CREATE INDEX IF NOT EXISTS idx_research_claims_run ON research_claims (run_id, artifact_id);",
   );
+  // Server-owned chat sessions (docs/mobile-companion-design.md §4). The event
+  // log uses the same SSE vocabulary the chat client consumes, plus a few
+  // session-level events; deltas are compacted away once a turn ends.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS chat_sessions (" +
+      "id TEXT PRIMARY KEY, " +
+      "email TEXT NOT NULL, " +
+      "agent_id TEXT, " +
+      "title TEXT NOT NULL, " +
+      "cwd TEXT, " +
+      "engine TEXT NOT NULL DEFAULT 'claude', " +
+      "provider TEXT NOT NULL DEFAULT 'anthropic', " +
+      "model TEXT, " +
+      "status TEXT NOT NULL DEFAULT 'idle', " +
+      "active_turn TEXT, " +
+      "pending_question TEXT, " +
+      "last_body TEXT, " +
+      "last_seq INTEGER NOT NULL DEFAULT 0, " +
+      "cost_usd REAL NOT NULL DEFAULT 0, " +
+      "created_at TEXT NOT NULL, " +
+      "updated_at TEXT NOT NULL, " +
+      "archived_at TEXT);",
+  );
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_chat_sessions_email ON chat_sessions (email, updated_at);",
+  );
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS chat_session_events (" +
+      "session_id TEXT NOT NULL, " +
+      "seq INTEGER NOT NULL, " +
+      "turn_id TEXT, " +
+      "type TEXT NOT NULL, " +
+      "data TEXT NOT NULL, " +
+      "created_at TEXT NOT NULL, " +
+      "PRIMARY KEY (session_id, seq));",
+  );
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS chat_session_messages (" +
+      "session_id TEXT NOT NULL, " +
+      "idx INTEGER NOT NULL, " +
+      "turn_id TEXT, " +
+      "role TEXT NOT NULL, " +
+      "content TEXT NOT NULL, " +
+      "meta TEXT, " +
+      "created_at TEXT NOT NULL, " +
+      "PRIMARY KEY (session_id, idx));",
+  );
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS chat_session_queue (" +
+      "id TEXT PRIMARY KEY, " +
+      "session_id TEXT NOT NULL, " +
+      "body TEXT NOT NULL, " +
+      "created_at TEXT NOT NULL);",
+  );
+  // Device Link (design §5): paired phones/tablets, and the read-only mirror of
+  // desktop session events the box keeps so a phone can read a transcript
+  // while the Mac is asleep.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS link_devices (" +
+      "id TEXT PRIMARY KEY, " +
+      "email TEXT NOT NULL, " +
+      "name TEXT NOT NULL, " +
+      "platform TEXT, " +
+      "token_hash TEXT NOT NULL, " +
+      "push_token TEXT, " +
+      "status TEXT NOT NULL DEFAULT 'pending', " +
+      "code TEXT, " +
+      "created_at TEXT NOT NULL, " +
+      "approved_at TEXT, " +
+      "last_seen_at TEXT);",
+  );
+  db.exec("CREATE INDEX IF NOT EXISTS idx_link_devices_email ON link_devices (email, status);");
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS mirror_sessions (" +
+      "email TEXT NOT NULL, " +
+      "host_id TEXT NOT NULL, " +
+      "id TEXT NOT NULL, " +
+      "summary TEXT NOT NULL, " +
+      "last_seq INTEGER NOT NULL DEFAULT 0, " +
+      "updated_at TEXT NOT NULL, " +
+      "PRIMARY KEY (email, host_id, id));",
+  );
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS mirror_events (" +
+      "email TEXT NOT NULL, " +
+      "host_id TEXT NOT NULL, " +
+      "session_id TEXT NOT NULL, " +
+      "seq INTEGER NOT NULL, " +
+      "data TEXT NOT NULL, " +
+      "PRIMARY KEY (email, host_id, session_id, seq));",
+  );
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS mirror_messages (" +
+      "email TEXT NOT NULL, " +
+      "host_id TEXT NOT NULL, " +
+      "session_id TEXT NOT NULL, " +
+      "idx INTEGER NOT NULL, " +
+      "data TEXT NOT NULL, " +
+      "PRIMARY KEY (email, host_id, session_id, idx));",
+  );
   importLegacyUsersJson(db);
   return db;
 }

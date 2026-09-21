@@ -121,6 +121,28 @@ export async function readMcpToken(token: string | undefined): Promise<string | 
 
 export const MCP_TOKEN_TTL = MCP_TOKEN_TTL_SECONDS;
 
+/** Short-lived token a desktop presents when dialing the Device Link WebSocket
+ *  (query param — the WHATWG WebSocket can't set a cookie header). */
+export interface LinkToken {
+  scope: "link";
+  email: string;
+}
+const LINK_TOKEN_TTL_SECONDS = 60 * 5;
+
+export async function sealLinkToken(email: string): Promise<string> {
+  return sealData({ scope: "link", email } satisfies LinkToken, { password: getPassword(), ttl: LINK_TOKEN_TTL_SECONDS });
+}
+
+export async function readLinkToken(token: string | undefined): Promise<string | null> {
+  if (!token) return null;
+  try {
+    const data = await unsealData<Partial<LinkToken>>(token, { password: getPassword() });
+    return data.scope === "link" && data.email ? data.email : null;
+  } catch {
+    return null;
+  }
+}
+
 /** How long a sealed session stays valid, in seconds. */
 export const SESSION_TTL_SECONDS = TTL_SECONDS;
 
