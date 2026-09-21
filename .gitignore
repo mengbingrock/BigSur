@@ -28,3 +28,10 @@ data/
 .next/
 out/
 next-env.d.ts
+
+# Apple private keys — never commit
+AuthKey_*.p8
+*.p8
+
+# Local Claude Code tooling, worktrees, caches — never commit
+.claude/

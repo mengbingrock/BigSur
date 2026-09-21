@@ -1,0 +1,4 @@
+Using only the enabled Protocol Search tool (not general web search or direct
+web fetching), find a real Nature Protocols protocol published after June
+2026. Return the latest qualifying protocol's title, publication date, DOI,
+and a short description. Search the available evidence before answering.

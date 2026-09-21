@@ -1,0 +1,20 @@
+{
+  "harness": "minimal-direct-codex-react-v1",
+  "model": "gpt-5.6-sol",
+  "exclusiveCutoff": "2026-07-01",
+  "labeeUsed": false,
+  "protocolSkillUsed": false,
+  "protocolSearchMcpUsed": false,
+  "configuredMcp": "literature",
+  "isolation": {
+    "ephemeral": true,
+    "userConfigIgnored": true,
+    "projectRulesIgnored": true,
+    "nativeWebSearchEnabled": false,
+    "sandbox": "read-only",
+    "isolatedWorkingDirectory": true
+  },
+  "exitCode": 0,
+  "durationMs": 330846,
+  "stderr": "Reading additional input from stdin...\n"
+}

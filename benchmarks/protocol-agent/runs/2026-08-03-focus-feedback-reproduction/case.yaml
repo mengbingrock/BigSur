@@ -1,0 +1,32 @@
+id: pab1-hidden-reproduction-focus-feedback-2026-07
+benchmark: PAB-1
+agent_id: 23adb0b6-9295-4387-9d1f-58969254c5b3
+agent_name: protocol agent
+skill: public--protocol-plan
+engine: claude
+model: opus
+effort: high
+run_date: 2026-08-03
+task: >-
+  Reproduce the method-level design of a hidden Nature Protocols article from
+  only the experimental objective and pre-cutoff protocol-search evidence.
+gold:
+  url: https://www.nature.com/articles/s41596-026-01419-w
+  doi: 10.1038/s41596-026-01419-w
+  published_at: 2026-07-28
+  visible_to_agent: false
+search_condition:
+  kind: live_mcp_with_result_cutoff
+  filter: Crossref until-pub-date:2026-07-01
+  protocols_mcp: true
+  protocols_mcp_url: http://127.0.0.1:3001/mcp
+  general_web_tools_used: false
+  protocol_fetch_used_in_scored_retry: false
+run_mode: plan
+turns: 2
+limits:
+  max_turns: 2
+  timeout_ms: 360000
+notes:
+  - A pre-run MCP fetch attempt timed out and was excluded as infrastructure-invalid.
+  - The scored retry used metadata search only and never exposed the golden DOI or title.

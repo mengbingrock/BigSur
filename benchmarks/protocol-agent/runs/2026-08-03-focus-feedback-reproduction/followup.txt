@@ -1,0 +1,6 @@
+Use a conventional wide-field fluorescence microscope with motorized or piezo
+z control. Start with one bright fluorescent nuclear locus in budding yeast
+and one color. Custom Python control code and modest optical additions are
+acceptable. Prioritize the lowest-phototoxicity single-plane approach, proceed
+with reasonable assumptions, and mark parameters that need empirical
+optimization.

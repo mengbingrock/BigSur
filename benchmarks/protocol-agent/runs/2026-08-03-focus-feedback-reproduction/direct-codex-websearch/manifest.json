@@ -1,0 +1,20 @@
+{
+  "harness": "minimal-direct-codex-native-web-v1",
+  "model": "gpt-5.6-sol",
+  "exclusiveCutoff": "2026-07-01",
+  "labeeUsed": false,
+  "protocolSkillUsed": false,
+  "protocolSearchMcpUsed": false,
+  "anyMcpConfigured": false,
+  "nativeWebSearchEnabled": true,
+  "isolation": {
+    "ephemeral": true,
+    "userConfigIgnored": true,
+    "projectRulesIgnored": true,
+    "sandbox": "read-only",
+    "isolatedWorkingDirectory": true
+  },
+  "exitCode": 0,
+  "durationMs": 376500,
+  "stderr": "Reading additional input from stdin...\n"
+}

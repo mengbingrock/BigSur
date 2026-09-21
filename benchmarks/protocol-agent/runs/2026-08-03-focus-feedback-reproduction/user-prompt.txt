@@ -1,0 +1,9 @@
+Using only search results from the enabled Protocol Search tool (do not use its
+fetch operation, general web search, or direct web fetching), design an
+end-to-end protocol for long-duration three-dimensional tracking of a
+fluorescently labeled, mobile subcellular structure in living cells. I need
+high axial precision and short imaging intervals, but repeated z-stacks cause
+too much delay and phototoxicity. Include microscope setup or modifications,
+calibration, the live acquisition and control workflow, validation, downstream
+analysis, checkpoints, and practical timing. Use only the available pre-July
+evidence and label unsupported details as assumptions.

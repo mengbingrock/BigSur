@@ -1,0 +1,42 @@
+{
+  "score": 0.88,
+  "hardPass": true,
+  "casePass": true,
+  "components": {
+    "fidelity": 0.87,
+    "procedureStructure": 0.96,
+    "provenance": 0.78,
+    "usefulness": 0.92
+  },
+  "criticalErrors": [],
+  "gates": {
+    "singlePlanePrimaryAcquisition": true,
+    "cylindricalLensAstigmaticPsf": true,
+    "beadBasedAxialCalibration": true,
+    "closedLoopFocusFeedback": true,
+    "goldArticleSeenByAgent": false,
+    "claimedToReadHiddenGold": false,
+    "generalWebUsed": false,
+    "unsupportedNumbersLabeled": true
+  },
+  "partialOrMissedGoldAtoms": {
+    "namedGoldSoftwareOrZeissIntegration": 0.5,
+    "imageWarpRealignmentWorkflow": 0.5,
+    "kymographAndIntensityOutputs": 0.6,
+    "singleDayExecutionFraming": 0.25
+  },
+  "telemetry": {
+    "turns": 2,
+    "toolCalls": 21,
+    "reportedTerminalTurnLatencyMs": 147400,
+    "reportedTerminalTurnCostUsd": 0.84,
+    "reportedTerminalTurnIterations": 10,
+    "totalLatencyMs": null,
+    "totalCostUsd": null
+  },
+  "excludedAttempt": {
+    "reason": "pre-cutoff MCP article fetch stalled and produced no terminal answer",
+    "toolCallsBeforeStop": 6
+  },
+  "verdict": "Strong method-level blind reproduction with incomplete implementation-specific and analysis-specific fidelity."
+}

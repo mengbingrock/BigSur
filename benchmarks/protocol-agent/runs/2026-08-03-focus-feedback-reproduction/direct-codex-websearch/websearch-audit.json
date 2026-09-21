@@ -1,0 +1,20 @@
+{
+  "exclusiveCutoff": "2026-07-01",
+  "allowedTool": "built-in web_search only",
+  "searchActions": 3,
+  "searchQueries": 10,
+  "allQueriesContainBeforeQualifier": true,
+  "otherToolEvents": [],
+  "mcpCalls": 0,
+  "shellCalls": 0,
+  "fileToolCalls": 0,
+  "nativeBrowserUiCalls": 0,
+  "finalCitations": 8,
+  "finalCitationsVerifiedPreCutoff": 8,
+  "observableHiddenAnswerMatches": [],
+  "completeSearchResultPayloadsExposedInTrace": false,
+  "postCutoffExposureProvablyAbsent": false,
+  "hiddenAnswerExposureProvablyAbsent": false,
+  "strictPass": false,
+  "failureReason": "Native web_search records queries but not its complete returned result set in the Codex JSON trace. Date-qualified queries and pre-cutoff final citations do not prove that the model was never shown a post-cutoff or hidden-answer result."
+}

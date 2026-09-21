@@ -1,0 +1,399 @@
+# ScientistOne, expressed as data.
+#
+# STATUS: documentation only. Nothing loads this file — it is not referenced by
+# any server code, and the shipped engine in apps/server/src/research/ is
+# unchanged. Its purpose is to answer one question before any interpreter is
+# built: CAN this pipeline's workflow be separated from its agents?
+#
+# Source of truth it was transcribed from:
+#   roles/prompts .... apps/server/src/research/roles.ts, prompts.ts
+#   graph ............ apps/server/src/research/engine.ts:149-163 + stages/*.ts
+#   defaults ......... packages/contracts/src/research.ts (DEFAULT_RUN_BUDGET/GATES)
+#
+# Conformance against the recorded run run_678864fbbc87eae767 is reported in
+# ./scientistone-conformance.md. Anything that could NOT be expressed here is
+# listed under `plugins:` and in that report's gap list — those are the finding.
+
+apiVersion: labee.workflow/v1
+name: ScientistOne
+description: >-
+  Chain-of-evidence autonomous research: literature grounding, parallel
+  explore-exploit discovery, and a claim-verified report.
+
+# ---------------------------------------------------------------- inputs ----
+inputs:
+  question: { type: string, required: true, minLength: 12 }
+  seeds:    { type: "ref[]", required: true, minItems: 1, maxItems: 4 }
+  evaluator:
+    type: oneOf
+    variants:
+      - { kind: command, command: string, timeoutMs: number? }
+      - { kind: none }
+
+# ---------------------------------------------------------------- params ----
+# Everything tunable. Marked NEW are values that are hardcoded literals in the
+# current implementation with no knob at all — surfacing them is itself a finding.
+params:
+  # already in DEFAULT_RUN_BUDGET
+  iterations:            { type: number, default: 5 }    # PEE depth (I)
+  branches:              { type: number, default: 5 }    # PEE width (B)
+  keepK:                 { type: number, default: 2 }    # survivors per iteration
+  evalsPerNode:          { type: number, default: 4 }    # E
+  researcherFanout:      { type: number, default: 5 }
+  investigationRounds:   { type: number, default: 3 }
+  briefCriticRounds:     { type: number, default: 5 }
+  writerRounds:          { type: number, default: 2 }
+  maxConcurrentAgents:   { type: number, default: 4 }
+  maxCandidates:         { type: number, default: 5000 }
+  targetNotes:           { type: number, default: 100 }
+  maxCostUsd:            { type: number, default: null }
+  # already in DEFAULT_RUN_GATES
+  minCoreAdjacent:       { type: number, default: 5 }
+  groundingRatioMin:     { type: number, default: 0.85 }
+  numericTolerance:      { type: number, default: 0.01 }
+  approveAfterBrief:     { type: bool,   default: true }
+  approveBeforeWrite:    { type: bool,   default: false }
+  # NEW — currently buried literals (investigate.ts / discover.ts / write.ts / verify.ts)
+  filterBatchSize:       { type: number, default: 40 }     # investigate.ts BATCH
+  filterConcurrency:     { type: number, default: 3 }      # mapConcurrent(...,3)
+  elitePoolSize:         { type: number, default: 500 }    # .slice(0,500)
+  auditRoundsPerDirection: { type: number, default: 2 }
+  targetedRefreshPicks:  { type: number, default: 3 }
+  verifyRounds:          { type: number, default: 2 }      # verify.ts literal 2 — NO knob today
+  ablationCount:         { type: number, default: 3 }
+  minRepresentationChars: { type: number, default: 200 }    # sanity floor, 3 call sites
+  numericWindowLines:    { type: number, default: 3 }      # claims/verify.ts ±3
+  overlapThreshold:      { type: number, default: 0.25 }   # method-overlap Jaccard
+
+# ----------------------------------------------------------------- roles ----
+# Direct transcription of ROLES in roles.ts. `pure` roles run with no tools.
+# Deny-lists are pipeline invariants, not role identity:
+#   agentDeny    = AskUserQuestion, WebSearch, WebFetch, Task, Skill
+#   readonlyDeny = agentDeny + Write, Edit, MultiEdit, NotebookEdit, Bash
+# WebSearch/WebFetch are denied so all knowledge flows through cached retrieval
+# (retrieval-only citations); Task/Skill are denied so the CLI never sub-delegates.
+toolPolicies:
+  agentDeny:    [AskUserQuestion, WebSearch, WebFetch, Task, Skill]
+  readonlyDeny: [AskUserQuestion, WebSearch, WebFetch, Task, Skill, Write, Edit, MultiEdit, NotebookEdit, Bash]
+
+roles:
+  # `echo` is a smoke-test role — deliberately not part of the pipeline graph.
+  echo:                { prompt: {skill: labee--research--echo},                model: haiku,  effort: low,    tools: none, timeoutMinutes: 3, offGraph: true }
+  literature_filter:   { prompt: {skill: labee--research--literature-filter},   model: haiku,  effort: low,    tools: none, timeoutMinutes: 6 }
+  librarian:           { prompt: {skill: labee--research--librarian},           model: haiku,  effort: medium, tools: none, timeoutMinutes: 6 }
+  researcher:
+    prompt: {skill: labee--research--researcher}
+    model: sonnet
+    effort: medium
+    tools: {deny: readonlyDeny}
+    mcp: [protocols]
+    timeoutMinutes: 15
+  pi:                  { prompt: {skill: labee--research--pi},                  model: opus,   effort: high,   tools: none, timeoutMinutes: 10 }
+  subdomain_writer:    { prompt: {skill: labee--research--subdomain-writer},    model: sonnet, effort: medium, tools: none, timeoutMinutes: 12 }
+  island_consolidator: { prompt: {skill: labee--research--island-consolidator}, model: sonnet, effort: medium, tools: none, timeoutMinutes: 10 }
+  direction_auditor:   { prompt: {skill: labee--research--direction-auditor},   model: opus,   effort: high,   tools: none, timeoutMinutes: 10 }
+  brief_writer:        { prompt: {skill: labee--research--brief-writer},        model: opus,   effort: high,   tools: none, timeoutMinutes: 20 }
+  brief_critic:        { prompt: {skill: labee--research--brief-critic},        model: opus,   effort: high,   tools: none, timeoutMinutes: 10 }
+  ideator:             { prompt: {skill: labee--research--ideator},             model: opus,   effort: high,   tools: none, timeoutMinutes: 12 }
+  solver:
+    prompt: {skill: labee--research--solver}
+    model: sonnet
+    effort: high
+    tools: {deny: agentDeny}          # keeps Bash/Write — the only writing roles
+    cwd: {artifact: node_dir}         # runs INSIDE its branch node directory
+    timeoutMinutes: 45
+  report_writer:       { prompt: {skill: labee--research--report-writer},       model: sonnet, effort: medium, tools: none, timeoutMinutes: 10 }
+  evaluator_rubric:    { prompt: {skill: labee--research--evaluator-rubric},    model: opus,   effort: medium, tools: none, timeoutMinutes: 8 }
+  ablation:
+    prompt: {skill: labee--research--ablation}
+    model: sonnet
+    effort: high
+    tools: {deny: agentDeny}
+    cwd: {artifact: ablation_dir}
+    timeoutMinutes: 45
+  conceive:            { prompt: {skill: labee--research--conceive},            model: opus,   effort: high,   tools: none, timeoutMinutes: 20 }
+  critic:              { prompt: {skill: labee--research--critic},              model: opus,   effort: high,   tools: none, timeoutMinutes: 12 }
+  resolver:            { prompt: {skill: labee--research--resolver},            model: opus,   effort: high,   tools: none, timeoutMinutes: 20 }
+  composer_section:    { prompt: {skill: labee--research--composer-section},    model: sonnet, effort: medium, tools: none, timeoutMinutes: 10 }
+  entailment_judge:    { prompt: {skill: labee--research--entailment-judge},    model: haiku,  effort: low,    tools: none, timeoutMinutes: 4 }
+
+# ------------------------------------------------------------- artifacts ----
+# THE PATH REGISTRY. Today `stage2/nodes/<id>/experimental_log.md` is agreed
+# independently by the solver prompt, claims/ground.ts's `log:` resolver, and
+# stage 3's citation instruction — three files, one string, no shared constant.
+# Here it is declared once and referenced by key everywhere.
+artifacts:
+  run_spec:        { path: "run.json",                          kind: run_spec,        format: json }
+  seeds:           { path: "stage1/seeds.json",                 kind: seeds,           format: json }
+  candidates:      { path: "stage1/candidates.jsonl",           kind: candidates,      format: jsonl }
+  tiers:           { path: "stage1/filter/tiers.json",          kind: tiers,           format: json }
+  paper_note:      { path: "stage1/notes/note_{{scope.paper.refIdSlug}}.md", kind: paper_note, format: md }
+  dossier:         { path: "stage1/directions/dir_{{scope.direction.key}}.md", kind: dossier, format: md }
+  direction_audit: { path: "stage1/audit/dir_{{scope.direction.key}}.round{{scope.round}}.json", kind: direction_audit, format: json }
+  brief:           { path: "stage1/brief.md",                   kind: brief,           format: md }
+  brief_refs:      { path: "stage1/brief.refs.json",            kind: brief_refs,      format: json }
+
+  ideas:           { path: "stage2/ideas.json",                 kind: idea_set,        format: json }
+  tree:            { path: "stage2/tree.json",                  kind: tree,            format: json }
+  node_dir:        { path: "stage2/nodes/{{scope.branch.id}}",  kind: node_dir,        format: dir }
+  node_log:        { path: "stage2/nodes/{{scope.branch.id}}/experimental_log.md", kind: experimental_log, format: md, writer: agent }
+  node_eval:       { path: "stage2/nodes/{{scope.branch.id}}/versions/v{{scope.iteration}}/eval.json", kind: eval_result, format: json }
+  node_report:     { path: "stage2/nodes/{{scope.branch.id}}/report.md", kind: node_report, format: md }
+  best:            { path: "stage2/best.json",                  kind: best,            format: json }
+  ablation_dir:    { path: "stage2/ablations/work",             kind: ablation_dir,    format: dir }
+  ablations:       { path: "stage2/ablations/ablations.json",   kind: ablation,        format: json }
+  # The ablation agent keeps its own log inside ablation_dir, exactly as the
+  # solver does inside node_dir. Undeclared until the full replay found it
+  # orphaned in research_artifacts.
+  ablation_log:    { path: "stage2/ablations/work/experimental_log.md", kind: experimental_log, format: md, writer: agent }
+
+  representation:  { path: "stage3/representation.md",          kind: representation,  format: md }
+  ground_report:   { path: "stage3/ground/round{{scope.round}}.json",  kind: ground_report, format: json }
+  critic_report:   { path: "stage3/critic/round{{scope.round}}.json",  kind: critic_report, format: json }
+  draft_tagged:    { path: "stage3/draft/paper.tagged.md",      kind: draft,           format: md }
+  draft_refined:   { path: "stage3/draft/paper.refined.md",     kind: draft,           format: md }
+  claims_report:   { path: "stage3/verify/claims.round{{scope.round}}.json", kind: claims_report, format: json }
+  paper:           { path: "stage3/final/paper.md",             kind: final,           format: md }
+
+outputs:
+  final: paper
+
+# ----------------------------------------------------------------- steps ----
+steps:
+  # The run spec is persisted before any agent runs. It belongs to the run, not
+  # to a step — but leaving it undeclared left `run.json` orphaned in
+  # research_artifacts, so the graph has to own it.
+  - plugin: { use: labee.run.persistSpec, writes: [run_spec] }
+
+  # ============================ STAGE 1 — investigate ======================
+  - seq:
+      name: investigate
+      body:
+        - plugin:
+            use: labee.research.citationCrawl      # OpenAlex 2-hop; evidence-cached
+            with: { seeds: inputs.seeds, maxCandidates: params.maxCandidates }
+            out: { seeds: seeds, candidates: candidates }
+
+        - map:
+            over: "chunk(facts.candidates, params.filterBatchSize)"
+            as: batch
+            concurrency: params.filterConcurrency
+            onError: skip                          # a failed batch loses candidates, not the run
+            collect: scores
+            body:
+              task: literature_filter
+
+        - plugin:
+            use: labee.research.tier               # thresholds + elite-pool ranking
+            with: { scores: facts.scores, elitePoolSize: params.elitePoolSize }
+            out: { coreAdjacent: coreAdjacent, elitePool: elitePool, tiers: tiers }
+
+        - gate:
+            kind: check
+            check: "count(facts.coreAdjacent) >= params.minCoreAdjacent"
+            failCode: TOPIC_RELEVANCE_GATE
+
+        - loop:
+            maxRounds: params.investigationRounds
+            as: round
+            break: "count(facts.unread) == 0"
+            body:
+              seq:
+                - { task: pi, onError: skip, out: { roundGoal: round_goal } }   # falls back to a default goal
+                - { task: librarian, out: { picks: picks } }
+                - map:
+                    over: facts.picks
+                    as: paper
+                    concurrency: params.researcherFanout
+                    onError: skip                  # a failed read is a skipped note
+                    collect: notes
+                    body: { task: researcher, out: { note: paper_note } }
+                - { task: subdomain_writer, out: { proposed: directions_proposed } }
+                # ONE task, N scoped artifacts (one dossier per direction).
+                # Declaring `out: {directions: dossier}` made the path template
+                # `{{scope.direction.key}}` unresolvable — the full replay
+                # aborted here. `writesEach` supplies the missing scope.
+                - task: island_consolidator
+                  out: { directions: directions }
+                  writesEach: { artifact: dossier, over: directions, as: direction }
+
+        - map:
+            over: facts.directions
+            as: direction
+            body:
+              loop:
+                maxRounds: params.auditRoundsPerDirection
+                as: round
+                break: "facts.audit.pass || count(facts.audit.literatureGaps) == 0"
+                body:
+                  seq:
+                    - { task: direction_auditor, out: { audit: direction_audit } }
+                    - branch:
+                        when: "!facts.audit.pass"
+                        then:                       # targeted literature refresh
+                          seq:
+                            - { task: librarian, out: { picks: picks } }
+                            - map: { over: "take(facts.picks, params.targetedRefreshPicks)", as: paper,
+                                     concurrency: params.researcherFanout, onError: skip, collect: notes,
+                                     body: { task: researcher, out: { note: paper_note } } }
+
+        - plugin:
+            use: labee.research.selectWinner       # prefer audit-passing, else best-scoring, take [0]
+            out: { winner: winner }
+
+        - loop:
+            maxRounds: params.briefCriticRounds
+            as: round
+            break: "facts.critique.pass"
+            body:
+              seq:
+                - { task: brief_writer, out: { brief: brief, references: brief_refs } }
+                - { task: brief_critic, out: { critique: critique } }
+
+        - plugin:
+            use: labee.evidence.partition          # retrieval-only: drop refs with no evidence row
+            with: { references: facts.references }
+            out: { verified: brief_refs }
+
+  - gate: { kind: human, name: afterBrief, when: params.approveAfterBrief }
+
+  # ============================== STAGE 2 — discover =======================
+  - seq:
+      name: discover
+      body:
+        - { task: ideator, out: { ideas: ideas } }
+        - loop:
+            maxRounds: params.iterations
+            as: iteration
+            break: "count(facts.liveBranches) == 0"
+            body:
+              seq:
+                - map:
+                    over: facts.liveBranches
+                    as: branch
+                    concurrency: params.maxConcurrentAgents
+                    onError: record                # a failed version records score:null, run continues
+                    body:
+                      seq:
+                        - { task: solver, out: { summary: node_summary }, writes: [node_log] }
+                        # Evaluator selection is a REAL branch, not a comment.
+                        # It was prose here until the interpreter proved
+                        # `evaluator_rubric` was unreachable from the graph.
+                        - branch:
+                            when: "inputs.evaluator.kind == 'command'"
+                            then:
+                              plugin: { use: labee.eval.command, out: { score: node_eval } }
+                            else:
+                              task: evaluator_rubric
+                              out: { score: node_eval }
+                - plugin:
+                    use: labee.pee.select          # keep top-K, mark dead, compute refill count
+                    # `survivors` is a REQUIRED output, not an internal detail: the
+                    # refill ideator must see the surviving branches or it ideates
+                    # blind. Proven by the trace — b3 carries buildsOn:"b1".
+                    out: { liveBranches: liveBranches, survivors: survivors, tree: tree }
+                - branch:
+                    when: "facts.refillCount > 0"
+                    then:
+                      task: ideator
+                      in: [survivors]              # ← Gap 2 fix (see conformance report)
+                      out: { ideas: ideas }
+
+        - plugin: { use: labee.research.bestRun, out: { best: best } }
+        # Runs on the WINNER, outside the branch map that would supply scope —
+        # so it binds its own. Without this, `node_report`'s path template
+        # `{{scope.branch.id}}` is unresolvable and the replay aborts here.
+        - task: report_writer
+          scope: { branch: "{ id: facts.best.branch }" }
+          out: { report: node_report }
+        - plugin: { use: labee.fs.copyDir, with: { from: best, to: ablation_dir } }
+        - { task: ablation, onError: record, out: { ablations: ablations }, writes: [ablation_log] }
+
+  - gate: { kind: human, name: beforeWrite, when: params.approveBeforeWrite }
+
+  # =============================== STAGE 3 — write =========================
+  - seq:
+      name: write
+      body:
+        - { task: conceive, out: { representation: representation } }
+        - loop:
+            maxRounds: params.writerRounds
+            as: round
+            # NO trailing `break:` here. This loop exits from the MIDDLE of its
+            # body — between the critic and the resolver — via the three break
+            # nodes below. A trailing predicate cannot express that: it implied
+            # resolver would run once per round, but research_tasks shows
+            # critic n=2 against resolver@write n=1. See write.ts:184-187.
+            body:
+              seq:
+                - plugin: { use: labee.claims.ground, out: { ground: ground_report } }
+                - { task: critic, out: { critique: critic_report } }
+                - break: { when: "facts.flagCount == 0 && facts.critique.pass", reason: convergence }
+                - break: { when: "facts.flagCount >= facts.prevFlagCount",      reason: plateau }
+                # a repair on the final round would never be re-grounded
+                - break: { when: "scope.round == params.writerRounds",          reason: lastRound }
+                - { task: resolver, out: { representation: representation } }
+        - gate:
+            kind: check
+            check: "facts.ground.groundingRatio >= params.groundingRatioMin"
+            failCode: GROUNDING_GATE
+        - map:                                     # NOTE: sequential in the implementation
+            over: constants.requiredSections
+            as: section
+            concurrency: 1
+            collect: sections
+            body: { task: composer_section }
+        - plugin: { use: labee.doc.assemble, out: { draft: draft_tagged } }
+
+  # ============================== STAGE 4 — verify =========================
+  - seq:
+      name: verify
+      body:
+        # Same mid-body shape as the writer loop, and the gate lives INSIDE it
+        # (verify.ts:139-151). Declaring the gate after the loop would let a
+        # failing final round burn one more resolver call before failing closed.
+        - loop:
+            maxRounds: params.verifyRounds
+            as: round
+            body:
+              seq:
+                - plugin:
+                    use: labee.claims.verify       # numeric tolerance, entailment, overlap
+                    with: { tolerance: params.numericTolerance, window: params.numericWindowLines,
+                            overlapThreshold: params.overlapThreshold, judge: {role: entailment_judge} }
+                    out: { claims: claims_report, blocking: blocking }
+                - break: { when: "count(facts.blocking) == 0", reason: clean }
+                - gate:
+                    kind: check
+                    when: "scope.round == params.verifyRounds"
+                    check: "count(facts.blocking) == 0"
+                    failCode: VERIFICATION_GATE
+                - { task: resolver, out: { draft: draft_refined } }
+        - plugin:
+            use: labee.doc.promote                 # strip tags, append retrieval-only references
+            out: { paper: paper }
+
+# --------------------------------------------------------------- plugins ----
+# What could NOT be expressed declaratively. This list IS the finding: each
+# entry is existing code that must remain code. ~900 LOC moved, not rewritten.
+plugins:
+  labee.research.citationCrawl: { from: citationGraph.ts,  why: "HTTP client, 2-hop traversal, throttling, inverted-index decoding, evidence caching" }
+  labee.research.tier:          { from: investigate.ts,    why: "tier thresholds + elite-pool sort/slice; pure but arbitrary — a sort DSL isn't worth building" }
+  labee.research.selectWinner:  { from: investigate.ts,    why: "ranking policy: prefer audit-passing, else best-scoring, take [0]" }
+  labee.research.bestRun:       { from: discover.ts,       why: "best-run selection excluding errored/violating versions" }
+  labee.run.persistSpec:        { from: engine.ts,        why: "writes run.json before the graph starts; run-scoped, not step-scoped" }
+  labee.pee.select:             { from: discover.ts,       why: "keep-top-K / mark-dead / refill policy — the loop AROUND it is declarative, the policy is not" }
+  labee.eval.command:           { from: evaluator.ts,      why: "subprocess + last-stdout-line {\"score\":n} contract" }
+  labee.claims.ground:          { from: "claims/{grammar,ground}.ts", why: "tag grammar + deterministic existence checks", exports: [tagSpec] }
+  labee.claims.verify:          { from: claims/verify.ts,  why: "number extraction, unit normalization, token overlap; entailment injected as a role callback" }
+  labee.evidence.partition:     { from: investigate.ts,    why: "DB query against research_evidence for the retrieval-only rule" }
+  labee.fs.copyDir:             { from: discover.ts,       why: "filesystem copy for the ablation workspace" }
+  labee.doc.assemble:           { from: write.ts,          why: "section concatenation with title" }
+  labee.doc.promote:            { from: verify.ts,         why: "tag stripping + references section built from cached evidence" }
+
+# `labee.claims.ground` exports `tagSpec` so prompts interpolate the SAME string
+# the parser regex expects — removing the byte-compatibility drift risk between
+# prompts.ts SOURCE_TAG_SPEC and claims/grammar.ts TAG_RE.
+
+constants:
+  requiredSections: [Problem, Related Work, Approach, Experiments, Results, Ablations, Limitations, Conclusion]
