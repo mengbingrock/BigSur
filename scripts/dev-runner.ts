@@ -69,6 +69,10 @@ function startServer() {
   run("server", "bun", ["run", "src/bin.ts"], path.join(ROOT, "apps/server"), {
     LABEE_PORT: String(SERVER_PORT),
     LABEE_HOST: "127.0.0.1",
+    // Mirror the packaged desktop: the embedded server must know it runs on a
+    // user's machine (local-first credential routing, and the Device Link
+    // client that lets phones attach to this Mac's sessions).
+    LABEE_MODE: process.env.LABEE_MODE ?? "desktop",
     // "Connect to Labee" (desktop) writes the box session here; the server
     // reads it to sync agents/skills and to mint protocol-MCP tokens. Without
     // it, "Sync from Labee" always fails with "Not connected to Labee" even
