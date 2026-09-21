@@ -42,7 +42,17 @@ if [ "$LIVE" = "1" ]; then
   sleep 5
 fi
 
-api() { stripe $MODE_FLAG "$@"; }
+# The Stripe CLI only accepts --live AFTER the subcommand ("stripe --live
+# products list" is parsed as an unknown command), so append it.
+api() { stripe "$@" $MODE_FLAG; }
+
+# --live also needs the CLI paired with a live account rather than a sandbox.
+if [ "$LIVE" = "1" ]; then
+  PROBE="$(stripe products list --limit 1 --live 2>&1 || true)"
+  case "$PROBE" in
+    *sandbox*) die "the Stripe CLI is paired with a SANDBOX. Run:  stripe switch   and pick the live TrueGrit AI account, then re-run with --live" ;;
+  esac
+fi
 
 # Refuse to double-create unless forced.
 if [ "$FORCE" != "1" ]; then
@@ -123,12 +133,13 @@ bold "==> next"
 cat <<'NEXT'
   1. Create the webhook endpoint (https://labee.online/api/billing/webhook) and
      copy its signing secret:
-       stripe [--live] webhook_endpoints create \
+       stripe webhook_endpoints create \
          --url https://labee.online/api/billing/webhook \
          --enabled-events checkout.session.completed \
          --enabled-events customer.subscription.created \
          --enabled-events customer.subscription.updated \
-         --enabled-events customer.subscription.deleted
+         --enabled-events customer.subscription.deleted \
+         [--live]        # note: --live goes LAST, the CLI rejects it up front
   2. Put the env block plus the secret key and webhook secret into
      /etc/labee.env on the server, then: sudo systemctl restart labee
   3. Test the flow locally against test mode:
