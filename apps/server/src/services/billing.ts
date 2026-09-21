@@ -11,6 +11,13 @@
 //   STRIPE_PRICE_CREDITS_25   one-time price id → credit top-up
 //   STRIPE_PRICE_CREDITS_50   one-time price id → credit top-up
 //   LABEE_PUBLIC_URL          (optional) absolute app URL for Checkout returns
+//   STRIPE_MANAGED_PAYMENTS   "true" → Stripe is merchant of record (handles
+//                             indirect tax, fraud, disputes, buyer support for
+//                             a per-transaction add-on fee). Requires the
+//                             Managed Payments terms accepted in the Dashboard
+//                             and an eligible tax code on every product.
+//   STRIPE_TAX_CODE           tax code for inline products (default
+//                             txcd_10105001, "AI as a Service — cloud")
 import Stripe from "stripe";
 import {
   CUSTOM_CREDITS_PRODUCT_ID,
@@ -118,6 +125,30 @@ interface PriceRef {
 
 function csv(v: string | undefined): string[] {
   return v ? v.split(",").map((s) => s.trim()).filter(Boolean) : [];
+}
+
+/** Managed Payments (Stripe as merchant of record): Stripe handles indirect tax
+ *  in 80+ countries, fraud, disputes and buyer support for a per-transaction
+ *  add-on fee. Opt in per environment; only NEW subscriptions bought through a
+ *  Managed Payments Checkout Session are covered, so flipping this does not
+ *  migrate existing subscriptions. */
+function managedPaymentsEnabled(): boolean {
+  return process.env.STRIPE_MANAGED_PAYMENTS === "true";
+}
+
+/** Tax code applied to inline (ad-hoc) products. Managed Payments requires an
+ *  eligible digital-goods code on every product it sells; the default is
+ *  "AI as a Service — cloud" which is what Labee sells. */
+function productTaxCode(): string {
+  return process.env.STRIPE_TAX_CODE || "txcd_10105001";
+}
+
+/** Add `managed_payments` to Checkout Session params. The pinned API version
+ *  accepts it, but the installed SDK's types predate the field, so it is
+ *  attached here rather than inline at each call site. */
+function withManagedPayments<T extends object>(params: T): T {
+  if (!managedPaymentsEnabled()) return params;
+  return { ...params, managed_payments: { enabled: true } } as T;
 }
 
 /** Global free-trial length (days) applied to subscription checkouts that don't
@@ -598,24 +629,27 @@ export async function createCheckout(
     if (!Number.isFinite(cents) || cents < MIN_TOPUP_CENTS) {
       throw invalid(`Minimum top-up is $${(MIN_TOPUP_CENTS / 100).toFixed(0)}.`);
     }
-    const session = await s.checkout.sessions.create({
-      customer,
-      mode: "payment",
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: CURRENCY,
-            unit_amount: cents,
-            product_data: { name: "Labee credits" },
+    const session = await s.checkout.sessions.create(
+      withManagedPayments({
+        customer,
+        mode: "payment",
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: CURRENCY,
+              unit_amount: cents,
+              // Managed Payments needs a tax code on inline products too.
+              product_data: { name: "Labee credits", tax_code: productTaxCode() },
+            },
           },
-        },
-      ],
-      success_url: `${base}/settings?checkout=success`,
-      cancel_url: `${base}/settings?checkout=cancel`,
-      metadata: { labee_email: email, product_id: productId, kind: "credits" },
-      payment_intent_data: { metadata: { labee_email: email } },
-    });
+        ],
+        success_url: `${base}/settings?checkout=success`,
+        cancel_url: `${base}/settings?checkout=cancel`,
+        metadata: { labee_email: email, product_id: productId, kind: "credits" },
+        payment_intent_data: { metadata: { labee_email: email } },
+      }),
+    );
     if (!session.url) throw invalid("Stripe did not return a checkout URL.");
     return session.url;
   }
@@ -628,22 +662,24 @@ export async function createCheckout(
   const trialDays =
     ref.kind === "subscription" ? trialDaysFor(await fetchPrice(ref.priceId)) : 0;
 
-  const session = await s.checkout.sessions.create({
-    customer,
-    mode: ref.kind === "subscription" ? "subscription" : "payment",
-    line_items: [{ price: ref.priceId, quantity: 1 }],
-    success_url: `${base}/settings?checkout=success`,
-    cancel_url: `${base}/settings?checkout=cancel`,
-    metadata: { labee_email: email, product_id: ref.priceId, kind: ref.kind },
-    ...(ref.kind === "credits"
-      ? { payment_intent_data: { metadata: { labee_email: email } } }
-      : {
-          subscription_data: {
-            metadata: { labee_email: email },
-            ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
-          },
-        }),
-  });
+  const session = await s.checkout.sessions.create(
+    withManagedPayments({
+      customer,
+      mode: ref.kind === "subscription" ? "subscription" : "payment",
+      line_items: [{ price: ref.priceId, quantity: 1 }],
+      success_url: `${base}/settings?checkout=success`,
+      cancel_url: `${base}/settings?checkout=cancel`,
+      metadata: { labee_email: email, product_id: ref.priceId, kind: ref.kind },
+      ...(ref.kind === "credits"
+        ? { payment_intent_data: { metadata: { labee_email: email } } }
+        : {
+            subscription_data: {
+              metadata: { labee_email: email },
+              ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
+            },
+          }),
+    }),
+  );
   if (!session.url) throw invalid("Stripe did not return a checkout URL.");
   return session.url;
 }
