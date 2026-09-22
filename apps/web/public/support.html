@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Support — Labee</title>
+    <meta name="description" content="Getting started with Labee, common problems, and how to reach a human." />
+    <link rel="icon" href="/favicon.svg" />
+    <style>
+      :root {
+        --bg: #fafaf7;
+        --fg: #1c2420;
+        --muted: #5b6660;
+        --rule: #dfe3df;
+        --accent: #2f5d4a;
+        --card: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #121614;
+          --fg: #e8ece9;
+          --muted: #9aa5a0;
+          --rule: #29322e;
+          --accent: #8fb9a6;
+          --card: #181e1b;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        -webkit-text-size-adjust: 100%;
+      }
+      .wrap { max-width: 44rem; margin: 0 auto; padding: 3rem 16px 5rem; }
+      h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 .35rem; letter-spacing: -.01em; }
+      h2 { font-size: 1.15rem; margin: 2.4rem 0 .6rem; }
+      h3 { font-size: 1rem; margin: 1.6rem 0 .35rem; }
+      .lede { color: var(--muted); margin: 0 0 2rem; }
+      a { color: var(--accent); }
+      ul, ol { padding-left: 1.2rem; }
+      li { margin: .4rem 0; }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--rule);
+        border-radius: 12px;
+        padding: 1rem 1.15rem;
+        margin: 1.2rem 0;
+      }
+      .card p:first-child { margin-top: 0; }
+      .card p:last-child { margin-bottom: 0; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; }
+      footer { margin-top: 3rem; padding-top: 1.2rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: .9rem; }
+      @media (max-width: 480px) { .wrap { padding-top: 2rem; } h1 { font-size: 1.6rem; } }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <h1>Support</h1>
+      <p class="lede">Help with Labee for iPhone, iPad and the Mac app.</p>
+
+      <div class="card">
+        <p>
+          <strong>Need a person?</strong> Write to
+          <a href="mailto:support@labee.online">support@labee.online</a>. Tell us what you were
+          doing, what you expected, and what happened instead. We usually reply within two business
+          days.
+        </p>
+      </div>
+
+      <h2>Getting started</h2>
+      <p>
+        Labee has two halves. Your coding agent runs on your Mac, and the iPhone and iPad app
+        attaches to those sessions so you can follow them and reply while you are away from your
+        desk.
+      </p>
+      <ol>
+        <li>Install the Labee desktop app on your Mac and sign in.</li>
+        <li>In the desktop app, open Settings and connect it to your Labee account.</li>
+        <li>On your iPhone or iPad, open Labee, sign in with the same account, and your Mac appears under your devices.</li>
+        <li>Open any session to read it, or start a new one.</li>
+      </ol>
+
+      <h2>Common problems</h2>
+
+      <h3>My sessions do not appear on my phone</h3>
+      <p>
+        The phone can only see sessions from a Mac that has been connected to your account. Open the
+        desktop app, go to Settings, and check that it reports a live connection. If it does not,
+        connect it again. Sessions created before you connected will appear once the Mac syncs.
+      </p>
+
+      <h3>The microphone button does nothing</h3>
+      <p>
+        Check that Labee has microphone permission in the iOS Settings app, under Labee. Very short
+        taps are ignored on purpose, so hold the button while you speak and release when you are
+        done.
+      </p>
+
+      <h3>Voice input returns an error</h3>
+      <p>
+        Transcription happens on the server. If it fails repeatedly, it is usually a connectivity
+        problem rather than a problem with your device. Try again on a different network, and write
+        to us if it persists.
+      </p>
+
+      <h3>I am not getting notifications</h3>
+      <p>
+        Allow notifications for Labee in the iOS Settings app. Notifications are sent when a turn
+        finishes or when the agent is waiting on your answer, so a session that is idle will not
+        produce any.
+      </p>
+
+      <h3>Everything says the Mac is offline</h3>
+      <p>
+        Your Mac has to be awake and connected for live sessions. When it is asleep you can still
+        read recent sessions, but you cannot send a new turn until it comes back.
+      </p>
+
+      <h2>Billing</h2>
+      <p>
+        Subscriptions and credit top-ups are handled by Stripe. You can change or cancel a plan from
+        the billing section of the app, which opens Stripe's billing portal. For a refund or a
+        billing question, write to <a href="mailto:support@labee.online">support@labee.online</a>.
+      </p>
+
+      <h2>Your data and your account</h2>
+      <p>
+        You can delete any individual session from the app, which removes its messages and its
+        record of the agent's activity.
+      </p>
+      <p>
+        To delete your account and everything stored with it, write to
+        <a href="mailto:support@labee.online">support@labee.online</a> from the address you signed
+        up with. We will erase your account, your conversations and any mirrored copies within 30
+        days and confirm when it is done.
+      </p>
+      <p>
+        The <a href="/privacy">privacy policy</a> explains what is collected and who receives it.
+      </p>
+
+      <h2>Requirements</h2>
+      <ul>
+        <li>iPhone or iPad running a current version of iOS or iPadOS.</li>
+        <li>A Mac running the Labee desktop app, for sessions that execute on your machine.</li>
+        <li>A Labee account.</li>
+      </ul>
+
+      <footer>
+        <p>
+          TrueGrit AI, Inc. · <a href="mailto:support@labee.online">support@labee.online</a> ·
+          <a href="/privacy">Privacy</a> · <a href="/">Labee</a>
+        </p>
+      </footer>
+    </main>
+  </body>
+</html>

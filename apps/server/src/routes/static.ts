@@ -60,7 +60,28 @@ export const staticRoute = HttpRouter.add(
     });
 
     if (!path.extname(filePath)) {
-      // Extensionless route (SPA path) → index.html.
+      // Extensionless route. Prefer a real static page when one exists, so
+      // /privacy serves privacy.html rather than the SPA shell — the App Store
+      // requires a privacy policy URL that renders the policy itself, and the
+      // client uses hash routing, so these pages cannot be SPA routes.
+      const pageCandidate = `${filePath}.html`;
+      if (withinRoot(pageCandidate)) {
+        const pageInfo = yield* fileSystem
+          .stat(pageCandidate)
+          .pipe(Effect.catch(() => Effect.succeed(null)));
+        if (pageInfo && pageInfo.type === "File") {
+          const pageData = yield* fileSystem
+            .readFile(pageCandidate)
+            .pipe(Effect.catch(() => Effect.succeed(null)));
+          if (pageData) {
+            return HttpServerResponse.uint8Array(pageData, {
+              status: 200,
+              contentType: "text/html; charset=utf-8",
+            });
+          }
+        }
+      }
+      // Otherwise it is a SPA path → index.html.
       return yield* serveIndex;
     }
 

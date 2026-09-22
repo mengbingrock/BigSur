@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy Policy — Labee</title>
+    <meta name="description" content="What Labee collects, where it goes, and how long it is kept." />
+    <link rel="icon" href="/favicon.svg" />
+    <style>
+      :root {
+        --bg: #fafaf7;
+        --fg: #1c2420;
+        --muted: #5b6660;
+        --rule: #dfe3df;
+        --accent: #2f5d4a;
+        --card: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #121614;
+          --fg: #e8ece9;
+          --muted: #9aa5a0;
+          --rule: #29322e;
+          --accent: #8fb9a6;
+          --card: #181e1b;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        -webkit-text-size-adjust: 100%;
+      }
+      .wrap { max-width: 44rem; margin: 0 auto; padding: 3rem 16px 5rem; }
+      h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 .35rem; letter-spacing: -.01em; }
+      h2 { font-size: 1.15rem; margin: 2.4rem 0 .6rem; letter-spacing: -.005em; }
+      h3 { font-size: 1rem; margin: 1.5rem 0 .4rem; }
+      p, li { color: var(--fg); }
+      .lede { color: var(--muted); margin: 0 0 .25rem; }
+      .updated { color: var(--muted); font-size: .9rem; margin: 0 0 2rem; }
+      a { color: var(--accent); }
+      hr { border: 0; border-top: 1px solid var(--rule); margin: 2.5rem 0; }
+      ul { padding-left: 1.15rem; }
+      li { margin: .35rem 0; }
+      table { border-collapse: collapse; width: 100%; margin: .8rem 0 0; font-size: .95rem; }
+      th, td { text-align: left; padding: .55rem .6rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+      th { color: var(--muted); font-weight: 600; }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--rule);
+        border-radius: 12px;
+        padding: 1rem 1.15rem;
+        margin: 1.2rem 0;
+      }
+      .card p:first-child { margin-top: 0; }
+      .card p:last-child { margin-bottom: 0; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; }
+      footer { margin-top: 3rem; padding-top: 1.2rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: .9rem; }
+      @media (max-width: 480px) { .wrap { padding-top: 2rem; } h1 { font-size: 1.6rem; } }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <h1>Privacy Policy</h1>
+      <p class="lede">Labee, operated by TrueGrit AI, Inc.</p>
+      <p class="updated">Last updated 21 September 2026</p>
+
+      <p>
+        Labee connects your phone or tablet to coding agent sessions running on your own Mac. This
+        page explains exactly what we collect, which companies receive it, and how long it is kept.
+        We have tried to describe what the software actually does rather than reserve every
+        possible right.
+      </p>
+
+      <div class="card">
+        <p>
+          <strong>The short version.</strong> We collect your email address and the content of your
+          agent conversations. We do not run analytics, we do not use advertising identifiers, and
+          we do not sell or share your data for advertising. Conversation content is sent to the AI
+          provider that answers it, and voice recordings are sent to a speech-to-text provider and
+          are not stored by us.
+        </p>
+      </div>
+
+      <h2>Who we are</h2>
+      <p>
+        Labee is operated by TrueGrit AI, Inc. For any privacy question, or to request deletion of
+        your data, write to
+        <a href="mailto:support@labee.online">support@labee.online</a>.
+      </p>
+
+      <h2>What we collect</h2>
+
+      <h3>Account</h3>
+      <ul>
+        <li><strong>Email address.</strong> This is the only identifier tied to your account.</li>
+        <li>
+          <strong>A password hash</strong>, if you sign up with a password. We never store the
+          password itself.
+        </li>
+        <li>
+          <strong>A Google account identifier</strong>, if you sign in with Google. Google returns
+          your name and profile picture during sign-in; Labee discards both and stores neither.
+        </li>
+      </ul>
+
+      <h3>Conversations and agent activity</h3>
+      <p>
+        When you use an agent, the following is stored so that a session survives being closed and
+        can be picked up on another device:
+      </p>
+      <ul>
+        <li>The messages you send and the replies you receive, in full.</li>
+        <li>
+          The agent's tool activity, including commands it ran and file contents it read. If you
+          point an agent at a folder, the contents of files it opens there are part of the
+          conversation record.
+        </li>
+        <li>
+          The working folder path for the session. Note that a path such as
+          <code>/Users/yourname/project</code> usually contains your computer account name.
+        </li>
+        <li>A session title, which is normally derived from your first message.</li>
+      </ul>
+      <p>
+        Where this is stored depends on how you run Labee. When the agent runs on your own Mac, the
+        record lives on that Mac. If you connect your phone or tablet, a copy of recent sessions,
+        their events and their most recent messages is mirrored to our server so that your devices
+        can still read them when your Mac is asleep or offline.
+      </p>
+
+      <h3>Voice</h3>
+      <p>
+        When you hold the microphone button, the app records audio and sends it for transcription.
+        Our server holds the recording in memory only, passes it to the speech-to-text provider, and
+        returns the text. <strong>We do not write voice recordings to disk and we do not store
+        them.</strong> On your device, the recording is written to the app's private storage as a
+        temporary file, which iOS reclaims; the app does not upload it anywhere else.
+      </p>
+
+      <h3>Notifications</h3>
+      <p>
+        If you enable notifications, we store a push token for your device. Note that a notification
+        itself carries the session title and up to 140 characters of the agent's reply, so that
+        content passes through Expo's push service and Apple's notification service on its way to
+        your lock screen.
+      </p>
+
+      <h3>Payments</h3>
+      <p>
+        Payments are processed by Stripe, which acts as merchant of record. Card numbers and billing
+        details are entered on Stripe's own pages and never reach Labee's servers. We send Stripe
+        your email address so your purchase can be matched to your account, and we store your plan,
+        credit balance and usage totals.
+      </p>
+
+      <h3>What we do not collect</h3>
+      <ul>
+        <li>No advertising identifier, and no App Tracking Transparency prompt, because we do not track you.</li>
+        <li>No third-party analytics, crash reporting or attribution software of any kind.</li>
+        <li>No contacts, photos, location, health data or calendar access.</li>
+        <li>
+          No device fingerprint. The app tells the server only whether it is an iPhone, an iPad, an
+          Android device or a browser.
+        </li>
+      </ul>
+
+      <h2>Who receives your data</h2>
+      <table>
+        <tr><th>Recipient</th><th>What they receive</th><th>Why</th></tr>
+        <tr>
+          <td>Anthropic</td>
+          <td>Your prompts, the conversation history, and the agent's tool activity including file contents it read</td>
+          <td>To generate the agent's replies</td>
+        </tr>
+        <tr>
+          <td>OpenAI</td>
+          <td>Voice recordings for transcription, and conversation content when you choose an OpenAI model</td>
+          <td>Speech-to-text and model replies</td>
+        </tr>
+        <tr>
+          <td>Stripe</td>
+          <td>Your email address and purchase amounts</td>
+          <td>Payment processing as merchant of record</td>
+        </tr>
+        <tr>
+          <td>Google</td>
+          <td>Sign-in exchange only, if you use Google sign-in</td>
+          <td>Authentication</td>
+        </tr>
+        <tr>
+          <td>Expo and Apple</td>
+          <td>Your push token, the session title, and up to 140 characters of reply text</td>
+          <td>Delivering notifications</td>
+        </tr>
+      </table>
+      <p>
+        We do not sell your personal information, and we do not share it for cross-context
+        behavioural advertising.
+      </p>
+
+      <h2>How long we keep it</h2>
+      <p>
+        We keep conversation records until you delete them. There is currently no automatic expiry,
+        so a session you created a year ago is still there unless you removed it.
+      </p>
+      <ul>
+        <li>You can delete any individual session from the app, which removes its messages and events.</li>
+        <li>
+          To delete your account and everything associated with it, write to
+          <a href="mailto:support@labee.online">support@labee.online</a> and we will erase it,
+          including any mirrored copies, within 30 days.
+        </li>
+      </ul>
+
+      <h2>Security</h2>
+      <p>
+        Traffic between your devices and our server uses HTTPS. Passwords are stored as bcrypt
+        hashes. Your session credential is held in the iOS keychain. If you supply your own AI
+        provider API keys, they are encrypted before being stored. Conversation content itself is
+        stored unencrypted at rest on the machine that holds it, which for most users is their own
+        Mac.
+      </p>
+
+      <h2>Children</h2>
+      <p>
+        Labee is a developer tool and is not directed at children. We do not knowingly collect
+        personal information from anyone under 13.
+      </p>
+
+      <h2>Your rights</h2>
+      <p>
+        Depending on where you live, you may have the right to access, correct, export or delete
+        your personal information, and to object to certain processing. Write to
+        <a href="mailto:support@labee.online">support@labee.online</a> and we will respond. You will
+        not be treated differently for exercising these rights.
+      </p>
+
+      <h2>Changes</h2>
+      <p>
+        If we change this policy we will update the date at the top of this page. Material changes
+        will also be announced in the app.
+      </p>
+
+      <footer>
+        <p>
+          TrueGrit AI, Inc. · <a href="mailto:support@labee.online">support@labee.online</a> ·
+          <a href="/support">Support</a> · <a href="/">Labee</a>
+        </p>
+      </footer>
+    </main>
+  </body>
+</html>

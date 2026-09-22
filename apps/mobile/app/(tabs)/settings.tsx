@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
-import { ScrollView, Switch, Text, TextInput, View } from "react-native";
+import { Alert, ScrollView, Switch, Text, TextInput, View } from "react-native";
 import { registerForPush } from "~/notifications";
 import { useApp } from "~/state/AppContext";
 import { getPref, setPref } from "~/storage";
@@ -11,10 +11,49 @@ import { useTheme } from "~/ui/theme";
 export default function SettingsScreen() {
   const t = useTheme();
   const router = useRouter();
-  const { target, user, setBase, setHostId, signOut } = useApp();
+  const { target, user, setBase, setHostId, signOut, deleteAccount } = useApp();
   const [base, setBaseInput] = useState(target.base);
   const [readAloudDefault, setReadAloudDefault] = useState(false);
   const [pushToken, setPushToken] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Two confirmations: the first explains what goes, the second is the point
+  // of no return. Apple reviews for a real in-app path, not a mailto link.
+  const confirmDelete = () => {
+    Alert.alert(
+      "Delete your account?",
+      `This permanently erases the account ${user?.email ?? ""}, every session and transcript, your devices, and your billing records, and cancels any subscription.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Continue",
+          style: "destructive",
+          onPress: () =>
+            Alert.alert("This cannot be undone", "Delete the account now?", [
+              { text: "Keep my account", style: "cancel" },
+              {
+                text: "Delete",
+                style: "destructive",
+                onPress: async () => {
+                  setDeleting(true);
+                  try {
+                    await deleteAccount();
+                    router.replace("/sign-in");
+                  } catch (e) {
+                    Alert.alert(
+                      "Could not delete account",
+                      e instanceof Error ? e.message : "Please try again, or email support@labee.online.",
+                    );
+                  } finally {
+                    setDeleting(false);
+                  }
+                },
+              },
+            ]),
+        },
+      ],
+    );
+  };
 
   useEffect(() => {
     void getPref("labee:readAloud").then((v) => setReadAloudDefault(v === "1"));
@@ -59,6 +98,18 @@ export default function SettingsScreen() {
         </View>
         <View style={{ paddingTop: 24 }}>
           <Button kind="danger" title="Sign out" onPress={async () => { await signOut(); router.replace("/sign-in"); }} />
+        </View>
+        <View style={{ paddingTop: 32, gap: 6 }}>
+          <Text style={{ color: t.muted, fontSize: 12 }}>Account</Text>
+          <Text style={{ color: t.muted, fontSize: 12 }}>
+            Deleting your account erases your sessions, transcripts, devices and billing records from Labee and cancels any subscription. This cannot be undone.
+          </Text>
+          <Button
+            kind="ghost"
+            title={deleting ? "Deleting…" : "Delete account"}
+            disabled={deleting}
+            onPress={confirmDelete}
+          />
         </View>
       </ScrollView>
     </Screen>

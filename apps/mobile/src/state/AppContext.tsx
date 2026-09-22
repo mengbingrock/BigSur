@@ -2,7 +2,13 @@
 // selected Mac when going through the relay. Persisted across launches.
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Platform } from "react-native";
-import { me as fetchMe, login as apiLogin, logout as apiLogout, type User } from "~/api/auth";
+import {
+  deleteAccount as apiDeleteAccount,
+  me as fetchMe,
+  login as apiLogin,
+  logout as apiLogout,
+  type User,
+} from "~/api/auth";
 import { setDeviceToken, setSessionToken, type Target } from "~/api/client";
 import { getPref, getSecret, setPref, setSecret } from "~/storage";
 
@@ -21,6 +27,8 @@ export interface AppState {
   /** Native: open the hosted Google flow and capture the sealed session it hands back. */
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  /** Erase the account server-side and forget it locally. Throws on failure. */
+  deleteAccount: () => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -139,22 +147,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await refresh();
   }, [base, refresh]);
 
+  const forgetLocalSession = useCallback(async () => {
+    setDeviceToken(null);
+    setSessionToken(null);
+    await setSecret("labee:deviceToken", null);
+    await setSecret("labee:session", null);
+    setUser(null);
+  }, []);
+
   const signOut = useCallback(async () => {
     try {
       await apiLogout(rootTarget);
     } catch {
       // ignore
     }
-    setDeviceToken(null);
-    setSessionToken(null);
-    await setSecret("labee:deviceToken", null);
-    await setSecret("labee:session", null);
-    setUser(null);
-  }, [rootTarget]);
+    await forgetLocalSession();
+  }, [rootTarget, forgetLocalSession]);
+
+  // Always against the account server (rootTarget), never through a Mac relay:
+  // the account lives on the box, and the relay only proxies session traffic.
+  // Unlike signOut this must not swallow errors — the person needs to know if
+  // the erase did not happen.
+  const deleteAccount = useCallback(async () => {
+    await apiDeleteAccount(rootTarget);
+    await forgetLocalSession();
+  }, [rootTarget, forgetLocalSession]);
 
   const value = useMemo<AppState>(
-    () => ({ ready, target, user, error, setBase, setHostId, signIn, signInWithGoogle, signOut, refresh }),
-    [ready, target, user, error, setBase, setHostId, signIn, signInWithGoogle, signOut, refresh],
+    () => ({ ready, target, user, error, setBase, setHostId, signIn, signInWithGoogle, signOut, deleteAccount, refresh }),
+    [ready, target, user, error, setBase, setHostId, signIn, signInWithGoogle, signOut, deleteAccount, refresh],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

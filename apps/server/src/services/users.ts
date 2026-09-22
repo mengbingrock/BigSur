@@ -25,7 +25,7 @@ function rowToUser(r: Record<string, unknown>): User {
   };
 }
 
-function normalizeEmail(email: string): string {
+export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
