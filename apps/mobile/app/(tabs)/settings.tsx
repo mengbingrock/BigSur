@@ -75,7 +75,9 @@ export default function SettingsScreen() {
           </Text>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Button kind="secondary" title="Choose Mac" onPress={() => router.push("/hosts")} />
-            {target.hostId ? <Button kind="ghost" title="Direct" onPress={() => void setHostId(undefined)} /> : null}
+            {/* "" (not undefined) records an explicit Direct choice, so the
+                first-sign-in auto-select in AppContext does not override it. */}
+            {target.hostId ? <Button kind="ghost" title="Direct" onPress={() => void setHostId("")} /> : null}
           </View>
         </View>
         <View style={[row, { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]}>

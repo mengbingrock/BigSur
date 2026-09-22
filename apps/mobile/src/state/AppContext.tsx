@@ -118,6 +118,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await setPref("labee:hostId", h ?? null);
   }, []);
 
+  // First sign-in on a device: if the account already has a linked Mac and the
+  // person has never chosen one here, pick it for them so the Sessions tab is
+  // not empty. An explicit "Direct" choice is stored as "" and is respected;
+  // only a missing preference triggers this.
+  useEffect(() => {
+    if (!ready || !user) return;
+    let cancelled = false;
+    (async () => {
+      if ((await getPref("labee:hostId")) != null) return;
+      try {
+        const { listHosts } = await import("~/api/link");
+        const { hosts } = await listHosts(rootTarget);
+        if (cancelled || hosts.length === 0) return;
+        const pick =
+          hosts.find((h) => h.online) ??
+          [...hosts].sort((a, b) => (b.lastSeenAt ?? "").localeCompare(a.lastSeenAt ?? ""))[0];
+        if (pick && !cancelled) await setHostId(pick.hostId);
+      } catch {
+        // no relay reachable; stay direct
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, user, rootTarget, setHostId]);
+
   const signIn = useCallback(
     async (email: string, password: string) => {
       await apiLogin(rootTarget, email, password);
