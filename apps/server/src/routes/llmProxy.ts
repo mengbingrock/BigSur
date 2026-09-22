@@ -120,7 +120,11 @@ function makeProxy(
     const entitled = yield* Effect.promise(() => hasPaidEntitlement(email));
     if (!entitled) {
       return yield* error(
-        "Your Labee plan doesn't cover this request. Add a plan or credits in Settings → Billing.",
+        // Keep this free of any "buy a plan" call to action: it can surface in
+        // the iOS transcript, and App Store guideline 3.1.1 forbids directing
+        // users to a purchase outside In-App Purchase. Desktop and web users
+        // already have Settings → Billing in front of them.
+        "Your Labee plan doesn't cover this request.",
         402,
       );
     }
