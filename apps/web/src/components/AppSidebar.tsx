@@ -55,12 +55,9 @@ const WORKSPACE_ITEMS: NavItem[] = [
     icon: FlaskConical,
     match: (p) => p === "/research" || p.startsWith("/research"),
   },
-  {
-    label: "Agents",
-    to: "/agents",
-    icon: Bot,
-    match: (p) => p === "/agents" || p.startsWith("/agents"),
-  },
+  // "Agents" was dropped from the nav: Marketplace covers discovery, and your
+  // own agents are listed further down this sidebar with a "new agent" action.
+  // The /agents routes themselves remain reachable from those places.
   {
     label: "Artifacts",
     to: "/skills",
