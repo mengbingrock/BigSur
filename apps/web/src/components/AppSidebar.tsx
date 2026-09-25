@@ -13,7 +13,6 @@ import {
   Plus,
   Settings,
   ShieldCheck,
-  Store,
   Trash2,
   type LucideIcon,
   Laptop,
@@ -55,9 +54,10 @@ const WORKSPACE_ITEMS: NavItem[] = [
     icon: FlaskConical,
     match: (p) => p === "/research" || p.startsWith("/research"),
   },
-  // "Agents" was dropped from the nav: Marketplace covers discovery, and your
-  // own agents are listed further down this sidebar with a "new agent" action.
-  // The /agents routes themselves remain reachable from those places.
+  // The old "Agents" entry (/agents) was dropped: the marketplace page below is
+  // now labelled "Agents" and covers discovery, and your own agents are listed
+  // further down this sidebar with a "new agent" action. The /agents routes
+  // themselves remain reachable from those places.
   {
     label: "Artifacts",
     to: "/skills",
@@ -65,9 +65,9 @@ const WORKSPACE_ITEMS: NavItem[] = [
     match: (p) => p === "/skills" || p.startsWith("/skills"),
   },
   {
-    label: "Marketplace",
+    label: "Agents",
     to: "/marketplace",
-    icon: Store,
+    icon: Bot,
     match: (p) => p.startsWith("/marketplace"),
   },
 ];

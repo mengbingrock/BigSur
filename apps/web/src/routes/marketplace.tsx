@@ -97,7 +97,7 @@ function MarketplacePage() {
         <div>
           <h1 className="flex items-center gap-2 font-display text-3xl text-ink tracking-tight">
             <Store className="size-6 text-ink-faint" />
-            Marketplace
+            Agents
           </h1>
           <p className="mt-1 max-w-2xl text-ink-light text-sm">
             Agents shared publicly by the community. Installing copies the preset — its skills and
