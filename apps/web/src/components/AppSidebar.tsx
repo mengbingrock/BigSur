@@ -59,16 +59,18 @@ const WORKSPACE_ITEMS: NavItem[] = [
   // further down this sidebar with a "new agent" action. The /agents routes
   // themselves remain reachable from those places.
   {
-    label: "Artifacts",
-    to: "/skills",
-    icon: Boxes,
-    match: (p) => p === "/skills" || p.startsWith("/skills"),
-  },
-  {
     label: "Agents",
     to: "/marketplace",
     icon: Bot,
     match: (p) => p.startsWith("/marketplace"),
+  },
+  // Skills sit directly under Agents: an agent is what you run, skills are
+  // what it is made of. The route stays /skills.
+  {
+    label: "Skills",
+    to: "/skills",
+    icon: Boxes,
+    match: (p) => p === "/skills" || p.startsWith("/skills"),
   },
 ];
 
