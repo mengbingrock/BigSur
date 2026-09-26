@@ -57,6 +57,14 @@ export const Skill = Schema.Struct({
   /** Absolute path of the directory containing SKILL.md (server-only). */
   sourcePath: Schema.String,
   artifactKind: ArtifactKind,
+  /** Folder this artifact sits in, relative to the root it was scanned from
+   *  ("Cloning"). Absent for artifacts stored flat, which the UI groups under
+   *  "Uncategorised". Only one level deep. */
+  category: Schema.optional(Schema.String),
+  /** SKILL.md mtime, ISO 8601. Absent when the file could not be stat'd. */
+  updatedAt: Schema.optional(Schema.String),
+  /** Sibling files in the artifact directory, excluding SKILL.md itself. */
+  fileCount: Schema.optional(Schema.Number),
 });
 export type Skill = typeof Skill.Type;
 

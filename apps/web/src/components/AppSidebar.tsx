@@ -6,6 +6,7 @@ import {
   BookOpen,
   Bot,
   Boxes,
+  FileText,
   FlaskConical,
   Loader2,
   LogOut,
@@ -71,6 +72,12 @@ const WORKSPACE_ITEMS: NavItem[] = [
     to: "/skills",
     icon: Boxes,
     match: (p) => p === "/skills" || p.startsWith("/skills"),
+  },
+  {
+    label: "Protocols",
+    to: "/protocols",
+    icon: FileText,
+    match: (p) => p.startsWith("/protocols"),
   },
 ];
 
