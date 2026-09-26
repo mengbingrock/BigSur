@@ -6,6 +6,7 @@ import {
   sealOauthAccessToken,
   type OauthAccessToken,
 } from "./session";
+import { findUser } from "./users";
 
 export const OAUTH_SCOPES = ["protocols:search", "openid", "email"] as const;
 const ALLOWED_SCOPES = new Set<string>(OAUTH_SCOPES);
@@ -215,6 +216,7 @@ export async function exchangeRefreshToken(input: {
 export async function oauthPrincipal(tokenValue: string | undefined): Promise<OauthAccessToken | null> {
   const tokenData = await readOauthAccessToken(tokenValue);
   if (!tokenData || tokenData.resource !== mcpResource() || !tokenData.scopes.includes("protocols:search")) return null;
+  if (!(await findUser(tokenData.email))) return null;
   return tokenData;
 }
 
