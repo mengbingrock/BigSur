@@ -51,13 +51,17 @@ function DialogPopup({
   children,
   showCloseButton = true,
   bottomStickOnMobile = true,
+  keepMounted = false,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean;
   bottomStickOnMobile?: boolean;
+  /** Keep the popup in the DOM while closed, so stateful children (e.g. a
+   *  React Flow canvas) survive closing and reopening. */
+  keepMounted?: boolean;
 }) {
   return (
-    <DialogPortal>
+    <DialogPortal keepMounted={keepMounted}>
       <DialogBackdrop />
       <DialogViewport
         className={cn(bottomStickOnMobile && "max-sm:grid-rows-[1fr_auto] max-sm:p-0 max-sm:pt-12")}
