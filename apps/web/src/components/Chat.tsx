@@ -43,6 +43,7 @@ import {
   Mic,
   Plus,
   Check,
+  LayoutTemplate,
 } from "lucide-react";
 import type { Agent, Skill } from "@labee/contracts";
 import type { DeckFile } from "@labee/contracts";
@@ -62,6 +63,7 @@ import ChatDeckPanel, { type ChatDeckPanelHandle } from "./ChatDeckPanel";
 import { AgentWorkspacePanel } from "./AgentWorkspacePanel";
 import { ProvidedPlanBanner } from "./ProvidedPlanBanner";
 import { Button } from "./ui/button";
+import { Dialog, DialogClose, DialogPopup, DialogTitle } from "./ui/dialog";
 import { useDictation } from "../lib/useDictation";
 
 interface Props {
@@ -243,14 +245,10 @@ export default function Chat({
   // markdown block describing pipeline-phase edits since the last
   // extraction (or null), and commits the edits so they aren't replayed.
   const canvasEditGetterRef = useRef<(() => string | null) | null>(null);
-  // Height of the top canvas pane in CSS px. Persisted so the user's
-  // chosen split survives reloads. Clamped at drag time to [180, 1200].
-  const CANVAS_HEIGHT_KEY = "monterey.canvasHeight.v1";
-  const CANVAS_HEIGHT_MIN = 180;
-  const CANVAS_HEIGHT_MAX = 1200;
-  const CANVAS_HEIGHT_DEFAULT = 360;
-  const [canvasHeight, setCanvasHeight] = useState<number>(CANVAS_HEIGHT_DEFAULT);
-  const [canvasResizing, setCanvasResizing] = useState(false);
+  // The canvas lives in a pop-up window opened from the chat header. The
+  // popup stays mounted while closed so user-added nodes and edges survive
+  // closing and reopening it.
+  const [canvasOpen, setCanvasOpen] = useState(false);
 
   // Height of the bottom chat pane in CSS px. Persisted across reloads.
   // The chat is normally `flex-1` so it fills whatever the canvas leaves;
@@ -263,22 +261,6 @@ export default function Chat({
   const CHAT_HEIGHT_DEFAULT = 0;
   const [chatHeight, setChatHeight] = useState<number>(CHAT_HEIGHT_DEFAULT);
   const [chatResizing, setChatResizing] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const raw = window.localStorage.getItem(CANVAS_HEIGHT_KEY);
-    if (!raw) return;
-    const n = parseInt(raw, 10);
-    if (Number.isFinite(n)) {
-      setCanvasHeight(
-        Math.max(CANVAS_HEIGHT_MIN, Math.min(CANVAS_HEIGHT_MAX, n)),
-      );
-    }
-  }, []);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(CANVAS_HEIGHT_KEY, String(canvasHeight));
-  }, [canvasHeight]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -299,14 +281,14 @@ export default function Chat({
   // pointer briefly leaves the handle.
   useEffect(() => {
     if (typeof document === "undefined") return;
-    if (canvasResizing || chatResizing) {
+    if (chatResizing) {
       const prev = document.body.style.cursor;
       document.body.style.cursor = "row-resize";
       return () => {
         document.body.style.cursor = prev;
       };
     }
-  }, [canvasResizing, chatResizing]);
+  }, [chatResizing]);
   const [pinned, setPinned] = useState(true);
   const [activeSelection, setActiveSelection] =
     useState<ActiveSelection | null>(null);
@@ -766,41 +748,19 @@ export default function Chat({
     window.addEventListener("pointercancel", onUp);
   };
 
-  // Pointer-driven splitter between canvas (top) and chat (bottom). Height
-  // grows when the handle moves down. Listeners attach to `window` so a fast
-  // cursor doesn't lose the drag mid-flight.
-  const onCanvasResizeStart = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const startY = e.clientY;
-    const startHeight = canvasHeight;
-    setCanvasResizing(true);
-    const onMove = (ev: PointerEvent) => {
-      const dy = ev.clientY - startY;
-      const next = Math.max(
-        CANVAS_HEIGHT_MIN,
-        Math.min(CANVAS_HEIGHT_MAX, startHeight + dy),
-      );
-      setCanvasHeight(next);
-    };
-    const onUp = () => {
-      setCanvasResizing(false);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
-  };
+  // Unanswered canvas questions, shown as a badge on the Canvas button so
+  // people know there is something waiting behind the pop-up.
+  const canvasUnanswered = pendingCanvasQuestions.filter(
+    (q) => q.answer === undefined,
+  ).length;
 
   return (
     <div
       className={`grid h-full min-h-0 grid-cols-1 gap-4 p-4 ${
         filesVisible ? "lg:grid-cols-[1fr_18rem]" : "lg:grid-cols-1"
-      } ${canvasResizing || chatResizing ? "select-none" : ""}`}
+      } ${chatResizing ? "select-none" : ""}`}
       style={
         {
-          "--canvas-h": `${canvasHeight}px`,
           "--chat-h": `${chatHeight}px`,
         } as React.CSSProperties
       }
@@ -858,8 +818,18 @@ export default function Chat({
       )}
 
       <div className="order-1 flex h-full min-h-0 flex-col gap-0 lg:order-1">
-      <aside className="relative shrink-0" style={{ height: "var(--canvas-h)" }}>
-        <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card">
+      {/* Canvas pop-up. keepMounted so React Flow state (user-added nodes,
+          edges, viewport) survives closing; the reset key still remounts it
+          on "Clear chat". */}
+      <Dialog open={canvasOpen} onOpenChange={setCanvasOpen}>
+      <DialogPopup
+        keepMounted
+        showCloseButton={false}
+        bottomStickOnMobile={false}
+        className="h-[88vh] max-w-[min(96vw,1500px)] overflow-hidden p-0"
+      >
+        <DialogTitle className="sr-only">Canvas</DialogTitle>
+        <div className="flex h-full flex-col overflow-hidden rounded-2xl bg-card">
           <div className="flex items-center justify-between border-b border-border px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-ink-light">
             <span className="flex items-center gap-2">
               <span>Canvas</span>
@@ -883,8 +853,17 @@ export default function Chat({
                 ) : null;
               })()}
             </span>
-            <span className="font-mono normal-case tracking-normal text-[10px] text-muted">
-              drag · zoom · connect
+            <span className="flex items-center gap-3">
+              <span className="font-mono normal-case tracking-normal text-[10px] text-muted">
+                drag · zoom · connect
+              </span>
+              <DialogClose
+                aria-label="Close canvas"
+                className="inline-flex items-center gap-1 normal-case tracking-normal text-muted transition hover:text-ink"
+              >
+                <X size={13} />
+                Close
+              </DialogClose>
             </span>
           </div>
           <div className="relative flex-1 min-h-0">
@@ -941,19 +920,8 @@ export default function Chat({
             />
           </div>
         </div>
-      </aside>
-      {/* Horizontal drag-handle for resizing the canvas / chat split. */}
-      <div
-        role="separator"
-        aria-orientation="horizontal"
-        aria-label="Resize canvas / chat split"
-        onPointerDown={onCanvasResizeStart}
-        onDoubleClick={() => setCanvasHeight(CANVAS_HEIGHT_DEFAULT)}
-        title="Drag to resize · double-click to reset"
-        className={`relative my-1 h-2 shrink-0 cursor-row-resize transition ${
-          canvasResizing ? "bg-ink/40" : "hover:bg-ink/20"
-        }`}
-      />
+      </DialogPopup>
+      </Dialog>
       <section
         ref={chatSectionRef}
         className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card"
@@ -967,6 +935,8 @@ export default function Chat({
           streaming={streaming}
           filesVisible={filesVisible}
           onToggleFiles={() => setFilesVisible((v) => !v)}
+          canvasBadge={canvasUnanswered}
+          onOpenCanvas={() => setCanvasOpen(true)}
           onClear={() => {
             if (streaming) return;
             if (
@@ -1447,8 +1417,13 @@ function SessionHeader({
   streaming,
   filesVisible,
   onToggleFiles,
+  canvasBadge,
+  onOpenCanvas,
   onClear,
 }: {
+  /** Unanswered canvas questions; shown on the Canvas button when > 0. */
+  canvasBadge: number;
+  onOpenCanvas: () => void;
   session: SessionInfo | null;
   selectedSkills: Skill[];
   selectedFileCount: number;
@@ -1498,6 +1473,20 @@ function SessionHeader({
         >
           {filesVisible ? <PanelRightClose size={13} /> : <PanelRightOpen size={13} />}
           Files
+        </button>
+        <button
+          type="button"
+          onClick={onOpenCanvas}
+          title="Open the canvas in a window"
+          className="inline-flex items-center gap-1 normal-case tracking-normal text-muted transition hover:text-ink"
+        >
+          <LayoutTemplate size={13} />
+          Canvas
+          {canvasBadge > 0 && (
+            <span className="ml-0.5 inline-flex min-w-4 items-center justify-center border border-ink bg-ink px-1 font-mono text-[9px] leading-4 text-paper">
+              {canvasBadge}
+            </span>
+          )}
         </button>
         {hasMessages && (
           <button
