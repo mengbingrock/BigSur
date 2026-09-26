@@ -881,6 +881,189 @@ export function saveSkillFile(
   fs.writeFileSync(target, content, "utf8");
 }
 
+// ---------- categories ------------------------------------------------------
+//
+// A category is one level of subfolder inside the caller's own artifact folder
+// (`<root>/<emailSlug>/<category>/<slug>/SKILL.md`). Nothing else is stored:
+// the folder IS the category, so the files stay readable without the app and a
+// flat layout keeps working. All of this refuses to touch anything outside the
+// caller's folder, the same guard the write paths use.
+
+/** Folder-name rules: one path segment, no separators, dots or control
+ *  characters, and never a dotfile or the shared `_public` folder. */
+function assertCategoryName(name: string): string {
+  const clean = name.trim();
+  if (!clean) throw invalidCategory("A category needs a name.");
+  if (clean.length > 64) throw invalidCategory("Category names are limited to 64 characters.");
+  if (clean === PUBLIC_FOLDER) throw invalidCategory(`"${PUBLIC_FOLDER}" is reserved.`);
+  if (clean.startsWith(".")) throw invalidCategory("A category name cannot start with a dot.");
+  // eslint-disable-next-line no-control-regex
+  if (/[/\\:*?"<>|\u0000-\u001f]/.test(clean)) {
+    throw invalidCategory("A category name cannot contain / \\ : * ? \" < > | .");
+  }
+  if (clean === "." || clean === "..") throw invalidCategory("Invalid category name.");
+  return clean;
+}
+
+function invalidCategory(message: string): Error {
+  const err = new Error(message);
+  (err as Error & { code: string }).code = "INVALID";
+  return err;
+}
+
+function notFound(message: string): Error {
+  const err = new Error(message);
+  (err as Error & { code: string }).code = "NOT_FOUND";
+  return err;
+}
+
+/** The caller's own artifact folder in the first user root, created on demand. */
+function ownRootDir(email: string): string {
+  const dir = path.join(userSkillsRootPath(), userSlug(email));
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/** Categories the caller owns: every direct subfolder of their own folder that
+ *  is not itself an artifact (i.e. holds no SKILL.md of its own). */
+export function listCategories(email: string): string[] {
+  const dir = ownRootDir(email);
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((e) => e.isDirectory() && !e.name.startsWith(".") && e.name !== PUBLIC_FOLDER)
+    .filter((e) => !fs.existsSync(path.join(dir, e.name, "SKILL.md")))
+    .map((e) => e.name)
+    .sort((a, b) => a.localeCompare(b));
+}
+
+export function createCategory(name: string, email: string): string {
+  const clean = assertCategoryName(name);
+  const target = path.join(ownRootDir(email), clean);
+  if (fs.existsSync(target)) throw invalidCategory(`"${clean}" already exists.`);
+  fs.mkdirSync(target, { recursive: true });
+  return clean;
+}
+
+export function renameCategory(from: string, to: string, email: string): string {
+  const src = path.join(ownRootDir(email), assertCategoryName(from));
+  const clean = assertCategoryName(to);
+  const dst = path.join(ownRootDir(email), clean);
+  if (!fs.existsSync(src)) throw notFound(`No category named "${from}".`);
+  if (!isInsideOwnFolder(src, email)) {
+    throw invalidCategory("Refusing to rename outside your own folder.");
+  }
+  if (fs.existsSync(dst) && path.resolve(src) !== path.resolve(dst)) {
+    throw invalidCategory(`"${clean}" already exists.`);
+  }
+  fs.renameSync(src, dst);
+  return clean;
+}
+
+/** Delete a category. Refuses while it still holds anything, so no artifact is
+ *  ever removed as a side effect of tidying the rail. */
+export function deleteCategory(name: string, email: string): void {
+  const dir = path.join(ownRootDir(email), assertCategoryName(name));
+  if (!fs.existsSync(dir)) throw notFound(`No category named "${name}".`);
+  if (!isInsideOwnFolder(dir, email)) {
+    throw invalidCategory("Refusing to delete outside your own folder.");
+  }
+  const remaining = fs.readdirSync(dir).filter((n) => !n.startsWith("."));
+  if (remaining.length > 0) {
+    throw invalidCategory(
+      `"${name}" still holds ${remaining.length} item${remaining.length === 1 ? "" : "s"}. Move them out first.`,
+    );
+  }
+  fs.rmdirSync(dir);
+}
+
+/** Move an artifact into a category, or to the top level when `category` is
+ *  null/empty. Returns the artifact as it reads back from its new home — the
+ *  slug is unchanged because slugs come from the name, not the path. */
+export function moveSkillToCategory(
+  slug: string,
+  category: string | null,
+  email: string,
+): Skill {
+  const existing = getSkillBySlug(slug, email);
+  if (!existing) throw notFound("Artifact not found.");
+  assertEditable(existing);
+  if (!isInsideOwnFolder(existing.sourcePath, email)) {
+    throw invalidCategory("Refusing to move outside your own folder.");
+  }
+  const root = ownRootDir(email);
+  const clean = category == null || category === "" ? null : assertCategoryName(category);
+  const targetDir = clean ? path.join(root, clean) : root;
+  if (clean && !fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+  const dest = path.join(targetDir, path.basename(existing.sourcePath));
+  if (path.resolve(dest) === path.resolve(existing.sourcePath)) return existing;
+  if (fs.existsSync(dest)) {
+    throw invalidCategory(
+      `"${path.basename(existing.sourcePath)}" already exists in ${clean ?? "the top level"}.`,
+    );
+  }
+  fs.renameSync(existing.sourcePath, dest);
+  const moved = getSkillBySlug(slug, email);
+  if (!moved) throw notFound("Artifact moved but could not be read back.");
+  return moved;
+}
+
+// ---------- body search -----------------------------------------------------
+
+export interface SkillSearchHit {
+  slug: string;
+  /** Lower is better: the offset of the first match, plus a field bonus. */
+  score: number;
+  /** ~160 characters of body around the first body match, if it matched there. */
+  snippet?: string;
+  /** Which field matched first: name, description or body. */
+  field: "name" | "description" | "body";
+}
+
+/** Case-insensitive substring search across name, description and body of the
+ *  artifacts visible to `email`. Deliberately plain: it is predictable, needs
+ *  no index, and a lab catalog is small. Bodies stay on the server — only a
+ *  snippet travels. */
+export function searchSkills(
+  query: string,
+  email?: string,
+  opts?: { kind?: "skill" | "protocol"; limit?: number },
+): SkillSearchHit[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 200);
+  const hits: SkillSearchHit[] = [];
+  for (const s of getAllSkills(email)) {
+    if (opts?.kind && s.artifactKind !== opts.kind) continue;
+    const inName = s.name.toLowerCase().indexOf(q);
+    if (inName >= 0) {
+      hits.push({ slug: s.slug, score: inName, field: "name" });
+      continue;
+    }
+    const inDesc = s.description.toLowerCase().indexOf(q);
+    if (inDesc >= 0) {
+      hits.push({ slug: s.slug, score: 1000 + inDesc, field: "description" });
+      continue;
+    }
+    const inBody = s.body.toLowerCase().indexOf(q);
+    if (inBody >= 0) {
+      const start = Math.max(0, inBody - 70);
+      const raw = s.body.slice(start, start + 160).replace(/\s+/g, " ").trim();
+      hits.push({
+        slug: s.slug,
+        score: 2000 + inBody,
+        field: "body",
+        snippet: `${start > 0 ? "…" : ""}${raw}…`,
+      });
+    }
+  }
+  return hits.sort((a, b) => a.score - b.score).slice(0, limit);
+}
+
 export function deleteSkill(slug: string, email: string): void {
   const existing = getSkillBySlug(slug, email);
   if (!existing) {
