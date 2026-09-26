@@ -28,7 +28,7 @@ export function Hero({ skillCount }: { skillCount: number }) {
           <ArrowRight size={16} />
         </Button>
         <Button variant="link" size="lg" render={<Link to="/skills" />}>
-          Browse artifacts
+          Browse skills
           <ArrowRight size={16} />
         </Button>
       </div>

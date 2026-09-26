@@ -61,7 +61,7 @@ function SkillDetail() {
         className="px-0 text-ink-light"
         render={<Link to="/skills" />}
       >
-        ← Artifacts
+        ← Skills
       </Button>
 
       <header className="mt-6 flex flex-wrap items-start justify-between gap-4">

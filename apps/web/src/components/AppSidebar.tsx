@@ -13,7 +13,6 @@ import {
   Plus,
   Settings,
   ShieldCheck,
-  Store,
   Trash2,
   type LucideIcon,
   Laptop,
@@ -55,23 +54,23 @@ const WORKSPACE_ITEMS: NavItem[] = [
     icon: FlaskConical,
     match: (p) => p === "/research" || p.startsWith("/research"),
   },
+  // The old "Agents" entry (/agents) was dropped: the marketplace page below is
+  // now labelled "Agents" and covers discovery, and your own agents are listed
+  // further down this sidebar with a "new agent" action. The /agents routes
+  // themselves remain reachable from those places.
   {
     label: "Agents",
-    to: "/agents",
+    to: "/marketplace",
     icon: Bot,
-    match: (p) => p === "/agents" || p.startsWith("/agents"),
+    match: (p) => p.startsWith("/marketplace"),
   },
+  // Skills sit directly under Agents: an agent is what you run, skills are
+  // what it is made of. The route stays /skills.
   {
-    label: "Artifacts",
+    label: "Skills",
     to: "/skills",
     icon: Boxes,
     match: (p) => p === "/skills" || p.startsWith("/skills"),
-  },
-  {
-    label: "Marketplace",
-    to: "/marketplace",
-    icon: Store,
-    match: (p) => p.startsWith("/marketplace"),
   },
 ];
 

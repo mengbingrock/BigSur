@@ -65,7 +65,7 @@ function SkillsPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="mb-2 text-xs uppercase tracking-[0.22em] text-ink-faint">Catalog</p>
-          <h1 className="font-display text-3xl tracking-tight text-ink">Artifacts</h1>
+          <h1 className="font-display text-3xl tracking-tight text-ink">Skills</h1>
         </div>
         {user && (
           <div className="flex items-center gap-2">
