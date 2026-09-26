@@ -321,6 +321,32 @@ async function openDb(): Promise<SqlDb> {
       "last_seen_at TEXT);",
   );
   db.exec("CREATE INDEX IF NOT EXISTS idx_link_devices_email ON link_devices (email, status);");
+  // Retrieval index for artifacts (protocols + skills). One row per artifact
+  // recording what was embedded, and one row per chunk holding its vector as a
+  // little-endian Float32 BLOB. Cosine runs in-process: a lab library is a few
+  // thousand chunks, so no vector database is warranted. `model` is stored so
+  // changing the embedding model marks every row stale.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS artifact_index (" +
+      // Keyed by the artifact's directory, not its slug: slugs are only unique
+      // within one caller's view (two users can both own "user--miniprep"), so
+      // a slug-keyed index would let one account evict another's rows.
+      "source_path TEXT PRIMARY KEY, " +
+      "slug TEXT NOT NULL, " +
+      "content_hash TEXT NOT NULL, " +
+      "model TEXT NOT NULL, " +
+      "chunk_count INTEGER NOT NULL DEFAULT 0, " +
+      "indexed_at TEXT NOT NULL);",
+  );
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS artifact_chunks (" +
+      "source_path TEXT NOT NULL, " +
+      "idx INTEGER NOT NULL, " +
+      "heading TEXT NOT NULL DEFAULT '', " +
+      "text TEXT NOT NULL, " +
+      "vector BLOB NOT NULL, " +
+      "PRIMARY KEY (source_path, idx));",
+  );
   db.exec(
     "CREATE TABLE IF NOT EXISTS mirror_sessions (" +
       "email TEXT NOT NULL, " +

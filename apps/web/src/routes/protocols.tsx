@@ -17,8 +17,22 @@ const UNCATEGORISED = "Uncategorised";
 interface SearchHit {
   slug: string;
   score: number;
-  field: "name" | "description" | "body";
+  /** Heading path of the matching chunk, e.g. "Materials › Buffers". */
+  heading?: string;
   snippet?: string;
+}
+
+interface SearchResponse {
+  /** "lexical" when no embedding credential resolved on the server. */
+  mode: "semantic" | "lexical";
+  hits: SearchHit[];
+}
+
+interface IndexStatus {
+  total: number;
+  indexed: number;
+  pending: number;
+  available: boolean;
 }
 
 type Ownership = "all" | "mine" | "shared" | "imported";
@@ -125,12 +139,29 @@ function ProtocolsPage() {
   const searchQ = useQuery({
     queryKey: ["protocol-search", debounced],
     queryFn: () =>
-      apiGet<{ hits: SearchHit[] }>(
+      apiGet<SearchResponse>(
         `/api/skills/search?kind=protocol&q=${encodeURIComponent(debounced)}`,
       ),
     enabled: debounced.length > 0,
     staleTime: 15_000,
   });
+
+  // Indexing progress. Polled only while the index is still catching up, so a
+  // warm library makes one request and stops.
+  const statusQ = useQuery({
+    queryKey: ["protocol-index-status"],
+    queryFn: () => apiGet<IndexStatus>("/api/skills/index/status"),
+    enabled: !!user,
+    refetchInterval: (q) => {
+      const d = q.state.data;
+      return d && d.available && d.indexed < d.total ? 2000 : false;
+    },
+  });
+  const indexing =
+    statusQ.data && statusQ.data.available && statusQ.data.indexed < statusQ.data.total
+      ? statusQ.data
+      : null;
+  const lexical = searchQ.data?.mode === "lexical";
 
   /** slug → hit, so a card can show why it matched. */
   const hits = useMemo(() => {
@@ -277,6 +308,17 @@ function ProtocolsPage() {
           )}
         </div>
       </div>
+
+      {indexing ? (
+        <p className="mt-2 flex items-center gap-2 text-sm text-ink-light">
+          <Loader2 className="size-3.5 animate-spin" />
+          Indexing {indexing.indexed} of {indexing.total} protocols for search…
+        </p>
+      ) : lexical ? (
+        <p className="mt-2 text-sm text-ink-light">
+          Semantic search needs a model key — showing text matches instead.
+        </p>
+      ) : null}
 
       {mutError ? (
         <p className="mt-3 text-sm text-destructive">
@@ -487,6 +529,9 @@ function ProtocolCard({
         {protocol.category ?? UNCATEGORISED}
         {when ? ` · updated ${when}` : ""}
       </p>
+      {hit?.heading ? (
+        <p className="text-[11px] uppercase tracking-[0.12em] text-ink-faint">{hit.heading}</p>
+      ) : null}
       <p className="line-clamp-2 text-sm leading-relaxed text-ink-light">
         {hit?.snippet ?? protocol.description}
       </p>
