@@ -8,6 +8,8 @@
 #   SSH_USER=ubuntu
 #   SSH_KEY=$HOME/Downloads/lightsail.pem
 #   REMOTE_DIR=/home/ubuntu/labee
+#   LABEE_PORT=3010                 # optional systemd port override
+#   MANAGE_LABEE_MCP=true           # false when another unit owns port 3001
 #
 # Requires: rsync, ssh, an SSH key that can log into SSH_HOST.
 #
@@ -34,6 +36,8 @@ REMOTE_DIR="${REMOTE_DIR:-/home/ubuntu/labee}"
 REMOTE_SKILLS_DIR="${REMOTE_SKILLS_DIR:-/home/ubuntu/protocol-skills}"
 REMOTE_DECK_DIR="${REMOTE_DECK_DIR:-/home/ubuntu/labee-decks}"
 LOCAL_SKILLS_DIR="${LOCAL_SKILLS_DIR:-$HOME/WorkSync/Git/protocol-agent/.claude/skills}"
+LABEE_PORT="${LABEE_PORT:-}"
+MANAGE_LABEE_MCP="${MANAGE_LABEE_MCP:-true}"
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 bold() { printf '\033[1m%s\033[0m\n' "$*"; }
@@ -42,6 +46,12 @@ die()  { printf '\033[31m%s\033[0m\n' "$*" >&2; exit 1; }
 
 # --- Pre-flight -----------------------------------------------------------
 [ -f "$SSH_KEY" ] || die "SSH key not found: $SSH_KEY"
+if [ -n "$LABEE_PORT" ] && ! [[ "$LABEE_PORT" =~ ^[0-9]+$ ]]; then
+  die "LABEE_PORT must be numeric"
+fi
+if [ "$MANAGE_LABEE_MCP" != "true" ] && [ "$MANAGE_LABEE_MCP" != "false" ]; then
+  die "MANAGE_LABEE_MCP must be true or false"
+fi
 
 perms="$(stat -f %A "$SSH_KEY" 2>/dev/null || stat -c %a "$SSH_KEY")"
 if [ "$perms" != "400" ] && [ "$perms" != "600" ]; then
@@ -92,10 +102,10 @@ fi
 
 # --- Provision + build ----------------------------------------------------
 bold "==> First-time provisioning (idempotent)"
-$SSH "SKILLS_ROOT=$REMOTE_SKILLS_DIR DECK_ROOT=$REMOTE_DECK_DIR bash $REMOTE_DIR/scripts/provision-server.sh"
+$SSH "SKILLS_ROOT=$REMOTE_SKILLS_DIR DECK_ROOT=$REMOTE_DECK_DIR LABEE_PORT=$LABEE_PORT MANAGE_LABEE_MCP=$MANAGE_LABEE_MCP bash $REMOTE_DIR/scripts/provision-server.sh"
 
 bold "==> Build + restart service"
-$SSH "SKILLS_ROOT=$REMOTE_SKILLS_DIR DECK_ROOT=$REMOTE_DECK_DIR bash $REMOTE_DIR/scripts/build-and-restart.sh"
+$SSH "SKILLS_ROOT=$REMOTE_SKILLS_DIR DECK_ROOT=$REMOTE_DECK_DIR LABEE_PORT=$LABEE_PORT MANAGE_LABEE_MCP=$MANAGE_LABEE_MCP bash $REMOTE_DIR/scripts/build-and-restart.sh"
 
 # --- TLS (optional) -------------------------------------------------------
 # Set DOMAIN + LETSENCRYPT_EMAIL to provision/renew Let's Encrypt and force
