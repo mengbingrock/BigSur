@@ -78,6 +78,19 @@ export const protectedResourceRoute = HttpRouter.add(
   }),
 );
 
+// RFC 9728 path-aware discovery form for clients that derive the well-known
+// URI from the complete MCP resource path instead of using the challenge URL.
+export const protectedMcpResourceRoute = HttpRouter.add(
+  "GET",
+  "/.well-known/oauth-protected-resource/api/protocols/mcp",
+  json({
+    resource: mcpResource(),
+    authorization_servers: [oauthIssuer()],
+    scopes_supported: ["protocols:search"],
+    resource_documentation: `${oauthIssuer()}/marketplace`,
+  }),
+);
+
 export const oauthRegisterRoute = HttpRouter.add(
   "POST",
   "/oauth/register",
@@ -211,6 +224,7 @@ export const oauthUserInfoRoute = HttpRouter.add(
 export const oauthRoutes = [
   oauthMetadataRoute,
   protectedResourceRoute,
+  protectedMcpResourceRoute,
   oauthRegisterRoute,
   oauthAuthorizeGetRoute,
   oauthAuthorizePostRoute,

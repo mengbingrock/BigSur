@@ -19,6 +19,8 @@ afterAll(() => rmSync(root, { recursive: true, force: true }));
 describe("MCP OAuth and signup search credit", () => {
   it("runs DCR + PKCE, validates access tokens, and rotates refresh tokens", async () => {
     const oauth = await import("../src/services/oauth");
+    const { createUser } = await import("../src/services/users");
+    await createUser("new@example.com", "long-enough-password", { autoPromoteFirst: false });
     const verifier = "codex-oauth-verifier-that-is-at-least-forty-three-characters";
     const challenge = createHash("sha256").update(verifier).digest("base64url");
     const client = await oauth.registerOAuthClient({
