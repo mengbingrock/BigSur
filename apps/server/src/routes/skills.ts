@@ -3,15 +3,21 @@ import { Effect } from "effect";
 import { HttpRouter } from "effect/unstable/http";
 import { attempt, bodyJson, error, requestUrl, sessionUser, statusForError } from "../httpKit";
 import {
+  createCategory,
   createSkill,
+  deleteCategory,
   deleteSkill,
   getAllSkills,
   getAllSources,
   getSkillBySlug,
   importSkill,
+  listCategories,
   listSkillFiles,
+  moveSkillToCategory,
+  renameCategory,
   saveSkill,
   saveSkillFile,
+  searchSkills,
   type SkillUpdate,
 } from "../services/skills";
 import { getAgent } from "../services/agents";
@@ -371,8 +377,108 @@ export const syncSkillsRoute = HttpRouter.add(
   }),
 );
 
+// ---------- categories + search --------------------------------------------
+//
+// A category is one level of subfolder in the caller's own artifact folder.
+// These four routes are the whole of it; the folder is the source of truth, so
+// nothing here writes an index or a manifest.
+
+/** GET /api/skills/categories — the caller's own category folders. */
+export const listCategoriesRoute = HttpRouter.add(
+  "GET",
+  "/api/skills/categories",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    return yield* attempt(() => ({ categories: listCategories(user.email) }));
+  }),
+);
+
+/** POST /api/skills/categories — create one. */
+export const createCategoryRoute = HttpRouter.add(
+  "POST",
+  "/api/skills/categories",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const body = yield* safeBody<{ name?: string }>();
+    return yield* attempt(() => ({ name: createCategory(body?.name ?? "", user.email) }));
+  }),
+);
+
+/** PATCH /api/skills/categories/:name — rename. DELETE — remove, empty only. */
+export const renameCategoryRoute = HttpRouter.add(
+  "PATCH",
+  "/api/skills/categories/:name",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const { name } = yield* params;
+    const body = yield* safeBody<{ name?: string }>();
+    return yield* attempt(() => ({
+      name: renameCategory(decodeURIComponent(name ?? ""), body?.name ?? "", user.email),
+    }));
+  }),
+);
+
+export const deleteCategoryRoute = HttpRouter.add(
+  "DELETE",
+  "/api/skills/categories/:name",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const { name } = yield* params;
+    return yield* attempt(() => {
+      deleteCategory(decodeURIComponent(name ?? ""), user.email);
+      return { ok: true };
+    });
+  }),
+);
+
+/** POST /api/skills/:slug/move — `{ category }`, null/"" for the top level. */
+export const moveSkillRoute = HttpRouter.add(
+  "POST",
+  "/api/skills/:slug/move",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const { slug } = yield* params;
+    const body = yield* safeBody<{ category?: string | null }>();
+    return yield* attempt(() => ({
+      skill: moveSkillToCategory(slug ?? "", body?.category ?? null, user.email),
+    }));
+  }),
+);
+
+/** GET /api/skills/search?q=&kind=&limit= — substring search over name,
+ *  description and body. Bodies stay here; only a snippet is returned. */
+export const searchSkillsRoute = HttpRouter.add(
+  "GET",
+  "/api/skills/search",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    const url = yield* requestUrl;
+    const q = url.searchParams.get("q") ?? "";
+    const kindParam = url.searchParams.get("kind");
+    const kind = kindParam === "skill" || kindParam === "protocol" ? kindParam : undefined;
+    const limitParam = Number(url.searchParams.get("limit"));
+    return yield* attempt(() => ({
+      hits: searchSkills(q, user?.email, {
+        ...(kind ? { kind } : {}),
+        ...(Number.isFinite(limitParam) && limitParam > 0 ? { limit: limitParam } : {}),
+      }),
+    }));
+  }),
+);
+
 // Longer/static paths before parametric ones so exact matches win.
 export const skillsRoutes = [
+  listCategoriesRoute,
+  createCategoryRoute,
+  renameCategoryRoute,
+  deleteCategoryRoute,
+  searchSkillsRoute,
+  moveSkillRoute,
   importGithubRoute,
   importRegistryRoute,
   importMarketplaceRoute,
