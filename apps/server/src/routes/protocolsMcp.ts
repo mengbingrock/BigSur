@@ -38,17 +38,22 @@ const UPSTREAM = (process.env.PROTOCOLS_MCP_URL || "http://127.0.0.1:3001/mcp").
 /** The MCP service's own shared secret. Never sent to a client. */
 const UPSTREAM_TOKEN = process.env.PROTOCOLS_MCP_TOKEN?.trim();
 
-function searchCallCount(raw: string): number {
+export function mcpCallCounts(raw: string): { searches: number; toolCalls: number } {
   try {
     const parsed = JSON.parse(raw) as unknown;
     const messages = Array.isArray(parsed) ? parsed : [parsed];
-    return messages.filter((message) => {
-      if (!message || typeof message !== "object" || Array.isArray(message)) return false;
+    let searches = 0;
+    let toolCalls = 0;
+    for (const message of messages) {
+      if (!message || typeof message !== "object" || Array.isArray(message)) continue;
       const value = message as { method?: unknown; params?: { name?: unknown } };
-      return value.method === "tools/call" && value.params?.name === "search";
-    }).length;
+      if (value.method !== "tools/call") continue;
+      toolCalls += 1;
+      if (value.params?.name === "search") searches += 1;
+    }
+    return { searches, toolCalls };
   } catch {
-    return 0;
+    return { searches: 0, toolCalls: 0 };
   }
 }
 
@@ -124,7 +129,7 @@ export const mcpProxyRoute = HttpRouter.add(
     }
 
     const body = yield* request.text.pipe(Effect.catch(() => Effect.succeed("")));
-    const searches = searchCallCount(body);
+    const { searches, toolCalls } = mcpCallCounts(body);
     let tier: Tier;
     if (email) {
       const paid = yield* Effect.promise(() => hasPaidEntitlement(email));
@@ -133,8 +138,20 @@ export const mcpProxyRoute = HttpRouter.add(
       tier = { key: `mcp:ip:${clientIp(request.headers)}`, limit: ANON_LIMIT };
     }
 
-    const quota = consume(tier.key, tier.limit, HOUR_MS);
-    if (!quota.allowed) {
+    // MCP clients create fresh processes frequently. Initialization,
+    // notifications, and tool discovery are bootstrap traffic, not protocol
+    // retrieval, and must remain available after the caller exhausts their
+    // anonymous tool-call quota so `labee_auth` can still be discovered.
+    const quota = toolCalls > 0
+      ? consume(tier.key, tier.limit, HOUR_MS)
+      : {
+          allowed: true,
+          limit: Infinity,
+          remaining: Infinity,
+          resetAt: Date.now(),
+          retryAfterSeconds: 0,
+        };
+    if (toolCalls > 0 && !quota.allowed) {
       const hint = tier.email
         ? "Add credits in Settings → Billing to lift this limit."
         : "Sign in at labee.online for a higher limit.";
