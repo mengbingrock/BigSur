@@ -12,6 +12,7 @@ import { extractChoicesRoute } from "./routes/extractChoices";
 import { llmEditRoute } from "./routes/llmEdit";
 import { llmProxyRoutes } from "./routes/llmProxy";
 import { llmRoutes } from "./routes/llmSettings";
+import { oauthRoutes } from "./routes/oauth";
 import { mcpProxyRoute, mcpTokenRoute } from "./routes/protocolsMcp";
 import { researchRoutes } from "./routes/research";
 import { sessionRoutes } from "./routes/sessions";
@@ -23,6 +24,7 @@ import { staticRoute } from "./routes/static";
 // API routes first, the static/SPA catch-all last so exact matches win.
 export const routesLayer = Layer.mergeAll(
   ...authRoutes,
+  ...oauthRoutes,
   ...googleRoutes,
   ...adminRoutes,
   ...skillsRoutes,

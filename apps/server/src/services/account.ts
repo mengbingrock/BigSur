@@ -45,6 +45,8 @@ const EMAIL_TABLES = [
   "billing",
   "usage_events",
   "coupon_redemptions",
+  "oauth_codes",
+  "oauth_refresh_tokens",
   "user_llm_settings",
   "agents",
   "users",

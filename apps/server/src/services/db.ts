@@ -125,6 +125,37 @@ async function openDb(): Promise<SqlDb> {
   db.exec(
     "CREATE INDEX IF NOT EXISTS idx_usage_events_email ON usage_events (email, id);",
   );
+  // OAuth 2.1 clients, one-time authorization codes, and rotating refresh
+  // tokens for MCP hosts (Codex/ChatGPT and other standards-compliant clients).
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS oauth_clients (" +
+      "client_id TEXT PRIMARY KEY, " +
+      "client_name TEXT NOT NULL, " +
+      "redirect_uris TEXT NOT NULL, " +
+      "created_at TEXT NOT NULL);",
+  );
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS oauth_codes (" +
+      "code_hash TEXT PRIMARY KEY, " +
+      "email TEXT NOT NULL, " +
+      "client_id TEXT NOT NULL, " +
+      "redirect_uri TEXT NOT NULL, " +
+      "code_challenge TEXT NOT NULL, " +
+      "resource TEXT NOT NULL, " +
+      "scope TEXT NOT NULL, " +
+      "expires_at INTEGER NOT NULL, " +
+      "created_at TEXT NOT NULL);",
+  );
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS oauth_refresh_tokens (" +
+      "token_hash TEXT PRIMARY KEY, " +
+      "email TEXT NOT NULL, " +
+      "client_id TEXT NOT NULL, " +
+      "resource TEXT NOT NULL, " +
+      "scope TEXT NOT NULL, " +
+      "expires_at INTEGER NOT NULL, " +
+      "created_at TEXT NOT NULL);",
+  );
   // Coupon redemptions — one row per (code, user), so a code can't be redeemed
   // twice by the same account.
   db.exec(

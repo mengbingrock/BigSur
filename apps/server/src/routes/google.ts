@@ -17,6 +17,7 @@ import {
 } from "../services/google";
 import { sealSession, sealSessionCookie } from "../services/session";
 import { upsertGoogleUser } from "../services/users";
+import { grantSignupCredits } from "../services/billing";
 
 /** In the desktop app the server is a forked child with an IPC channel; the
  *  OAuth callback runs in the system browser, so we can't set the session
@@ -126,6 +127,7 @@ export const googleCallbackRoute = HttpRouter.add(
           throw new Error("Your Google email address is not verified.");
         }
         const user = await upsertGoogleUser({ googleId: profile.sub, email: profile.email });
+        await grantSignupCredits(user.email);
         return user;
       },
       catch: (e) => e,
