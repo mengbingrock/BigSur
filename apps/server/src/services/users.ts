@@ -29,6 +29,15 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+/** Desktop/self-hosted instances may bootstrap their first local admin through
+ *  signup. The public hosted service must never grant admin based on signup
+ *  order; its admins are provisioned explicitly. */
+export function shouldAutoPromoteFirstUser(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return env.LABEE_MODE !== "server";
+}
+
 function validateEmailOrThrow(email: string): string {
   const e = normalizeEmail(email);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
@@ -98,7 +107,7 @@ export async function findUserByGoogleId(googleId: string): Promise<User | null>
 export async function upsertGoogleUser(profile: {
   googleId: string;
   email: string;
-}): Promise<User> {
+}, opts: { autoPromoteFirst?: boolean } = {}): Promise<User> {
   const e = validateEmailOrThrow(profile.email);
   const googleId = profile.googleId.trim();
   if (!googleId) throw new Error("Missing Google account id.");
@@ -114,7 +123,7 @@ export async function upsertGoogleUser(profile: {
 
   // New Google-only account: store an empty password hash so password login is
   // impossible (bcrypt.compare against "" never succeeds).
-  const isAdmin = (await userCount()) === 0;
+  const isAdmin = opts.autoPromoteFirst !== false && (await userCount()) === 0;
   const createdAt = new Date().toISOString();
   (await stmt(
     "INSERT INTO users (email, password_hash, is_admin, created_at, google_id) VALUES (?, ?, ?, ?, ?)",
