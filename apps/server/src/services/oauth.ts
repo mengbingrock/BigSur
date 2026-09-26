@@ -213,6 +213,14 @@ export async function exchangeRefreshToken(input: {
   return createTokenSet(row.email, row.client_id, row.resource, row.scope);
 }
 
+/** RFC 7009-style revocation. Deliberately idempotent: callers get the same
+ *  result whether the token existed, was already rotated, or was unknown. */
+export async function revokeRefreshToken(refreshToken: string): Promise<void> {
+  if (!refreshToken) return;
+  const db = await getDb();
+  db.prepare("DELETE FROM oauth_refresh_tokens WHERE token_hash = ?").run(hash(refreshToken));
+}
+
 export async function oauthPrincipal(tokenValue: string | undefined): Promise<OauthAccessToken | null> {
   const tokenData = await readOauthAccessToken(tokenValue);
   if (!tokenData || tokenData.resource !== mcpResource() || !tokenData.scopes.includes("protocols:search")) return null;

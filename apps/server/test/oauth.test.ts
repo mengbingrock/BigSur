@@ -70,6 +70,12 @@ describe("MCP OAuth and signup search credit", () => {
       clientId: client.clientId,
       resource: oauth.mcpResource(),
     })).rejects.toThrow("invalid_grant");
+    await oauth.revokeRefreshToken(refreshed.refresh_token);
+    await expect(oauth.exchangeRefreshToken({
+      refreshToken: refreshed.refresh_token,
+      clientId: client.clientId,
+      resource: oauth.mcpResource(),
+    })).rejects.toThrow("invalid_grant");
   });
 
   it("grants new accounts credit once and meters searches atomically", async () => {
