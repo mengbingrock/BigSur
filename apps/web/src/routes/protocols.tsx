@@ -1,12 +1,11 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { FileText, Plus, Search } from "lucide-react";
-import Fuse from "fuse.js";
+import { FileText, FolderPlus, Loader2, Plus, Search } from "lucide-react";
 import type { Skill } from "@labee/contracts";
 import { Button } from "~/components/ui/button";
 import { useCurrentUser } from "~/lib/auth";
-import { apiGet } from "~/lib/api";
+import { apiGet, apiSend } from "~/lib/api";
 import { cn } from "~/lib/utils";
 
 export const Route = createFileRoute("/protocols")({
@@ -14,6 +13,13 @@ export const Route = createFileRoute("/protocols")({
 });
 
 const UNCATEGORISED = "Uncategorised";
+
+interface SearchHit {
+  slug: string;
+  score: number;
+  field: "name" | "description" | "body";
+  snippet?: string;
+}
 
 type Ownership = "all" | "mine" | "shared" | "imported";
 
@@ -47,10 +53,55 @@ function relTime(iso: string | undefined): string {
 
 function ProtocolsPage() {
   const { data: user } = useCurrentUser();
+  const qc = useQueryClient();
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ["skills"] });
+    void qc.invalidateQueries({ queryKey: ["protocol-categories"] });
+  };
   const { data, isLoading } = useQuery({
     queryKey: ["skills"],
     queryFn: () => apiGet<{ skills: Skill[] }>("/api/skills"),
   });
+
+  // Category folders the caller owns. Kept separate from the counts derived
+  // from artifacts so an empty category still shows in the rail.
+  const catsQ = useQuery({
+    queryKey: ["protocol-categories"],
+    queryFn: () => apiGet<{ categories: string[] }>("/api/skills/categories"),
+    enabled: !!user,
+  });
+  const ownCategories = catsQ.data?.categories ?? [];
+
+  const createCat = useMutation({
+    mutationFn: (name: string) =>
+      apiSend<{ name: string }>("POST", "/api/skills/categories", { name }),
+    onSuccess: refresh,
+  });
+  const renameCat = useMutation({
+    mutationFn: (v: { from: string; to: string }) =>
+      apiSend<{ name: string }>("PATCH", `/api/skills/categories/${encodeURIComponent(v.from)}`, {
+        name: v.to,
+      }),
+    onSuccess: (_d, v) => {
+      setCategory((cur) => (cur === v.from ? v.to : cur));
+      refresh();
+    },
+  });
+  const deleteCat = useMutation({
+    mutationFn: (name: string) =>
+      apiSend<{ ok: true }>("DELETE", `/api/skills/categories/${encodeURIComponent(name)}`),
+    onSuccess: (_d, name) => {
+      setCategory((cur) => (cur === name ? null : cur));
+      refresh();
+    },
+  });
+  const moveOne = useMutation({
+    mutationFn: (v: { slug: string; category: string | null }) =>
+      apiSend<{ skill: Skill }>("POST", `/api/skills/${v.slug}/move`, { category: v.category }),
+    onSuccess: refresh,
+  });
+  const mutError =
+    createCat.error ?? renameCat.error ?? deleteCat.error ?? moveOne.error ?? null;
 
   const [q, setQ] = useState("");
   const [owner, setOwner] = useState<Ownership>("all");
@@ -63,29 +114,42 @@ function ProtocolsPage() {
     [data],
   );
 
-  const fuse = useMemo(
-    () =>
-      new Fuse(protocols, {
-        // `body` is included so a search finds a reagent or a step, not just a
-        // title. Until the server-side search endpoint exists this is the
-        // full-text search, and it works because bodies are already loaded.
-        keys: [
-          { name: "name", weight: 3 },
-          { name: "description", weight: 2 },
-          { name: "category", weight: 2 },
-          { name: "body", weight: 1 },
-        ],
-        threshold: 0.35,
-        ignoreLocation: true,
-      }),
-    [protocols],
-  );
+  // Server-side body search (phase 3). Debounced so typing does not hammer it;
+  // bodies stay on the server and only a snippet comes back.
+  const [debounced, setDebounced] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(q.trim()), 200);
+    return () => clearTimeout(t);
+  }, [q]);
 
-  const searching = q.trim().length > 0;
+  const searchQ = useQuery({
+    queryKey: ["protocol-search", debounced],
+    queryFn: () =>
+      apiGet<{ hits: SearchHit[] }>(
+        `/api/skills/search?kind=protocol&q=${encodeURIComponent(debounced)}`,
+      ),
+    enabled: debounced.length > 0,
+    staleTime: 15_000,
+  });
+
+  /** slug → hit, so a card can show why it matched. */
+  const hits = useMemo(() => {
+    const m = new Map<string, SearchHit>();
+    for (const h of searchQ.data?.hits ?? []) m.set(h.slug, h);
+    return m;
+  }, [searchQ.data]);
+
+  const searching = debounced.length > 0;
 
   /** Ownership + category + search, in that order. */
   const visible = useMemo(() => {
-    let list = searching ? fuse.search(q.trim()).map((r) => r.item) : protocols;
+    let list = protocols;
+    if (searching) {
+      // Server order is by match quality; keep it.
+      const order = [...hits.keys()];
+      const bySlug = new Map(protocols.map((p) => [p.slug, p]));
+      list = order.map((slug) => bySlug.get(slug)).filter((p): p is Skill => Boolean(p));
+    }
     if (owner !== "all") list = list.filter((p) => ownershipOf(p) === owner);
     if (category) list = list.filter((p) => (p.category ?? UNCATEGORISED) === category);
     if (!searching) {
@@ -96,7 +160,7 @@ function ProtocolsPage() {
       );
     }
     return list;
-  }, [protocols, fuse, q, searching, owner, category, sort]);
+  }, [protocols, hits, searching, owner, category, sort]);
 
   /** Category counts come from the ownership-filtered set, so the rail always
    *  adds up to what the chips are showing. */
@@ -107,6 +171,9 @@ function ProtocolsPage() {
       const key = p.category ?? UNCATEGORISED;
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
+    // Folders with nothing in them still belong in the rail, otherwise a
+    // category you just made vanishes until you put something in it.
+    for (const name of ownCategories) if (!counts.has(name)) counts.set(name, 0);
     const named = [...counts.entries()]
       .filter(([name]) => name !== UNCATEGORISED)
       .sort((a, b) => a[0].localeCompare(b[0]));
@@ -114,7 +181,7 @@ function ProtocolsPage() {
     // Uncategorised always sorts last so untidy protocols stay visible
     // instead of being buried alphabetically.
     return uncat ? [...named, [UNCATEGORISED, uncat] as const] : named;
-  }, [protocols, owner]);
+  }, [protocols, owner, ownCategories]);
 
   const ownerCounts = useMemo(() => {
     let mine = 0;
@@ -211,6 +278,12 @@ function ProtocolsPage() {
         </div>
       </div>
 
+      {mutError ? (
+        <p className="mt-3 text-sm text-destructive">
+          {mutError instanceof Error ? mutError.message : "Something went wrong."}
+        </p>
+      ) : null}
+
       <div className="mt-7 flex flex-col gap-7 lg:flex-row">
         {categories.length > 0 && (
           <aside aria-label="Categories" className="w-full shrink-0 lg:w-[200px]">
@@ -233,6 +306,46 @@ function ProtocolsPage() {
                 </RailItem>
               ))}
             </div>
+            {user && (
+              <div className="mt-2 flex flex-col gap-1">
+                <button
+                  type="button"
+                  disabled={createCat.isPending}
+                  onClick={() => {
+                    const name = window.prompt("New category name");
+                    if (name?.trim()) createCat.mutate(name.trim());
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-left text-sm text-brand transition hover:bg-muted/60"
+                >
+                  <FolderPlus className="size-3.5" />
+                  New category
+                </button>
+                {category && category !== UNCATEGORISED && (
+                  <div className="flex items-center gap-2 px-2.5 text-xs text-ink-light">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const to = window.prompt(`Rename “${category}” to`, category);
+                        if (to?.trim() && to.trim() !== category) {
+                          renameCat.mutate({ from: category, to: to.trim() });
+                        }
+                      }}
+                      className="underline underline-offset-2 hover:text-ink"
+                    >
+                      Rename
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteCat.mutate(category)}
+                      title="Only an empty category can be deleted"
+                      className="underline underline-offset-2 hover:text-destructive"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </aside>
         )}
 
@@ -259,7 +372,14 @@ function ProtocolsPage() {
           ) : searching || category ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {visible.map((p) => (
-                <ProtocolCard key={p.slug} protocol={p} query={q.trim()} />
+                <ProtocolCard
+                  key={p.slug}
+                  protocol={p}
+                  hit={hits.get(p.slug)}
+                  categories={ownCategories}
+                  onMove={(slug, cat) => moveOne.mutate({ slug, category: cat })}
+                  moving={moveOne.isPending && moveOne.variables?.slug === p.slug}
+                />
               ))}
             </div>
           ) : (
@@ -298,7 +418,13 @@ function ProtocolsPage() {
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                       {shown.map((p) => (
-                        <ProtocolCard key={`${s.name}-${p.slug}`} protocol={p} query="" />
+                        <ProtocolCard
+                          key={`${s.name}-${p.slug}`}
+                          protocol={p}
+                          categories={ownCategories}
+                          onMove={(slug, cat) => moveOne.mutate({ slug, category: cat })}
+                          moving={moveOne.isPending && moveOne.variables?.slug === p.slug}
+                        />
                       ))}
                     </div>
                   </section>
@@ -310,17 +436,6 @@ function ProtocolsPage() {
       </div>
     </div>
   );
-}
-
-/** Up to ~160 characters of body around the first match, so a search result
- *  shows why it matched rather than just the description. */
-function snippet(body: string, query: string): string | null {
-  if (!query) return null;
-  const i = body.toLowerCase().indexOf(query.toLowerCase());
-  if (i < 0) return null;
-  const start = Math.max(0, i - 70);
-  const text = body.slice(start, start + 160).replace(/\s+/g, " ").trim();
-  return `${start > 0 ? "…" : ""}${text}…`;
 }
 
 /** Chat hydrates its selected-artifact set from this localStorage key on mount
@@ -342,11 +457,23 @@ function rememberForChat(slug: string) {
   }
 }
 
-function ProtocolCard({ protocol, query }: { protocol: Skill; query: string }) {
+function ProtocolCard({
+  protocol,
+  hit,
+  categories,
+  onMove,
+  moving,
+}: {
+  protocol: Skill;
+  hit?: SearchHit;
+  categories: string[];
+  onMove: (slug: string, category: string | null) => void;
+  moving: boolean;
+}) {
   const navigate = useNavigate();
   const owner = ownershipOf(protocol);
   const when = relTime(protocol.updatedAt);
-  const hit = snippet(protocol.body, query);
+  const editable = owner !== "shared";
   return (
     <article className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
       <Link
@@ -361,7 +488,7 @@ function ProtocolCard({ protocol, query }: { protocol: Skill; query: string }) {
         {when ? ` · updated ${when}` : ""}
       </p>
       <p className="line-clamp-2 text-sm leading-relaxed text-ink-light">
-        {hit ?? protocol.description}
+        {hit?.snippet ?? protocol.description}
       </p>
       <div className="mt-1 flex items-center gap-2 text-xs text-ink-light">
         <span className="capitalize">{owner === "shared" ? "Shared" : owner}</span>
@@ -382,6 +509,29 @@ function ProtocolCard({ protocol, query }: { protocol: Skill; query: string }) {
         >
           Use in chat
         </Button>
+        <div className="flex-1" />
+        {editable && (
+          <label className="flex items-center gap-1 text-xs text-ink-light">
+            <span className="sr-only">Move {protocol.name} to a category</span>
+            {moving ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <select
+                value={protocol.category ?? ""}
+                onChange={(e) => onMove(protocol.slug, e.target.value || null)}
+                title="Move to a category"
+                className="h-7 max-w-[7.5rem] rounded-md border border-border bg-card px-1.5 text-xs text-ink-light focus:border-ink focus:outline-none"
+              >
+                <option value="">No category</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            )}
+          </label>
+        )}
       </div>
     </article>
   );
