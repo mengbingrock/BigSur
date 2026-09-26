@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ProtocolsRouteImport } from './routes/protocols'
 import { Route as MarketplaceRouteImport } from './routes/marketplace'
 import { Route as MacsRouteImport } from './routes/macs'
 import { Route as LoginRouteImport } from './routes/login'
@@ -36,6 +37,11 @@ const SignupRoute = SignupRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProtocolsRoute = ProtocolsRouteImport.update({
+  id: '/protocols',
+  path: '/protocols',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MarketplaceRoute = MarketplaceRouteImport.update({
@@ -125,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/macs': typeof MacsRouteWithChildren
   '/marketplace': typeof MarketplaceRoute
+  '/protocols': typeof ProtocolsRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
@@ -145,6 +152,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/macs': typeof MacsRouteWithChildren
   '/marketplace': typeof MarketplaceRoute
+  '/protocols': typeof ProtocolsRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
@@ -166,6 +174,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/macs': typeof MacsRouteWithChildren
   '/marketplace': typeof MarketplaceRoute
+  '/protocols': typeof ProtocolsRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
@@ -188,6 +197,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/macs'
     | '/marketplace'
+    | '/protocols'
     | '/settings'
     | '/signup'
     | '/admin/users'
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/macs'
     | '/marketplace'
+    | '/protocols'
     | '/settings'
     | '/signup'
     | '/admin/users'
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/macs'
     | '/marketplace'
+    | '/protocols'
     | '/settings'
     | '/signup'
     | '/admin/users'
@@ -249,6 +261,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MacsRoute: typeof MacsRouteWithChildren
   MarketplaceRoute: typeof MarketplaceRoute
+  ProtocolsRoute: typeof ProtocolsRoute
   SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
   AdminUsersRoute: typeof AdminUsersRoute
@@ -276,6 +289,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/protocols': {
+      id: '/protocols'
+      path: '/protocols'
+      fullPath: '/protocols'
+      preLoaderRoute: typeof ProtocolsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/marketplace': {
@@ -421,6 +441,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MacsRoute: MacsRouteWithChildren,
   MarketplaceRoute: MarketplaceRoute,
+  ProtocolsRoute: ProtocolsRoute,
   SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
   AdminUsersRoute: AdminUsersRoute,

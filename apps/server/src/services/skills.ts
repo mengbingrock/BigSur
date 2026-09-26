@@ -187,10 +187,35 @@ function parseOrigin(raw: unknown): SkillOrigin | undefined {
   return undefined;
 }
 
+/** The folder an artifact sits in, relative to the root it was scanned from.
+ *  `<base>/Cloning/miniprep/SKILL.md` → "Cloning"; `<base>/miniprep/SKILL.md`
+ *  → undefined (flat, shown as "Uncategorised"). Only the first level counts,
+ *  so deeper nesting collapses onto its top folder. */
+function categoryOf(file: string, baseDir: string | undefined): string | undefined {
+  if (!baseDir) return undefined;
+  const rel = path.relative(baseDir, path.dirname(file));
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return undefined;
+  const parts = rel.split(path.sep).filter(Boolean);
+  return parts.length > 1 ? parts[0] : undefined;
+}
+
+/** Sibling files in the artifact directory, excluding SKILL.md. One shallow
+ *  readdir; any failure just means the count is omitted. */
+function siblingFileCount(dir: string): number | undefined {
+  try {
+    return fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((e) => !e.isDirectory() && e.name.toLowerCase() !== "skill.md").length;
+  } catch {
+    return undefined;
+  }
+}
+
 function parseSkillFile(
   file: string,
   source: SkillSource,
   sourceLabel: string,
+  baseDir?: string,
 ): Omit<Skill, "slug"> | null {
   let parsed: matter.GrayMatterFile<string>;
   try {
@@ -205,7 +230,23 @@ function parseSkillFile(
     : path.basename(path.dirname(file));
   const rawKind = typeof data.kind === "string" ? data.kind.toLowerCase() : "";
   const artifactKind = rawKind === "protocol" ? "protocol" : "skill";
+  // A `category` in frontmatter overrides the folder name for display only;
+  // it never moves files.
+  const declaredCategory =
+    typeof data.category === "string" && data.category.trim()
+      ? data.category.trim()
+      : undefined;
+  let updatedAt: string | undefined;
+  try {
+    updatedAt = fs.statSync(file).mtime.toISOString();
+  } catch {
+    updatedAt = undefined;
+  }
+  const dir = path.dirname(file);
   return {
+    category: declaredCategory ?? categoryOf(file, baseDir),
+    updatedAt,
+    fileCount: siblingFileCount(dir),
     name,
     description: normalizeDescription(data.description),
     allowedTools: normalizeAllowedTools(data["allowed-tools"]),
@@ -243,6 +284,7 @@ export function getAllSkills(
           file,
           { kind: "plugin", marketplace: mp },
           mp,
+          root.path,
         );
         if (parsed) collected.push(parsed);
       }
@@ -253,7 +295,7 @@ export function getAllSkills(
     const publicDir = path.join(root.path, PUBLIC_FOLDER);
     if (fs.existsSync(publicDir)) {
       for (const file of findSkillFiles(publicDir)) {
-        const parsed = parseSkillFile(file, { kind: "public" }, "public");
+        const parsed = parseSkillFile(file, { kind: "public" }, "public", publicDir);
         if (parsed) collected.push(parsed);
       }
     }
@@ -261,7 +303,7 @@ export function getAllSkills(
       const ownDir = path.join(root.path, userSlug(email));
       if (fs.existsSync(ownDir)) {
         for (const file of findSkillFiles(ownDir)) {
-          const parsed = parseSkillFile(file, { kind: "user" }, "user");
+          const parsed = parseSkillFile(file, { kind: "user" }, "user", ownDir);
           if (parsed) collected.push(parsed);
         }
       }
@@ -278,7 +320,7 @@ export function getAllSkills(
     if (!dir || seenWs.has(dir) || !fs.existsSync(dir)) continue;
     seenWs.add(dir);
     for (const file of findSkillFiles(dir)) {
-      const parsed = parseSkillFile(file, { kind: "user" }, "workspace");
+      const parsed = parseSkillFile(file, { kind: "user" }, "workspace", dir);
       if (parsed) collected.push(parsed);
     }
   }
