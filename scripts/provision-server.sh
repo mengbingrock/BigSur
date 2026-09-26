@@ -16,12 +16,16 @@
 # Env vars (set by deploy.sh):
 #   SKILLS_ROOT   absolute path to the symlink-target skills dir on the server
 #   DECK_ROOT     absolute path to the per-user deck root on the server
+#   LABEE_PORT    optional app port override for shared hosts
+#   MANAGE_LABEE_MCP false when a separate service already owns port 3001
 
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SKILLS_ROOT="${SKILLS_ROOT:-}"
 DECK_ROOT="${DECK_ROOT:-}"
+LABEE_PORT="${LABEE_PORT:-}"
+MANAGE_LABEE_MCP="${MANAGE_LABEE_MCP:-true}"
 
 # ~/.local/bin isn't on PATH for non-interactive SSH sessions on Ubuntu 24.04.
 # The native `claude` installer symlinks here, so make sure we can see it.
@@ -173,6 +177,18 @@ install_unit() {
   fi
 }
 install_unit labee.service
-install_unit labee-mcp.service
+if [ -n "$LABEE_PORT" ]; then
+  sudo mkdir -p /etc/systemd/system/labee.service.d
+  printf '[Service]\nEnvironment=LABEE_PORT=%s\n' "$LABEE_PORT" \
+    | sudo tee /etc/systemd/system/labee.service.d/override.conf >/dev/null
+  sudo systemctl daemon-reload
+  ok "labee.service port override set to $LABEE_PORT"
+fi
+if [ "$MANAGE_LABEE_MCP" = "true" ]; then
+  install_unit labee-mcp.service
+else
+  sudo systemctl disable --now labee-mcp.service >/dev/null 2>&1 || true
+  skip "labee-mcp.service unmanaged; using the existing service on port 3001"
+fi
 
 bold "Provisioning complete."
