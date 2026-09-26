@@ -14,7 +14,8 @@
 import { Effect } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 import { error, json, sessionUser } from "../httpKit";
-import { hasPaidEntitlement } from "../services/billing";
+import { addCredits, hasPaidEntitlement, reserveProtocolSearch } from "../services/billing";
+import { oauthPrincipal } from "../services/oauth";
 import { clientIp, consume } from "../services/rateLimit";
 import { MCP_TOKEN_TTL, readMcpToken, sealMcpToken } from "../services/session";
 
@@ -36,6 +37,32 @@ interface Tier {
 const UPSTREAM = (process.env.PROTOCOLS_MCP_URL || "http://127.0.0.1:3001/mcp").trim();
 /** The MCP service's own shared secret. Never sent to a client. */
 const UPSTREAM_TOKEN = process.env.PROTOCOLS_MCP_TOKEN?.trim();
+
+function searchCallCount(raw: string): number {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    const messages = Array.isArray(parsed) ? parsed : [parsed];
+    return messages.filter((message) => {
+      if (!message || typeof message !== "object" || Array.isArray(message)) return false;
+      const value = message as { method?: unknown; params?: { name?: unknown } };
+      return value.method === "tools/call" && value.params?.name === "search";
+    }).length;
+  } catch {
+    return 0;
+  }
+}
+
+function rpcErrorBody(code: number, message: string): string {
+  return JSON.stringify({ jsonrpc: "2.0", id: null, error: { code, message } });
+}
+
+function authChallenge(): string {
+  return `Bearer resource_metadata="${requestOriginStub()}/.well-known/oauth-protected-resource", scope="protocols:search"`;
+}
+
+function requestOriginStub(): string {
+  return (process.env.LABEE_PUBLIC_URL || "https://labee.online").replace(/\/+$/, "");
+}
 
 /** Reconstruct the browser-visible origin (honours the reverse proxy). */
 function requestOrigin(request: HttpServerRequest.HttpServerRequest): string {
@@ -81,13 +108,23 @@ export const mcpProxyRoute = HttpRouter.add(
     const request = yield* HttpServerRequest.HttpServerRequest;
     const auth = request.headers["authorization"] ?? request.headers["Authorization"];
     const presented = auth?.replace(/^Bearer\s+/i, "");
-    const email = yield* Effect.promise(() => readMcpToken(presented));
+    const legacyEmail = yield* Effect.promise(() => readMcpToken(presented));
+    const oauth = legacyEmail ? null : yield* Effect.promise(() => oauthPrincipal(presented));
+    const email = legacyEmail ?? oauth?.email ?? null;
 
     // A token that was presented but didn't verify is an error, not a silent
     // demotion to the anonymous tier — otherwise an expired token looks like it
     // still works, just mysteriously throttled.
-    if (presented && !email) return yield* error("Invalid or expired MCP token.", 401);
+    if (presented && !email) {
+      return HttpServerResponse.text(rpcErrorBody(-32001, "Invalid or expired MCP token."), {
+        status: 401,
+        contentType: "application/json",
+        headers: { "www-authenticate": authChallenge() },
+      });
+    }
 
+    const body = yield* request.text.pipe(Effect.catch(() => Effect.succeed("")));
+    const searches = searchCallCount(body);
     let tier: Tier;
     if (email) {
       const paid = yield* Effect.promise(() => hasPaidEntitlement(email));
@@ -101,19 +138,14 @@ export const mcpProxyRoute = HttpRouter.add(
       const hint = tier.email
         ? "Add credits in Settings → Billing to lift this limit."
         : "Sign in at labee.online for a higher limit.";
+      const needsAuth = !tier.email;
       return HttpServerResponse.text(
-        JSON.stringify({
-          jsonrpc: "2.0",
-          id: null,
-          error: {
-            code: -32029,
-            message: `Rate limit exceeded (${quota.limit}/hour). ${hint}`,
-          },
-        }),
+        rpcErrorBody(-32029, `Rate limit exceeded (${quota.limit}/hour). ${hint}`),
         {
-          status: 429,
+          status: needsAuth ? 401 : 429,
           contentType: "application/json",
           headers: {
+            ...(needsAuth ? { "www-authenticate": authChallenge() } : {}),
             "retry-after": String(quota.retryAfterSeconds),
             "x-ratelimit-limit": String(quota.limit),
             "x-ratelimit-remaining": "0",
@@ -123,7 +155,17 @@ export const mcpProxyRoute = HttpRouter.add(
       );
     }
 
-    const body = yield* request.text.pipe(Effect.catch(() => Effect.succeed("")));
+    let reserved = 0;
+    if (email && searches > 0) {
+      const credit = yield* Effect.promise(() => reserveProtocolSearch(email, searches));
+      if (!credit.allowed) {
+        return HttpServerResponse.text(
+          rpcErrorBody(-32030, "Search credit exhausted. Add credits in Labee Settings → Billing."),
+          { status: 402, contentType: "application/json" },
+        );
+      }
+      reserved = credit.charged;
+    }
 
     const res = yield* Effect.tryPromise({
       try: () =>
@@ -139,10 +181,14 @@ export const mcpProxyRoute = HttpRouter.add(
     }).pipe(Effect.catch(() => Effect.succeed(null)));
 
     if (!res) {
+      if (email && reserved > 0) yield* Effect.promise(() => addCredits(email, reserved, "adjustment"));
       return yield* error("The protocol-search service is unavailable.", 503);
     }
 
     const text = yield* Effect.promise(() => res.text().catch(() => ""));
+    if (!res.ok && email && reserved > 0) {
+      yield* Effect.promise(() => addCredits(email, reserved, "adjustment"));
+    }
     // 202 (notification accepted) legitimately has no body.
     return HttpServerResponse.text(text, {
       status: res.status,

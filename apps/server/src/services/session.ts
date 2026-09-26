@@ -121,6 +121,42 @@ export async function readMcpToken(token: string | undefined): Promise<string | 
 
 export const MCP_TOKEN_TTL = MCP_TOKEN_TTL_SECONDS;
 
+export interface OauthAccessToken {
+  email: string;
+  scope: "mcp-oauth";
+  clientId: string;
+  resource: string;
+  scopes: string[];
+}
+const OAUTH_ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
+
+export async function sealOauthAccessToken(
+  token: Omit<OauthAccessToken, "scope">,
+): Promise<string> {
+  return sealData({ ...token, scope: "mcp-oauth" } satisfies OauthAccessToken, {
+    password: getPassword(),
+    ttl: OAUTH_ACCESS_TOKEN_TTL_SECONDS,
+  });
+}
+
+export async function readOauthAccessToken(
+  token: string | undefined,
+): Promise<OauthAccessToken | null> {
+  if (!token) return null;
+  try {
+    const data = await unsealData<Partial<OauthAccessToken>>(token, { password: getPassword() });
+    if (
+      data.scope !== "mcp-oauth" || !data.email || !data.clientId || !data.resource ||
+      !Array.isArray(data.scopes) || data.scopes.some((s) => typeof s !== "string")
+    ) return null;
+    return data as OauthAccessToken;
+  } catch {
+    return null;
+  }
+}
+
+export const OAUTH_ACCESS_TOKEN_TTL = OAUTH_ACCESS_TOKEN_TTL_SECONDS;
+
 /** Short-lived token a desktop presents when dialing the Device Link WebSocket
  *  (query param — the WHATWG WebSocket can't set a cookie header). */
 export interface LinkToken {

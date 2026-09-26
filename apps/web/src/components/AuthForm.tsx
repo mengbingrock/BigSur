@@ -116,6 +116,7 @@ export function AuthForm({ mode, next = "/chat", signupEnabled = true, initialEr
               Don&apos;t have an account?{" "}
               <Link
                 to="/signup"
+                search={{ next } as never}
                 className="font-medium text-brand underline-offset-4 hover:underline"
               >
                 Create one
@@ -128,8 +129,9 @@ export function AuthForm({ mode, next = "/chat", signupEnabled = true, initialEr
         ) : (
           <>
             Already have an account?{" "}
-            <Link
-              to="/login"
+              <Link
+                to="/login"
+                search={{ next } as never}
               className="font-medium text-brand underline-offset-4 hover:underline"
             >
               Sign in
