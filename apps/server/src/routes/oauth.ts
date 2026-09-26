@@ -9,6 +9,7 @@ import {
   oauthIssuer,
   oauthPrincipal,
   registerOAuthClient,
+  revokeRefreshToken,
   subjectFor,
   validateAuthorizationRequest,
   type AuthorizationRequest,
@@ -55,6 +56,7 @@ export const oauthMetadataRoute = HttpRouter.add(
     issuer: oauthIssuer(),
     authorization_endpoint: `${oauthIssuer()}/oauth/authorize`,
     token_endpoint: `${oauthIssuer()}/oauth/token`,
+    revocation_endpoint: `${oauthIssuer()}/oauth/revoke`,
     registration_endpoint: `${oauthIssuer()}/oauth/register`,
     userinfo_endpoint: `${oauthIssuer()}/oauth/userinfo`,
     response_types_supported: ["code"],
@@ -205,6 +207,18 @@ export const oauthTokenRoute = HttpRouter.add(
   }),
 );
 
+export const oauthRevokeRoute = HttpRouter.add(
+  "POST",
+  "/oauth/revoke",
+  Effect.gen(function* () {
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const raw = yield* request.text.pipe(Effect.catch(() => Effect.succeed("")));
+    const body = new URLSearchParams(raw);
+    yield* Effect.promise(() => revokeRefreshToken(body.get("token") ?? ""));
+    return yield* json({ ok: true });
+  }),
+);
+
 export const oauthUserInfoRoute = HttpRouter.add(
   "GET",
   "/oauth/userinfo",
@@ -229,5 +243,6 @@ export const oauthRoutes = [
   oauthAuthorizeGetRoute,
   oauthAuthorizePostRoute,
   oauthTokenRoute,
+  oauthRevokeRoute,
   oauthUserInfoRoute,
 ] as const;
