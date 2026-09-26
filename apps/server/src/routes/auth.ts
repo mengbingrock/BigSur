@@ -10,6 +10,7 @@ import {
 import {
   createUser,
   isSignupEnabled,
+  shouldAutoPromoteFirstUser,
   toPublic,
   verifyCredentials,
 } from "../services/users";
@@ -58,7 +59,7 @@ export const signupRoute = HttpRouter.add(
     if (!email || !password) return yield* error("Email and password are required.", 400);
 
     const created = yield* Effect.tryPromise({
-      try: () => createUser(email, password, { autoPromoteFirst: true }),
+      try: () => createUser(email, password, { autoPromoteFirst: shouldAutoPromoteFirstUser() }),
       catch: (e) => e,
     }).pipe(Effect.map((u) => ({ ok: true as const, user: u })), Effect.catch((e) =>
       Effect.succeed({ ok: false as const, message: e instanceof Error ? e.message : String(e) }),

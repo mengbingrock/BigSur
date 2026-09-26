@@ -16,7 +16,7 @@ import {
   type OAuthState,
 } from "../services/google";
 import { sealSession, sealSessionCookie } from "../services/session";
-import { upsertGoogleUser } from "../services/users";
+import { shouldAutoPromoteFirstUser, upsertGoogleUser } from "../services/users";
 import { grantSignupCredits } from "../services/billing";
 
 /** In the desktop app the server is a forked child with an IPC channel; the
@@ -126,7 +126,10 @@ export const googleCallbackRoute = HttpRouter.add(
         if (!profile.emailVerified) {
           throw new Error("Your Google email address is not verified.");
         }
-        const user = await upsertGoogleUser({ googleId: profile.sub, email: profile.email });
+        const user = await upsertGoogleUser(
+          { googleId: profile.sub, email: profile.email },
+          { autoPromoteFirst: shouldAutoPromoteFirstUser() },
+        );
         await grantSignupCredits(user.email);
         return user;
       },
