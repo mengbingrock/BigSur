@@ -81,6 +81,37 @@ function scopedRootPath(root: Root, email: string | undefined): string {
   return path.join(root.path, userSlug(email));
 }
 
+/** Documents that stand alone as a protocol. A skill needs a folder because it
+ *  can carry scripts and references; a protocol is just prose, so it is a file. */
+const PROTOCOL_EXTENSIONS = new Set([".md", ".markdown"]);
+
+/** Markdown files that are project furniture rather than protocols. Granting a
+ *  working folder should not fill the library with its README. These are
+ *  conventional filenames, not a guess at content — anything else in a granted
+ *  folder is taken at face value. */
+const NOT_PROTOCOL_NAMES = new Set([
+  "readme",
+  "agents",
+  "claude",
+  "changelog",
+  "contributing",
+  "license",
+  "licence",
+  "code_of_conduct",
+  "security",
+  "notice",
+  "authors",
+]);
+
+function isConventionalDoc(file: string): boolean {
+  return NOT_PROTOCOL_NAMES.has(path.basename(file, path.extname(file)).toLowerCase());
+}
+
+/** True for a manifest file (`SKILL.md`), false for a standalone document. */
+export function isManifestFile(file: string): boolean {
+  return /^skill\.md$/i.test(path.basename(file));
+}
+
 function findSkillFiles(root: string): string[] {
   if (!root || !fs.existsSync(root)) return [];
   const out: string[] = [];
@@ -114,13 +145,23 @@ function findSkillFiles(root: string): string[] {
       }
       if (stat.isDirectory()) {
         walk(full, depth + 1);
-      } else if (stat.isFile() && entry.name === "SKILL.md") {
-        out.push(full);
+      } else if (stat.isFile()) {
+        // A folder's manifest, or a standalone protocol document. Both are
+        // artifacts; which one it is decides how it is stored and edited.
+        if (entry.name === "SKILL.md") {
+          out.push(full);
+        } else if (
+          PROTOCOL_EXTENSIONS.has(path.extname(entry.name).toLowerCase()) &&
+          !isConventionalDoc(entry.name)
+        ) {
+          out.push(full);
+        }
       }
     }
   };
   walk(root);
-  return out;
+  const manifestDirs = new Set(out.filter(isManifestFile).map((f) => path.dirname(f)));
+  return out.filter((f) => isManifestFile(f) || !manifestDirs.has(path.dirname(f)));
 }
 
 function marketplaceFromPath(filePath: string, rootPath: string): string | null {
@@ -192,12 +233,19 @@ function parseOrigin(raw: unknown): SkillOrigin | undefined {
  *  `<base>/Cloning/miniprep/SKILL.md` → "Cloning"; `<base>/miniprep/SKILL.md`
  *  → undefined (flat, shown as "Uncategorised"). Only the first level counts,
  *  so deeper nesting collapses onto its top folder. */
-function categoryOf(file: string, baseDir: string | undefined): string | undefined {
+function categoryOf(
+  file: string,
+  baseDir: string | undefined,
+  loose: boolean,
+): string | undefined {
   if (!baseDir) return undefined;
   const rel = path.relative(baseDir, path.dirname(file));
   if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return undefined;
   const parts = rel.split(path.sep).filter(Boolean);
-  return parts.length > 1 ? parts[0] : undefined;
+  // A manifest sits one level deeper than a document: <base>/<cat>/<slug>/SKILL.md
+  // versus <base>/<cat>/<slug>.md, so they need different depths.
+  const depth = loose ? 0 : 1;
+  return parts.length > depth ? parts[0] : undefined;
 }
 
 /** Sibling files in the artifact directory, excluding SKILL.md. One shallow
@@ -226,18 +274,21 @@ function parseSkillFile(
     return null;
   }
   const data = parsed.data as Record<string, unknown>;
+  const loose = !isManifestFile(file);
   // Without a `name:` in frontmatter, fall back to the filename for a loose
   // document and to the folder name for a SKILL.md, which is the folder's
   // manifest rather than a document in its own right.
-  const loose = !/^skill\.md$/i.test(path.basename(file));
   const fallbackName = loose
     ? path.basename(file, path.extname(file))
     : path.basename(path.dirname(file));
   const name = typeof data.name === "string" && data.name.trim()
     ? data.name.trim()
     : fallbackName;
+  // Frontmatter wins. Without it, a standalone document is a protocol and a
+  // folder manifest is a skill — which is what each shape is for.
   const rawKind = typeof data.kind === "string" ? data.kind.toLowerCase() : "";
-  const artifactKind = rawKind === "protocol" ? "protocol" : "skill";
+  const artifactKind: "skill" | "protocol" =
+    rawKind === "protocol" ? "protocol" : rawKind === "skill" ? "skill" : loose ? "protocol" : "skill";
   // A `category` in frontmatter overrides the folder name for display only;
   // it never moves files.
   const declaredCategory =
@@ -252,9 +303,9 @@ function parseSkillFile(
   }
   const dir = path.dirname(file);
   return {
-    category: declaredCategory ?? categoryOf(file, baseDir),
+    category: declaredCategory ?? categoryOf(file, baseDir, loose),
     updatedAt,
-    fileCount: siblingFileCount(dir),
+    fileCount: loose ? 0 : siblingFileCount(dir),
     name,
     description: normalizeDescription(data.description),
     allowedTools: normalizeAllowedTools(data["allowed-tools"]),
@@ -415,6 +466,9 @@ function looksTextual(buf: Buffer): boolean {
  * size + a binary/truncated flag so the UI can show metadata only.
  */
 export function listSkillFiles(skill: Skill): SkillFile[] {
+  // A standalone document has no folder of its own, so no siblings to list;
+  // its neighbours belong to whoever owns the directory.
+  if (skill.artifactFile) return [];
   const root = skill.sourcePath;
   if (!fs.existsSync(root)) return [];
   const out: SkillFile[] = [];
@@ -590,6 +644,7 @@ export function saveSkill(
   // A single granted document is edited in place; a folder artifact has its
   // SKILL.md rewritten.
   const file = existing.artifactFile ?? path.join(existing.sourcePath, "SKILL.md");
+
   if (!isInsideOwnFolder(file, email)) {
     const err = new Error(
       "Refusing to write outside your own skills folder.",
@@ -651,21 +706,27 @@ export function createSkill(input: SkillUpdate, email: string): Skill {
     throw err;
   }
 
-  // New skills are written into the user's workspace `.skill` folder.
+  // New artifacts are written into the user's workspace `.skill` folder.
   const ownFolder = userWorkspaceSkillDir(email);
   fs.mkdirSync(ownFolder, { recursive: true });
+
+  // A protocol is a document, so it is written as one file. A skill needs a
+  // folder because it can carry scripts and references beside its manifest.
+  const asDocument = input.kind === "protocol";
   const targetDir = path.join(ownFolder, dirName);
-  if (fs.existsSync(targetDir)) {
+  const file = asDocument
+    ? path.join(ownFolder, `${dirName}.md`)
+    : path.join(targetDir, "SKILL.md");
+  const collision = asDocument ? file : targetDir;
+  if (fs.existsSync(collision)) {
     const err = new Error(
-      `You already have a skill named "${trimmedName}". ` +
-        "Pick a different name or edit the existing skill.",
+      `You already have ${asDocument ? "a protocol" : "a skill"} named "${trimmedName}". ` +
+        "Pick a different name, or edit the existing one.",
     );
     (err as Error & { code: string }).code = "CONFLICT";
     throw err;
   }
-
-  fs.mkdirSync(targetDir);
-  const file = path.join(targetDir, "SKILL.md");
+  if (!asDocument) fs.mkdirSync(targetDir);
 
   const data: Record<string, unknown> = {
     name: trimmedName,
@@ -678,10 +739,17 @@ export function createSkill(input: SkillUpdate, email: string): Skill {
   const content = matter.stringify(input.body.replace(/\s*$/, "") + "\n", data);
   fs.writeFileSync(file, content, "utf8");
 
-  const realDir = fs.realpathSync(targetDir);
-  const created =
-    getAllSkills(email).find((s) => s.sourcePath === realDir) ??
-    getAllSkills(email).find((s) => s.sourcePath === targetDir);
+  const all = getAllSkills(email);
+  const created = asDocument
+    ? all.find((s) => s.artifactFile === file) ??
+      all.find((s) => s.artifactFile && fs.realpathSync(s.artifactFile) === fs.realpathSync(file))
+    : (() => {
+        const realDir = fs.realpathSync(targetDir);
+        return (
+          all.find((s) => s.sourcePath === realDir) ??
+          all.find((s) => s.sourcePath === targetDir)
+        );
+      })();
   if (!created) throw new Error("Failed to read newly created skill.");
   return created;
 }
@@ -1058,24 +1126,26 @@ export function moveSkillToCategory(
   const existing = getSkillBySlug(slug, email);
   if (!existing) throw notFound("Artifact not found.");
   assertEditable(existing);
-  if (!isInsideOwnFolder(existing.sourcePath, email)) {
+  if (!isInsideOwnFolder(existing.artifactFile ?? existing.sourcePath, email)) {
     throw invalidCategory("Refusing to move outside your own folder.");
   }
   // Categorise inside whichever of the caller's bases already holds this
   // artifact, so an app-created one (deck workspace) is not relocated across
   // roots just to be filed.
-  const root = baseHolding(existing.sourcePath, email) ?? ownRootDir(email);
+  const root = baseHolding(existing.artifactFile ?? existing.sourcePath, email) ?? ownRootDir(email);
   const clean = category == null || category === "" ? null : assertCategoryName(category);
   const targetDir = clean ? path.join(root, clean) : root;
   if (clean && !fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
-  const dest = path.join(targetDir, path.basename(existing.sourcePath));
-  if (path.resolve(dest) === path.resolve(existing.sourcePath)) return existing;
+  // A document moves as a file, a skill as its folder.
+  const from = existing.artifactFile ?? existing.sourcePath;
+  const dest = path.join(targetDir, path.basename(from));
+  if (path.resolve(dest) === path.resolve(from)) return existing;
   if (fs.existsSync(dest)) {
     throw invalidCategory(
-      `"${path.basename(existing.sourcePath)}" already exists in ${clean ?? "the top level"}.`,
+      `"${path.basename(from)}" already exists in ${clean ?? "the top level"}.`,
     );
   }
-  fs.renameSync(existing.sourcePath, dest);
+  fs.renameSync(from, dest);
   const moved = getSkillBySlug(slug, email);
   if (!moved) throw notFound("Artifact moved but could not be read back.");
   return moved;
@@ -1141,10 +1211,12 @@ export function deleteSkill(slug: string, email: string): void {
     throw err;
   }
   assertEditable(existing);
-  if (!isInsideOwnFolder(existing.sourcePath, email)) {
+  const victim = existing.artifactFile ?? existing.sourcePath;
+  if (!isInsideOwnFolder(victim, email)) {
     const err = new Error("Refusing to delete outside your own skills folder.");
     (err as Error & { code: string }).code = "PATH_ESCAPE";
     throw err;
   }
-  fs.rmSync(existing.sourcePath, { recursive: true, force: true });
+  // A document is one file; a skill is its whole folder.
+  fs.rmSync(victim, { recursive: !existing.artifactFile, force: true });
 }
