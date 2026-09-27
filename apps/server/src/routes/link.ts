@@ -130,6 +130,7 @@ async function handleMirror(conn: HostConn, frame: Extract<HostToBox, { t: "mirr
     if (frame.session) await mirror.upsertMirrorSession(email, hostId, { ...frame.session, hostId });
     if (frame.messages) await mirror.upsertMirrorMessages(email, hostId, frame.messages.sessionId, frame.messages.items);
     if (frame.deleted) await mirror.deleteMirrorSession(email, hostId, frame.deleted);
+    if (frame.sessionIds) await mirror.pruneMirrorSessions(email, hostId, frame.sessionIds);
     if (frame.event) {
       await mirror.insertMirrorEvent(email, hostId, frame.event);
       const evt = frame.event as { type?: string; sessionId?: string; data?: Record<string, unknown> };
@@ -228,6 +229,15 @@ export const tunnelRoute = HttpRouter.add(
               if (settled) return;
               settled = true;
               clearTimeout(timer);
+              // A session delete that the host accepted, or answered 404 to,
+              // means the host no longer has it either way — so neither should
+              // the mirror. Doing it here, not only on the host's later
+              // "deleted" frame, is what stops an orphan (deleted before
+              // deletions were announced) from being undeletable forever.
+              const del = request.method === "DELETE" ? rest.match(/^\/api\/sessions\/([^/?]+)\/?(?:\?.*)?$/) : null;
+              if (del && (head.status === 404 || (head.status >= 200 && head.status < 300))) {
+                void mirror.deleteMirrorSession(user.email, hostId, del[1]!);
+              }
               if (wkey) watching.set(wkey, (watching.get(wkey) ?? 0) + 1);
               const stream = new ReadableStream<Uint8Array>({
                 start(c) {

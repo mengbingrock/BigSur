@@ -184,6 +184,51 @@ describe("Device Link", () => {
     }
   }, 40000);
 
+  it("an orphaned mirror is cleared the first time someone tries to delete it", async () => {
+    // A session deleted on the Mac before deletions were announced leaves the
+    // box holding a mirror for a session that no longer exists. It shows in
+    // every Chats list, and each delete attempt gets 404 from the Mac — which
+    // used to leave the mirror in place, so it could never be removed.
+    const { getDb } = await import("../src/services/db");
+    const db = await getDb();
+    const ghost = "ses_ghost00000000000001";
+    db.prepare(
+      "INSERT INTO mirror_sessions (email, host_id, id, summary, last_seq, updated_at) VALUES (?, ?, ?, ?, 0, ?)",
+    ).run(EMAIL, hostId, ghost, JSON.stringify({ id: ghost, title: "ghost", status: "idle" }), new Date().toISOString());
+
+    const before = (await (await api("/api/link/sessions")).json()) as { sessions: { id: string }[] };
+    expect(before.sessions.some((s) => s.id === ghost)).toBe(true);
+
+    // The Mac has never heard of it: 404. That is now enough to drop the mirror.
+    const del = await api(`/api/hosts/${hostId}/api/sessions/${ghost}`, { method: "DELETE" });
+    expect(del.status).toBe(404);
+    await waitFor(async () => {
+      const r = (await (await api("/api/link/sessions")).json()) as { sessions: { id: string }[] };
+      return !r.sessions.some((s) => s.id === ghost);
+    }, 5000);
+  });
+
+  it("reconciling drops mirrors the host no longer claims, and keeps the ones it does", async () => {
+    const { pruneMirrorSessions, listMirrorSessionsForAccount } = await import("../src/services/deviceLink/mirror");
+    const { getDb } = await import("../src/services/db");
+    const db = await getDb();
+    const stale = "ses_stale0000000000001";
+    db.prepare(
+      "INSERT INTO mirror_sessions (email, host_id, id, summary, last_seq, updated_at) VALUES (?, ?, ?, ?, 0, ?)",
+    ).run(EMAIL, hostId, stale, JSON.stringify({ id: stale, title: "stale" }), new Date().toISOString());
+
+    const live = (await listMirrorSessionsForAccount(EMAIL))
+      .map((r) => String(r.session.id))
+      .filter((id) => id !== stale);
+    expect(live.length).toBeGreaterThan(0);
+
+    const dropped = await pruneMirrorSessions(EMAIL, hostId, live);
+    expect(dropped).toBe(1);
+    const after = (await listMirrorSessionsForAccount(EMAIL)).map((r) => String(r.session.id));
+    expect(after).not.toContain(stale);
+    for (const id of live) expect(after).toContain(id);
+  });
+
   it("lists every chat across machines, from the box and from a desktop alike", async () => {
     // The tunnel test above ran a turn on the desktop, which mirrored the
     // session to the box. Both surfaces should now list it, tagged with the

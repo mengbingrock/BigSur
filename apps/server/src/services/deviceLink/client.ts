@@ -162,23 +162,25 @@ function runSocket(
         sessionId,
         setTimeout(async () => {
           summaryTimers.delete(sessionId);
-          const s = await sdb.getSessionById(sessionId).catch(() => null);
+          const s = await mine(sessionId);
           if (s) send({ t: "mirror", session: toSummary(s, (await sdb.listQueue(sessionId).catch(() => [])).length) });
         }, 250),
       );
     };
     const pushMessages = async (sessionId: string) => {
+      if (!(await mine(sessionId))) return;
       const msgs = await sdb.listMessages(sessionId).catch(() => []);
       send({ t: "mirror", messages: { sessionId, items: msgs.slice(-4) as unknown as Record<string, unknown>[] } });
     };
     const unsubscribe = subscribeAll((evt) => {
       if (!welcomed) return;
-      if (evt.seq > 0) {
-        void (async () => {
-          const s = await sdb.getSessionById(evt.sessionId).catch(() => null);
-          send({ t: "mirror", event: evt as unknown as Record<string, unknown>, ...(s ? { session: toSummary(s) } : {}) });
-        })();
-      }
+      void (async () => {
+        const s = await mine(evt.sessionId);
+        if (!s) return; // another account's session: not ours to mirror
+        if (evt.seq > 0) {
+          send({ t: "mirror", event: evt as unknown as Record<string, unknown>, session: toSummary(s) });
+        }
+      })();
       pushSummary(evt.sessionId);
       if (evt.type === "turn_ended" || evt.type === "turn_cancelled" || evt.type === "question_answered" || evt.type === "turn_started") {
         void pushMessages(evt.sessionId);
@@ -218,15 +220,26 @@ function runSocket(
       if (welcomed) send({ t: "mirror", deleted: id });
     });
 
+    /** Only this account's sessions go to the box. The desktop can hold other
+     *  accounts' sessions (a demo login, a colleague), and mirroring those under
+     *  this link listed them in this account's Chats — where they could be seen
+     *  but never opened or deleted, because the host rightly answered 404. */
+    const mine = async (sessionId: string): Promise<sdb.SessionRow | null> => {
+      const s = await sdb.getSessionById(sessionId).catch(() => null);
+      return s && s.email === accountEmail ? s : null;
+    };
+
     const fullSync = async () => {
-      // Sessions of every local account: the desktop is single-user in practice.
-      const rows = await sdb.listRunningSessions().catch(() => []);
-      void rows;
-      const all = await allSessions();
-      for (const s of all.slice(0, 50)) {
+      if (!accountEmail) return;
+      const all = await sdb.listSessions(accountEmail, { limit: 50 }).catch(() => []);
+      for (const s of all) {
         send({ t: "mirror", session: toSummary(s) });
         await pushMessages(s.id);
       }
+      // Then the complete set, so the box drops anything it holds for this
+      // host that is no longer here — or never was this account's.
+      const ids = (await sdb.listSessions(accountEmail, { limit: 1000 }).catch(() => [])).map((s) => s.id);
+      send({ t: "mirror", sessionIds: ids });
     };
 
     socket.addEventListener("open", () => {
@@ -289,16 +302,6 @@ function runSocket(
       }
     });
   });
-}
-
-async function allSessions(): Promise<sdb.SessionRow[]> {
-  // The desktop has one local account, but list per known email to stay correct.
-  const { getDb } = await import("../db");
-  const db = await getDb();
-  const rows = db.prepare("SELECT DISTINCT email FROM chat_sessions").all();
-  const out: sdb.SessionRow[] = [];
-  for (const r of rows) out.push(...(await sdb.listSessions(String(r.email), { limit: 50 })));
-  return out.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
 }
 
 /** Replay a tunneled request against the local server and stream it back. */

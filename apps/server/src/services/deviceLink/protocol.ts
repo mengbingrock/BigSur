@@ -50,6 +50,10 @@ export interface MirrorFrame {
   messages?: { sessionId: string; items: Record<string, unknown>[] };
   /** A session deleted on the host; the box drops every mirrored trace of it. */
   deleted?: string;
+  /** The complete set of session ids this host holds for the account. The box
+   *  drops any mirror for this host that is not in it — sessions deleted
+   *  before deletions were announced, or never this account's to begin with. */
+  sessionIds?: string[];
   /** Ask the box to push a notification to this account's devices. */
   notify?: { title: string; body: string; data?: Record<string, unknown> };
 }

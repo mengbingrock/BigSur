@@ -45,6 +45,25 @@ export async function deleteMirrorSession(email: string, hostId: string, id: str
   db.prepare("DELETE FROM mirror_sessions WHERE email = ? AND host_id = ? AND id = ?").run(email, hostId, id);
 }
 
+/** Keep only the sessions the host says it still has; drop the rest. This is
+ *  what heals a mirror that drifted — a host that deleted sessions before it
+ *  announced deletions, or one that once mirrored another account's rows. */
+export async function pruneMirrorSessions(email: string, hostId: string, keep: string[]): Promise<number> {
+  const db = await getDb();
+  const have = db
+    .prepare("SELECT id FROM mirror_sessions WHERE email = ? AND host_id = ?")
+    .all(email, hostId)
+    .map((r) => String(r.id));
+  const keepSet = new Set(keep);
+  let dropped = 0;
+  for (const id of have) {
+    if (keepSet.has(id)) continue;
+    await deleteMirrorSession(email, hostId, id);
+    dropped += 1;
+  }
+  return dropped;
+}
+
 function parse(raw: unknown): Record<string, unknown> {
   try {
     return JSON.parse(String(raw)) as Record<string, unknown>;
