@@ -343,6 +343,42 @@ export const listHostsRoute = HttpRouter.add(
   }),
 );
 
+/**
+ * GET /api/link/sessions — every chat this account has, on every machine.
+ *
+ * A chat runs on one machine and is mirrored to the box; each surface's Chats
+ * list was built only from that surface's own localStorage, so a chat started
+ * on the Mac never showed up in the browser, or on another Mac. This is the
+ * list the sidebar merges in. Each row says which host it lives on and whether
+ * that host is awake, because that decides whether opening it is live or
+ * read-only from the mirror.
+ *
+ * On a desktop, ask the box — it holds the mirrors. The desktop's own chats
+ * come back too (mirrored), which is what lets the sidebar recover them when
+ * localStorage has been cleared.
+ */
+export const listSessionsEverywhereRoute = HttpRouter.add(
+  "GET",
+  "/api/link/sessions",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Unauthorized.", 401);
+    if (isDesktop()) {
+      const r = yield* Effect.promise(() => proxyToBox("GET", "/api/link/sessions"));
+      return yield* json(r.body, r.status);
+    }
+    const online = new Map(listHosts(user.email).map((h) => [h.hostId, h]));
+    const rows = yield* Effect.promise(() => mirror.listMirrorSessionsForAccount(user.email));
+    const sessions = rows.map(({ hostId, session }) => ({
+      ...session,
+      hostId,
+      hostName: online.get(hostId)?.name ?? null,
+      hostOnline: online.get(hostId)?.online ?? false,
+    }));
+    return yield* json({ sessions });
+  }),
+);
+
 export const createDeviceRoute = HttpRouter.add(
   "POST",
   "/api/link/devices",
@@ -500,6 +536,7 @@ export const linkRoutes = [
   hostSocketRoute,
   tunnelRoute,
   listHostsRoute,
+  listSessionsEverywhereRoute,
   createDeviceRoute,
   listDevicesRoute,
   revokeDeviceRoute,

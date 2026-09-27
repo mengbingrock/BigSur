@@ -101,6 +101,26 @@ describe("Device Link", () => {
     }, 10000);
   }, 40000);
 
+  it("lists every chat across machines, from the box and from a desktop alike", async () => {
+    // The tunnel test above ran a turn on the desktop, which mirrored the
+    // session to the box. Both surfaces should now list it, tagged with the
+    // machine it lives on — that is what puts it in every device's Chats.
+    type Row = { id: string; title: string; hostId: string; hostOnline: boolean };
+
+    const onBox = (await (await api("/api/link/sessions")).json()) as { sessions: Row[] };
+    const mine = onBox.sessions.find((s) => s.title === "via phone");
+    expect(mine).toBeTruthy();
+    expect(mine!.hostId).toBe(hostId);
+    expect(mine!.hostOnline).toBe(true);
+
+    // A desktop has no mirrors of its own; it asks the box and gets the same
+    // answer, its own chats included.
+    const r = await fetch(`${desktop.base}/api/link/sessions`, { headers: { cookie } });
+    expect(r.status).toBe(200);
+    const onDesktop = (await r.json()) as { sessions: Row[] };
+    expect(onDesktop.sessions.map((s) => s.id)).toEqual(onBox.sessions.map((s) => s.id));
+  });
+
   it("a desktop lists the machines the box knows about, not its own registry", async () => {
     // Nothing ever dials a desktop, so its own host registry is empty — asking
     // it locally answered "nothing linked yet" on the machine that was itself

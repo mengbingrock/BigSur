@@ -53,6 +53,21 @@ export async function listMirrorSessions(email: string, hostId: string): Promise
   return rows.map((r) => parse(r.summary));
 }
 
+/** Every mirrored session for an account, across all of its machines, newest
+ *  first. Each row carries the host it ran on, because that is where a person
+ *  has to go to continue it. */
+export async function listMirrorSessionsForAccount(
+  email: string,
+): Promise<Array<{ hostId: string; session: Record<string, unknown> }>> {
+  const db = await getDb();
+  const rows = db
+    .prepare(
+      "SELECT host_id, summary FROM mirror_sessions WHERE email = ? ORDER BY updated_at DESC LIMIT 200",
+    )
+    .all(email);
+  return rows.map((r) => ({ hostId: String(r.host_id), session: parse(r.summary) }));
+}
+
 export async function getMirrorSession(email: string, hostId: string, id: string): Promise<{ session: Record<string, unknown>; messages: Record<string, unknown>[] } | null> {
   const db = await getDb();
   const row = db.prepare("SELECT summary FROM mirror_sessions WHERE email = ? AND host_id = ? AND id = ?").get(email, hostId, id);

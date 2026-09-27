@@ -76,6 +76,20 @@ const WORKSPACE_ITEMS: NavItem[] = [
 
 const EMPTY_SESSIONS: SessionMeta[] = [];
 
+/** A chat that lives on one of the account's machines, as the box reports it. */
+interface RemoteChat {
+  id: string;
+  title: string;
+  updatedAt: string;
+  hostId: string;
+  hostName: string | null;
+  hostOnline: boolean;
+}
+
+type ChatRow =
+  | { kind: "local"; at: number; local: SessionMeta }
+  | { kind: "remote"; at: number; remote: RemoteChat };
+
 /** Compact relative time: now, 5m, 3h, 6d, 2w, 4mo, 1y. */
 function relTime(ts: number): string {
   if (!ts) return "";
@@ -111,6 +125,25 @@ export function AppSidebar() {
     () => "",
   );
   const onChat = pathname === "/chat" || pathname.startsWith("/chat/");
+
+  // Chats from every machine on this account. The local list above is this
+  // device's own index; without this, a chat started on the Mac never appeared
+  // in the browser, or on another Mac. Anything already in the local index is
+  // left to it (matched on the server session id), so a chat is listed once.
+  const everywhereQ = useQuery({
+    queryKey: ["link", "sessions"],
+    queryFn: () => apiGet<{ sessions: RemoteChat[] }>("/api/link/sessions"),
+    enabled: !!user,
+    refetchInterval: 15_000,
+    retry: false,
+  });
+  const localServerIds = new Set(sessions.map((s) => s.serverId).filter(Boolean));
+  const remote = (everywhereQ.data?.sessions ?? []).filter((r) => !localServerIds.has(r.id));
+  // One list, newest first, whichever machine a chat lives on.
+  const chats: ChatRow[] = [
+    ...sessions.map((s): ChatRow => ({ kind: "local", at: s.updatedAt, local: s })),
+    ...remote.map((r): ChatRow => ({ kind: "remote", at: Date.parse(r.updatedAt) || 0, remote: r })),
+  ].sort((a, b) => b.at - a.at);
 
   const agentsQ = useQuery({
     queryKey: ["agents"],
@@ -210,39 +243,64 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>Chats</SidebarGroupLabel>
           <SidebarGroupContent>
-            {sessions.length === 0 ? (
+            {chats.length === 0 ? (
               <p className="px-2 py-1 text-xs text-ink-faint">No chats yet.</p>
             ) : (
               <SidebarMenu>
-                {sessions.map((s) => (
-                  <SidebarMenuItem key={s.id} className="group/chat relative">
-                    <SidebarMenuButton
-                      size="sm"
-                      className="gap-2 px-2 py-2 pr-7"
-                      tooltip={s.title}
-                      isActive={onChat && s.id === currentSessionId}
-                      onClick={() => openSession(s)}
-                    >
-                      <MessageSquare className="size-4 shrink-0" />
-                      <span className="min-w-0 flex-1 truncate">{s.title}</span>
-                      <span className="shrink-0 text-[10px] text-ink-faint tabular-nums group-hover/chat:opacity-0">
-                        {relTime(s.updatedAt)}
-                      </span>
-                    </SidebarMenuButton>
-                    <button
-                      type="button"
-                      aria-label="Delete chat"
-                      title="Delete chat"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        chatStore.deleteSession(s.id);
-                      }}
-                      className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded p-1 text-ink-faint transition hover:text-destructive group-hover/chat:block"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  </SidebarMenuItem>
-                ))}
+                {chats.map((row) =>
+                  row.kind === "remote" ? (
+                    <SidebarMenuItem key={`remote:${row.remote.hostId}:${row.remote.id}`}>
+                      <SidebarMenuButton
+                        size="sm"
+                        className="gap-2 px-2 py-2"
+                        tooltip={`${row.remote.title} — on ${row.remote.hostName ?? "another machine"}${row.remote.hostOnline ? "" : " (asleep)"}`}
+                        isActive={pathname === `/macs/${row.remote.hostId}/${row.remote.id}`}
+                        onClick={() =>
+                          void navigate({
+                            to: "/macs/$hostId/$sessionId",
+                            params: { hostId: row.remote.hostId, sessionId: row.remote.id },
+                          })
+                        }
+                      >
+                        <Laptop
+                          className={`size-4 shrink-0 ${row.remote.hostOnline ? "" : "text-ink-faint"}`}
+                        />
+                        <span className="min-w-0 flex-1 truncate">{row.remote.title}</span>
+                        <span className="shrink-0 text-[10px] text-ink-faint tabular-nums">
+                          {relTime(row.at)}
+                        </span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ) : (
+                    <SidebarMenuItem key={row.local.id} className="group/chat relative">
+                      <SidebarMenuButton
+                        size="sm"
+                        className="gap-2 px-2 py-2 pr-7"
+                        tooltip={row.local.title}
+                        isActive={onChat && row.local.id === currentSessionId}
+                        onClick={() => openSession(row.local)}
+                      >
+                        <MessageSquare className="size-4 shrink-0" />
+                        <span className="min-w-0 flex-1 truncate">{row.local.title}</span>
+                        <span className="shrink-0 text-[10px] text-ink-faint tabular-nums group-hover/chat:opacity-0">
+                          {relTime(row.local.updatedAt)}
+                        </span>
+                      </SidebarMenuButton>
+                      <button
+                        type="button"
+                        aria-label="Delete chat"
+                        title="Delete chat"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          chatStore.deleteSession(row.local.id);
+                        }}
+                        className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded p-1 text-ink-faint transition hover:text-destructive group-hover/chat:block"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </SidebarMenuItem>
+                  ),
+                )}
               </SidebarMenu>
             )}
           </SidebarGroupContent>
