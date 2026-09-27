@@ -336,7 +336,3 @@ export const openaiProxyRoute = HttpRouter.add(
 );
 
 export const llmProxyRoutes = [proxyTokenRoute, anthropicProxyRoute, openaiProxyRoute] as const;
-
-/** Exposed for tests: the gate on the dev-only subscription fallback is the
- *  kind of thing that gets loosened by accident, so it is pinned directly. */
-export const __testAnthropicAuth = anthropicAuth;
