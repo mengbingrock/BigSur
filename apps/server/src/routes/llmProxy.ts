@@ -21,47 +21,23 @@ const OPENAI_UPSTREAM = (process.env.OPENAI_API_BASE || "https://api.openai.com/
   /\/v1\/?$/,
   "",
 );
-const OAUTH_BETA = "oauth-2025-04-20";
+/** How Labee authenticates to Anthropic upstream: a Console API key, billed to
+ *  Labee's own API account.
+ *
+ *  There used to be a fallback here that served every provided-tier user from
+ *  the box's own Claude subscription OAuth token. That is exactly what
+ *  Anthropic prohibits: "Anthropic does not permit third-party developers to
+ *  offer Claude.ai login into their own applications, or to route requests
+ *  through Free, Pro, or Max plan credentials on behalf of their users."
+ *  (https://code.claude.com/docs/en/legal-and-compliance). A person's own
+ *  subscription is reached by running the CLI on their own machine, where the
+ *  login happens through Anthropic's own flow and no credential reaches us. */
+type AnthropicAuth = { kind: "apiKey"; value: string } | null;
 
-/** How Labee authenticates to Anthropic upstream: a console API key, or a Claude
- *  subscription OAuth token (the box's own Max/Pro login — no API billing). */
-type AnthropicAuth =
-  | { kind: "apiKey"; value: string }
-  | { kind: "oauth"; value: string }
-  | null;
-
-/** Read the box's Claude subscription OAuth access token, in order of preference:
- *  an explicit long-lived token (from `claude setup-token`), else the access
- *  token in the CLI credential store (`~/.claude/.credentials.json`). */
-function claudeOAuthToken(): string | null {
-  const explicit =
-    process.env.LABEE_ANTHROPIC_OAUTH_TOKEN || process.env.CLAUDE_CODE_OAUTH_TOKEN;
-  if (explicit) return explicit.trim();
-  try {
-    const file = path.join(os.homedir(), ".claude", ".credentials.json");
-    interface OAuthCred {
-      accessToken?: string;
-      expiresAt?: number;
-      claudeAiOauth?: OAuthCred;
-    }
-    const raw = JSON.parse(fs.readFileSync(file, "utf8")) as OAuthCred;
-    const o: OAuthCred = raw.claudeAiOauth ?? raw;
-    // Skip an obviously-expired token (the CLI refreshes it on use, not us).
-    if (o.expiresAt && o.expiresAt < Date.now()) return null;
-    return o.accessToken?.trim() || null;
-  } catch {
-    return null;
-  }
-}
-
-/** Resolve how to authenticate the Anthropic upstream call. Prefer a real API
- *  key (clean, ToS-simple); else fall back to the box's subscription token. */
+/** Resolve how to authenticate the Anthropic upstream call. */
 function anthropicAuth(): AnthropicAuth {
   const key = process.env.LABEE_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-  if (key) return { kind: "apiKey", value: key };
-  const oauth = claudeOAuthToken();
-  if (oauth) return { kind: "oauth", value: oauth };
-  return null;
+  return key ? { kind: "apiKey", value: key } : null;
 }
 
 function openaiKey(): string | null {
@@ -283,7 +259,7 @@ function vendorError(e: unknown): Response {
 }
 
 /** POST /api/llm/anthropic/* — forward to api.anthropic.com using Labee's API
- *  key, or (fallback) the box's Claude subscription OAuth token. */
+ *  key. Returns 503 when no key is configured. */
 export const anthropicProxyRoute = HttpRouter.add(
   "POST",
   "/api/llm/anthropic/*",
@@ -296,15 +272,7 @@ export const anthropicProxyRoute = HttpRouter.add(
     };
     // Forward the beta flags the CLI relies on (tools, fine-grained streaming…).
     const betas = new Set((incoming["anthropic-beta"] ?? "").split(",").map((b) => b.trim()).filter(Boolean));
-    if (auth.kind === "apiKey") {
-      headers["x-api-key"] = auth.value;
-    } else {
-      // Subscription auth: Bearer token + the oauth beta. The incoming request
-      // comes from a real claude CLI, so its system prompt already leads with the
-      // required "You are Claude Code…" identity block.
-      headers["authorization"] = `Bearer ${auth.value}`;
-      betas.add(OAUTH_BETA);
-    }
+    headers["x-api-key"] = auth.value;
     if (betas.size) headers["anthropic-beta"] = Array.from(betas).join(",");
     return headers;
   }),
