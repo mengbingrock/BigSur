@@ -52,6 +52,11 @@ function SkillDetail() {
 
   const { skill, files } = data;
   const owned = skill.source.kind === "user";
+  // A protocol and a skill are different things that happen to share a page.
+  // The way back, and what can be done here, follow the kind: a protocol
+  // belongs to the Protocols library and is used by choosing it in a chat —
+  // it is not installed into an agent's runtime the way a skill is.
+  const isProtocol = skill.artifactKind === "protocol";
 
   return (
     <article className="mx-auto w-full max-w-[var(--content-width)] px-6 py-10">
@@ -59,9 +64,9 @@ function SkillDetail() {
         variant="link"
         size="xs"
         className="px-0 text-ink-light"
-        render={<Link to="/skills" />}
+        render={isProtocol ? <Link to="/protocols" /> : <Link to="/skills" />}
       >
-        ← Skills
+        {isProtocol ? "← Protocols" : "← Skills"}
       </Button>
 
       <header className="mt-6 flex flex-wrap items-start justify-between gap-4">
@@ -96,7 +101,7 @@ function SkillDetail() {
         </div>
       )}
 
-      {user && <SkillActions skill={skill} />}
+      {user && !isProtocol && <SkillActions skill={skill} />}
 
       <div className="mt-10 border-t border-border pt-8">
         <Markdown>{skill.body}</Markdown>

@@ -37,6 +37,9 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
 
   // Typed-router back/cancel link to the source artifact (or the catalog).
   // Spreads through props so it can back a Button via its `render` prop.
+  /** The list an artifact of this kind belongs to. */
+  const listFor = (k: ArtifactKind): "/protocols" | "/skills" => (k === "protocol" ? "/protocols" : "/skills");
+
   const CancelLink = ({
     children,
     ...rest
@@ -48,7 +51,7 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
         {children}
       </Link>
     ) : (
-      <Link to="/skills" {...rest}>
+      <Link to={listFor(kind)} {...rest}>
         {children}
       </Link>
     );
@@ -143,7 +146,7 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(data.error ?? `Delete failed (HTTP ${res.status})`);
       }
-      void navigate({ to: "/skills" });
+      void navigate({ to: listFor(skill.artifactKind === "protocol" ? "protocol" : "skill") });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed.");
       setDeleting(false);
