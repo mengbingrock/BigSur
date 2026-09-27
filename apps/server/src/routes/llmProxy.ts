@@ -21,23 +21,63 @@ const OPENAI_UPSTREAM = (process.env.OPENAI_API_BASE || "https://api.openai.com/
   /\/v1\/?$/,
   "",
 );
-/** How Labee authenticates to Anthropic upstream: a Console API key, billed to
- *  Labee's own API account.
- *
- *  There used to be a fallback here that served every provided-tier user from
- *  the box's own Claude subscription OAuth token. That is exactly what
- *  Anthropic prohibits: "Anthropic does not permit third-party developers to
- *  offer Claude.ai login into their own applications, or to route requests
- *  through Free, Pro, or Max plan credentials on behalf of their users."
- *  (https://code.claude.com/docs/en/legal-and-compliance). A person's own
- *  subscription is reached by running the CLI on their own machine, where the
- *  login happens through Anthropic's own flow and no credential reaches us. */
-type AnthropicAuth = { kind: "apiKey"; value: string } | null;
+const OAUTH_BETA = "oauth-2025-04-20";
 
-/** Resolve how to authenticate the Anthropic upstream call. */
+/** How Labee authenticates to Anthropic upstream: a Console API key, or — in
+ *  local development only — this machine's own Claude subscription token. */
+type AnthropicAuth =
+  | { kind: "apiKey"; value: string }
+  | { kind: "oauth"; value: string }
+  | null;
+
+/**
+ * Whether the subscription fallback below may be used at all. Off unless
+ * switched on explicitly, which is the entire point of the flag.
+ *
+ * Serving users from a Claude subscription is something Anthropic prohibits —
+ * "Anthropic does not permit third-party developers to ... route requests
+ * through Free, Pro, or Max plan credentials on behalf of their users"
+ * (https://code.claude.com/docs/en/legal-and-compliance) — so it must not be
+ * reachable on a hosted box. Note it cannot simply be gated on "no API key is
+ * configured": that is exactly the state a misconfigured production box is in,
+ * which is how this came to be live on labee.online in the first place. An
+ * explicit opt-in is the only form of "development only" that is actually true.
+ */
+function devSubscriptionProxyEnabled(): boolean {
+  return process.env.LABEE_DEV_SUBSCRIPTION_PROXY === "1";
+}
+
+/** Read this machine's Claude subscription OAuth access token, in order of
+ *  preference: an explicit long-lived token, else the one the CLI stored. */
+function claudeOAuthToken(): string | null {
+  const explicit =
+    process.env.LABEE_ANTHROPIC_OAUTH_TOKEN || process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  if (explicit) return explicit.trim();
+  try {
+    const file = path.join(os.homedir(), ".claude", ".credentials.json");
+    interface OAuthCred {
+      accessToken?: string;
+      expiresAt?: number;
+      claudeAiOauth?: OAuthCred;
+    }
+    const raw = JSON.parse(fs.readFileSync(file, "utf8")) as OAuthCred;
+    const o: OAuthCred = raw.claudeAiOauth ?? raw;
+    // Skip an obviously-expired token (the CLI refreshes it on use, not us).
+    if (o.expiresAt && o.expiresAt < Date.now()) return null;
+    return o.accessToken?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Resolve how to authenticate the Anthropic upstream call. An API key always
+ *  wins; the subscription token is a local-development fallback only. */
 function anthropicAuth(): AnthropicAuth {
   const key = process.env.LABEE_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-  return key ? { kind: "apiKey", value: key } : null;
+  if (key) return { kind: "apiKey", value: key };
+  if (!devSubscriptionProxyEnabled()) return null;
+  const oauth = claudeOAuthToken();
+  return oauth ? { kind: "oauth", value: oauth } : null;
 }
 
 function openaiKey(): string | null {
@@ -259,7 +299,7 @@ function vendorError(e: unknown): Response {
 }
 
 /** POST /api/llm/anthropic/* — forward to api.anthropic.com using Labee's API
- *  key. Returns 503 when no key is configured. */
+ *  key, or the development-only subscription fallback. 503 when neither. */
 export const anthropicProxyRoute = HttpRouter.add(
   "POST",
   "/api/llm/anthropic/*",
@@ -272,7 +312,13 @@ export const anthropicProxyRoute = HttpRouter.add(
     };
     // Forward the beta flags the CLI relies on (tools, fine-grained streaming…).
     const betas = new Set((incoming["anthropic-beta"] ?? "").split(",").map((b) => b.trim()).filter(Boolean));
-    headers["x-api-key"] = auth.value;
+    if (auth.kind === "apiKey") {
+      headers["x-api-key"] = auth.value;
+    } else {
+      // Development-only subscription auth: Bearer token plus the oauth beta.
+      headers["authorization"] = `Bearer ${auth.value}`;
+      betas.add(OAUTH_BETA);
+    }
     if (betas.size) headers["anthropic-beta"] = Array.from(betas).join(",");
     return headers;
   }),
@@ -290,3 +336,7 @@ export const openaiProxyRoute = HttpRouter.add(
 );
 
 export const llmProxyRoutes = [proxyTokenRoute, anthropicProxyRoute, openaiProxyRoute] as const;
+
+/** Exposed for tests: the gate on the dev-only subscription fallback is the
+ *  kind of thing that gets loosened by accident, so it is pinned directly. */
+export const __testAnthropicAuth = anthropicAuth;
