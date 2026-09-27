@@ -5,7 +5,7 @@ import SkillEditor from "~/components/SkillEditor";
 import { Button } from "~/components/ui/button";
 import { apiGet } from "~/lib/api";
 
-export const Route = createFileRoute("/skills/$slug/edit")({
+export const Route = createFileRoute("/skills_/$slug/edit")({
   component: EditSkillPage,
 });
 
