@@ -5,6 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import type { SessionSummary } from "@labee/session-core";
 import { apiGet } from "~/lib/api";
+import { GrantedFolders } from "~/components/GrantedFolders";
+import { LabeeConnectionPanel } from "~/components/LabeeConnectionPanel";
 
 export const Route = createFileRoute("/macs")({ component: MacsPage });
 
@@ -67,19 +69,35 @@ function MacsPage() {
   return (
     <div className="min-h-full">
       <header className="sticky top-0 z-10 flex h-[52px] shrink-0 items-center border-b border-border bg-background/80 px-6 backdrop-blur">
-        <span className="font-display text-[1.0625rem] text-ink">Your Macs</span>
+        <span className="font-display text-[1.0625rem] text-ink">My Device</span>
       </header>
       <div className="p-6">
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
-          {hosts.error ? <p className="text-sm text-ink-light">{(hosts.error as Error).message}</p> : null}
-          {hosts.data && hosts.data.hosts.length === 0 ? (
-            <p className="text-sm text-ink-light">
-              No Mac is linked to this account yet. In the Labee desktop app, use “Connect to Labee” and it will appear here.
-            </p>
-          ) : null}
-          {(hosts.data?.hosts ?? []).map((h) => (
-            <HostSessions key={h.hostId} host={h} />
-          ))}
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+          {/* Connecting this machine to a Labee account is the first thing a
+              person does here, so it leads rather than hiding in Settings. */}
+          <LabeeConnectionPanel />
+
+          <GrantedFolders />
+
+          <section className="flex flex-col gap-4">
+            <div>
+              <h2 className="font-display text-lg text-ink">Linked machines</h2>
+              <p className="mt-1 text-sm text-ink-light">
+                Every computer signed in to this account, and the sessions running on each.
+              </p>
+            </div>
+            {hosts.error ? (
+              <p className="text-sm text-ink-light">{(hosts.error as Error).message}</p>
+            ) : null}
+            {hosts.data && hosts.data.hosts.length === 0 ? (
+              <p className="text-sm text-ink-light">
+                Nothing linked yet. Use Connect to Labee above and this machine will appear here.
+              </p>
+            ) : null}
+            {(hosts.data?.hosts ?? []).map((h) => (
+              <HostSessions key={h.hostId} host={h} />
+            ))}
+          </section>
         </div>
       </div>
     </div>

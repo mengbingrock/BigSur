@@ -43,7 +43,7 @@ interface NavItem {
 
 const WORKSPACE_ITEMS: NavItem[] = [
   {
-    label: "Your Macs",
+    label: "My Device",
     to: "/macs",
     icon: Laptop,
     match: (p) => p === "/macs" || p.startsWith("/macs/"),

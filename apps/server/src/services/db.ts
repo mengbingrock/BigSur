@@ -321,6 +321,19 @@ async function openDb(): Promise<SqlDb> {
       "last_seen_at TEXT);",
   );
   db.exec("CREATE INDEX IF NOT EXISTS idx_link_devices_email ON link_devices (email, status);");
+  // Folders on this machine the person has granted Labee access to. Protocols
+  // inside them are listed, indexed for search, and writable — so this table is
+  // a permission grant, not a convenience list, and nothing outside it (or the
+  // built-in roots) is ever read or written.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS user_folders (" +
+      "email TEXT NOT NULL, " +
+      "path TEXT NOT NULL, " +
+      "label TEXT NOT NULL DEFAULT '', " +
+      "added_at TEXT NOT NULL, " +
+      "PRIMARY KEY (email, path));",
+  );
+
   // Retrieval index for artifacts (protocols + skills). One row per artifact
   // recording what was embedded, and one row per chunk holding its vector as a
   // little-endian Float32 BLOB. Cosine runs in-process: a lab library is a few
