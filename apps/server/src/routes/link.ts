@@ -129,6 +129,7 @@ async function handleMirror(conn: HostConn, frame: Extract<HostToBox, { t: "mirr
   try {
     if (frame.session) await mirror.upsertMirrorSession(email, hostId, { ...frame.session, hostId });
     if (frame.messages) await mirror.upsertMirrorMessages(email, hostId, frame.messages.sessionId, frame.messages.items);
+    if (frame.deleted) await mirror.deleteMirrorSession(email, hostId, frame.deleted);
     if (frame.event) {
       await mirror.insertMirrorEvent(email, hostId, frame.event);
       const evt = frame.event as { type?: string; sessionId?: string; data?: Record<string, unknown> };

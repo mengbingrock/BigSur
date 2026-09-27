@@ -1,5 +1,5 @@
 import { useState, useSyncExternalStore } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import type { Agent } from "@labee/contracts";
 import {
@@ -18,7 +18,7 @@ import {
   Laptop,
 } from "lucide-react";
 
-import { apiGet } from "~/lib/api";
+import { apiGet, apiSend } from "~/lib/api";
 import { useCurrentUser, useLogout } from "~/lib/auth";
 import { chatStore, type SessionMeta } from "~/store/chat-store";
 import {
@@ -168,6 +168,21 @@ export function AppSidebar() {
     chatStore.newSession(agentId);
     void navigate({ to: "/chat", search: { agent: agentId } as never });
   };
+  // Delete a chat that lives on another machine: ask that Mac, through the
+  // relay. The Mac deletes it and tells the box to drop the mirror, so it
+  // leaves every device's list at once. A sleeping Mac can't be asked — and
+  // deleting only the mirror would be undone when it wakes and re-syncs.
+  const qc = useQueryClient();
+  const deleteRemote = async (r: RemoteChat) => {
+    if (!r.hostOnline) return;
+    try {
+      await apiSend("DELETE", `/api/hosts/${encodeURIComponent(r.hostId)}/api/sessions/${encodeURIComponent(r.id)}`);
+    } catch {
+      // The list refresh below shows whether it went; nothing else to do here.
+    }
+    void qc.invalidateQueries({ queryKey: ["link", "sessions"] });
+    if (pathname === `/macs/${r.hostId}/${r.id}`) void navigate({ to: "/macs" });
+  };
   const openSession = (s: SessionMeta) => {
     chatStore.switchSession(s.id);
     void navigate({
@@ -249,10 +264,10 @@ export function AppSidebar() {
               <SidebarMenu>
                 {chats.map((row) =>
                   row.kind === "remote" ? (
-                    <SidebarMenuItem key={`remote:${row.remote.hostId}:${row.remote.id}`}>
+                    <SidebarMenuItem key={`remote:${row.remote.hostId}:${row.remote.id}`} className="group/chat relative">
                       <SidebarMenuButton
                         size="sm"
-                        className="gap-2 px-2 py-2"
+                        className="gap-2 px-2 py-2 pr-7"
                         tooltip={`${row.remote.title} — on ${row.remote.hostName ?? "another machine"}${row.remote.hostOnline ? "" : " (asleep)"}`}
                         isActive={pathname === `/macs/${row.remote.hostId}/${row.remote.id}`}
                         onClick={() =>
@@ -266,10 +281,27 @@ export function AppSidebar() {
                           className={`size-4 shrink-0 ${row.remote.hostOnline ? "" : "text-ink-faint"}`}
                         />
                         <span className="min-w-0 flex-1 truncate">{row.remote.title}</span>
-                        <span className="shrink-0 text-[10px] text-ink-faint tabular-nums">
+                        <span className="shrink-0 text-[10px] text-ink-faint tabular-nums group-hover/chat:opacity-0">
                           {relTime(row.at)}
                         </span>
                       </SidebarMenuButton>
+                      <button
+                        type="button"
+                        aria-label="Delete chat"
+                        title={
+                          row.remote.hostOnline
+                            ? `Delete this chat on ${row.remote.hostName ?? "its Mac"}`
+                            : `${row.remote.hostName ?? "That Mac"} is asleep — wake it to delete this chat`
+                        }
+                        disabled={!row.remote.hostOnline}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void deleteRemote(row.remote);
+                        }}
+                        className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded p-1 text-ink-faint transition hover:text-destructive disabled:cursor-not-allowed disabled:hover:text-ink-faint group-hover/chat:block"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
                     </SidebarMenuItem>
                   ) : (
                     <SidebarMenuItem key={row.local.id} className="group/chat relative">

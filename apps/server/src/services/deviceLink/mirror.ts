@@ -37,6 +37,14 @@ export async function upsertMirrorMessages(email: string, hostId: string, sessio
   for (const m of items) stmt.run(email, hostId, sessionId, Number(m.idx ?? 0), JSON.stringify(m));
 }
 
+/** Forget a session the host deleted: summary, events and messages. */
+export async function deleteMirrorSession(email: string, hostId: string, id: string): Promise<void> {
+  const db = await getDb();
+  db.prepare("DELETE FROM mirror_events WHERE email = ? AND host_id = ? AND session_id = ?").run(email, hostId, id);
+  db.prepare("DELETE FROM mirror_messages WHERE email = ? AND host_id = ? AND session_id = ?").run(email, hostId, id);
+  db.prepare("DELETE FROM mirror_sessions WHERE email = ? AND host_id = ? AND id = ?").run(email, hostId, id);
+}
+
 function parse(raw: unknown): Record<string, unknown> {
   try {
     return JSON.parse(String(raw)) as Record<string, unknown>;

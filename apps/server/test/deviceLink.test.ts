@@ -139,6 +139,51 @@ describe("Device Link", () => {
     expect(frames.map(evType)).toContain("turn_ended");
   }, 40000);
 
+  it("deleting a chat removes it from every device, not just the one that deleted it", async () => {
+    // Deleting only removed the row on the owning Mac; the box kept its mirror,
+    // so within seconds the chat was back in every Chats list. Now the Mac
+    // tells the box, and the box drops summary, events and messages.
+    const created = await api(`/api/hosts/${hostId}/api/sessions`, {
+      method: "POST",
+      body: JSON.stringify({ title: "to be deleted" }),
+    });
+    const { session } = (await created.json()) as { session: { id: string } };
+    await api(`/api/hosts/${hostId}/api/sessions/${session.id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({ text: "one turn so it is mirrored" }),
+    });
+    await waitFor(async () => {
+      const r = (await (await api("/api/link/sessions")).json()) as { sessions: { id: string }[] };
+      return r.sessions.some((s) => s.id === session.id);
+    }, 15000);
+    // A live turn can't be deleted out from under itself (409), so wait for it.
+    await waitFor(async () => {
+      const r = await api(`/api/hosts/${hostId}/api/sessions/${session.id}`);
+      const g = (await r.json()) as { session?: { status: string } };
+      return g.session?.status === "idle";
+    }, 15000);
+
+    // Delete it the way the sidebar does from another machine: via the relay.
+    const del = await fetch(`${desktop.base}/api/hosts/${hostId}/api/sessions/${session.id}`, {
+      method: "DELETE",
+      headers: { cookie },
+    });
+    expect(del.status).toBe(200);
+
+    // Gone from the box's mirror, and so from the everywhere-list.
+    await waitFor(async () => {
+      const r = (await (await api("/api/link/sessions")).json()) as { sessions: { id: string }[] };
+      return !r.sessions.some((s) => s.id === session.id);
+    }, 10000);
+    const { getDb } = await import("../src/services/db");
+    const db = await getDb();
+    for (const t of ["mirror_sessions", "mirror_events", "mirror_messages"]) {
+      const col = t === "mirror_sessions" ? "id" : "session_id";
+      const row = db.prepare(`SELECT COUNT(*) AS n FROM ${t} WHERE ${col} = ?`).get(session.id);
+      expect(Number(row?.n ?? 0), t).toBe(0);
+    }
+  }, 40000);
+
   it("lists every chat across machines, from the box and from a desktop alike", async () => {
     // The tunnel test above ran a turn on the desktop, which mirrored the
     // session to the box. Both surfaces should now list it, tagged with the

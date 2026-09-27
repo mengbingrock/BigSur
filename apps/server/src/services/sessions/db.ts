@@ -198,12 +198,29 @@ export async function updateSession(
   db.prepare(`UPDATE chat_sessions SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
 }
 
+/** Told when a session is deleted here. The Device Link client listens, so
+ *  the box drops its mirror too — otherwise a deleted chat came straight back
+ *  into every device's Chats list from the copy the box still held. */
+const deleteListeners = new Set<(id: string) => void>();
+
+export function subscribeSessionDeleted(fn: (id: string) => void): () => void {
+  deleteListeners.add(fn);
+  return () => void deleteListeners.delete(fn);
+}
+
 export async function deleteSession(id: string): Promise<void> {
   const db = await getDb();
   db.prepare("DELETE FROM chat_session_events WHERE session_id = ?").run(id);
   db.prepare("DELETE FROM chat_session_messages WHERE session_id = ?").run(id);
   db.prepare("DELETE FROM chat_session_queue WHERE session_id = ?").run(id);
   db.prepare("DELETE FROM chat_sessions WHERE id = ?").run(id);
+  for (const fn of deleteListeners) {
+    try {
+      fn(id);
+    } catch {
+      // A listener must never undo the delete that triggered it.
+    }
+  }
 }
 
 /** Append one event; returns its seq (per-session, monotonic) and timestamp. */

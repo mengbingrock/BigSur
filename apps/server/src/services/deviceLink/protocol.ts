@@ -48,6 +48,8 @@ export interface MirrorFrame {
   session?: Record<string, unknown>;
   event?: Record<string, unknown>;
   messages?: { sessionId: string; items: Record<string, unknown>[] };
+  /** A session deleted on the host; the box drops every mirrored trace of it. */
+  deleted?: string;
   /** Ask the box to push a notification to this account's devices. */
   notify?: { title: string; body: string; data?: Record<string, unknown> };
 }

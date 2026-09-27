@@ -13,6 +13,7 @@ import type { BoxToHost, HostToBox } from "./protocol";
 import { LINK_VERSION } from "./protocol";
 import { ensureLinkSecret } from "./secret";
 import { subscribeAgents } from "../agents";
+import { subscribeSessionDeleted } from "../sessions/db";
 
 const CHUNK = 64 * 1024;
 const HEARTBEAT_MS = 20_000;
@@ -211,6 +212,11 @@ function runSocket(
       }, delay);
     };
     const unsubscribeAgents = subscribeAgents(() => scheduleAgentSync());
+    // A chat deleted here must vanish from the box too, or it returns to
+    // every device's Chats list from the mirror within seconds.
+    const unsubscribeDeleted = subscribeSessionDeleted((id) => {
+      if (welcomed) send({ t: "mirror", deleted: id });
+    });
 
     const fullSync = async () => {
       // Sessions of every local account: the desktop is single-user in practice.
@@ -266,6 +272,7 @@ function runSocket(
       clearInterval(heartbeat);
       unsubscribe();
       unsubscribeAgents();
+      unsubscribeDeleted();
       if (agentTimer) clearTimeout(agentTimer);
       for (const c of inflight.values()) c.abort();
       inflight.clear();
