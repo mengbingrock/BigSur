@@ -88,5 +88,7 @@ export const FsBrowse = Schema.Struct({
   parent: Schema.NullOr(Schema.String),
   home: Schema.String,
   dirs: Schema.Array(FsDir),
+  /** Files in this directory, present only when the caller asked for them. */
+  files: Schema.optional(Schema.Array(FsDir)),
 });
 export type FsBrowse = typeof FsBrowse.Type;

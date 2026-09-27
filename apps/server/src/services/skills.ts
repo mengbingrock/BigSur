@@ -3,7 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import matter from "gray-matter";
 import type { Skill, SkillOrigin, SkillSource } from "@labee/contracts";
-import { grantedFolderPathsSync } from "./userFolders";
+import { grantedFilePathsSync, grantedFolderPathsSync } from "./userFolders";
 
 interface Root {
   path: string;
@@ -226,9 +226,16 @@ function parseSkillFile(
     return null;
   }
   const data = parsed.data as Record<string, unknown>;
+  // Without a `name:` in frontmatter, fall back to the filename for a loose
+  // document and to the folder name for a SKILL.md, which is the folder's
+  // manifest rather than a document in its own right.
+  const loose = !/^skill\.md$/i.test(path.basename(file));
+  const fallbackName = loose
+    ? path.basename(file, path.extname(file))
+    : path.basename(path.dirname(file));
   const name = typeof data.name === "string" && data.name.trim()
     ? data.name.trim()
-    : path.basename(path.dirname(file));
+    : fallbackName;
   const rawKind = typeof data.kind === "string" ? data.kind.toLowerCase() : "";
   const artifactKind = rawKind === "protocol" ? "protocol" : "skill";
   // A `category` in frontmatter overrides the folder name for display only;
@@ -257,6 +264,8 @@ function parseSkillFile(
     sourceLabel,
     origin: parseOrigin(data.origin),
     sourcePath: path.dirname(file),
+    // A single-file grant has no manifest directory; the file is the artifact.
+    ...(loose ? { artifactFile: file } : {}),
     artifactKind,
   };
 }
@@ -327,6 +336,13 @@ export function getAllSkills(
       const parsed = parseSkillFile(file, { kind: "user" }, "workspace", dir);
       if (parsed) collected.push(parsed);
     }
+  }
+
+  // Single granted documents: the file itself is the artifact, so it is parsed
+  // directly rather than walked for a SKILL.md.
+  for (const file of grantedFilePathsSync(email)) {
+    const parsed = parseSkillFile(file, { kind: "user" }, "workspace");
+    if (parsed) collected.push(parsed);
   }
 
   // Drop workspace skills that merely duplicate a catalog skill by name (e.g.
@@ -519,6 +535,8 @@ function ownBases(email: string): string[] {
   bases.push(userWorkspaceSkillDir(email));
   // A granted folder is writable by design: it is where new protocols go.
   for (const d of grantedFolderPathsSync(email)) bases.push(d);
+  // A granted document is writable too, but only that one file.
+  for (const f of grantedFilePathsSync(email)) bases.push(f);
   return bases;
 }
 
@@ -569,7 +587,9 @@ export function saveSkill(
   }
   assertEditable(existing);
 
-  const file = path.join(existing.sourcePath, "SKILL.md");
+  // A single granted document is edited in place; a folder artifact has its
+  // SKILL.md rewritten.
+  const file = existing.artifactFile ?? path.join(existing.sourcePath, "SKILL.md");
   if (!isInsideOwnFolder(file, email)) {
     const err = new Error(
       "Refusing to write outside your own skills folder.",

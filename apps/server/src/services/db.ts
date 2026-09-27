@@ -330,9 +330,12 @@ async function openDb(): Promise<SqlDb> {
       "email TEXT NOT NULL, " +
       "path TEXT NOT NULL, " +
       "label TEXT NOT NULL DEFAULT '', " +
+      "kind TEXT NOT NULL DEFAULT 'folder', " +
       "added_at TEXT NOT NULL, " +
       "PRIMARY KEY (email, path));",
   );
+
+  ensureColumn(db, "user_folders", "kind", "TEXT NOT NULL DEFAULT 'folder'");
 
   // Retrieval index for artifacts (protocols + skills). One row per artifact
   // recording what was embedded, and one row per chunk holding its vector as a

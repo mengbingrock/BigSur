@@ -1,13 +1,24 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, FolderOpen, Loader2, Plus, X } from "lucide-react";
+import { AlertTriangle, FileText, FolderOpen, Loader2, Plus, X } from "lucide-react";
 import { FolderPicker } from "~/components/FolderPicker";
 import { Button } from "~/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogPanel,
+  DialogPopup,
+  DialogTitle,
+} from "~/components/ui/dialog";
 import { apiGet, apiSend } from "~/lib/api";
 
 interface UserFolder {
   path: string;
   label: string;
+  kind: "folder" | "file";
   addedAt: string;
   exists: boolean;
 }
@@ -57,46 +68,65 @@ export function GrantedFolders() {
     <section className="rounded-lg border border-border bg-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-display text-lg text-ink">Folders Labee can use</h2>
+          <h2 className="font-display text-lg text-ink">What Labee can use</h2>
           <p className="mt-1 max-w-xl text-sm text-ink-light">
-            Protocols in these folders appear in your library, are indexed for search, and can be
-            edited here. New protocols can be saved into them. Nothing outside this list is read.
+            Add a folder of protocols, or a single document. Whatever you add appears in your
+            library, is indexed for search, and can be edited here. Nothing outside this list is
+            read.
           </p>
         </div>
-        {!picking && (
-          <Button variant="outline" size="sm" onClick={() => setPicking(true)}>
-            <Plus className="size-4" />
-            Add folder
-          </Button>
-        )}
+        <Button variant="outline" size="sm" onClick={() => setPicking(true)}>
+          <Plus className="size-4" />
+          Add
+        </Button>
       </div>
 
-      {picking && (
-        <div className="mt-4 rounded-md border border-border p-3">
-          <FolderPicker value={chosen} onSelect={(p) => setChosen(p)} />
-          <div className="mt-3 flex items-center gap-2">
+      <Dialog
+        open={picking}
+        onOpenChange={(open: boolean) => {
+          setPicking(open);
+          if (!open) {
+            setChosen("");
+            add.reset();
+          }
+        }}
+      >
+        <DialogPopup className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add a folder or document</DialogTitle>
+            <DialogDescription>
+              Browse to a folder of protocols, or pick a single .md, .markdown, .txt or .rst file.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogPanel>
+            <FolderPicker allowFiles value={chosen} onSelect={(p) => setChosen(p)} />
+            {chosen ? (
+              <p className="mt-3 truncate font-mono text-xs text-ink-light" title={chosen}>
+                Selected: {chosen}
+              </p>
+            ) : (
+              <p className="mt-3 text-xs text-ink-faint">
+                Click a document to choose it, or use the button below to take the folder you are in.
+              </p>
+            )}
+            {add.error ? (
+              <p className="mt-2 text-sm text-destructive">
+                {add.error instanceof Error ? add.error.message : "Could not add that."}
+              </p>
+            ) : null}
+          </DialogPanel>
+          <DialogFooter>
+            <DialogClose render={<Button variant="ghost" />}>Cancel</DialogClose>
             <Button
-              size="sm"
               disabled={!chosen.trim() || add.isPending}
               onClick={() => add.mutate(chosen.trim())}
             >
               {add.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-              Add this folder
+              Add
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setPicking(false);
-                setChosen("");
-                add.reset();
-              }}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
+          </DialogFooter>
+        </DialogPopup>
+      </Dialog>
 
       {err ? (
         <p className="mt-3 text-sm text-destructive">
@@ -111,13 +141,18 @@ export function GrantedFolders() {
         </p>
       ) : folders.length === 0 ? (
         <p className="mt-4 text-sm text-ink-light">
-          No folders yet. Add the one your protocols live in and they will show up in Protocols.
+          Nothing added yet. Add the folder your protocols live in, or a single document, and it
+          will show up in Protocols.
         </p>
       ) : (
         <ul className="mt-4 divide-y divide-border">
           {folders.map((f) => (
             <li key={f.path} className="flex items-center gap-3 py-2.5">
-              <FolderOpen className="size-4 shrink-0 text-ink-faint" />
+              {f.kind === "file" ? (
+                <FileText className="size-4 shrink-0 text-ink-faint" />
+              ) : (
+                <FolderOpen className="size-4 shrink-0 text-ink-faint" />
+              )}
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium text-ink">{f.label}</span>
                 <span className="block truncate font-mono text-xs text-ink-light">{f.path}</span>

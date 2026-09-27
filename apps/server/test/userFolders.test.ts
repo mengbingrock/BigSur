@@ -58,10 +58,14 @@ describe("granted folders", () => {
     expect(anon.status).toBe(401);
   });
 
-  it("refuses anything outside the home directory, a file, or a missing path", async () => {
+  it("refuses anything outside the home directory, unreadable, or missing", async () => {
+    // A document file is allowed (see the single-document test); what is
+    // refused is anything Labee could not read as a protocol.
+    const binary = path.join(granted, "photo.png");
+    fs.writeFileSync(binary, "x");
     for (const [p, why] of [
       [outside, "outside home"],
-      [path.join(granted, "lysis", "SKILL.md"), "a file"],
+      [binary, "not a document"],
       [path.join(granted, "nope"), "missing"],
       [os.homedir(), "the whole home directory"],
       ["relative/path", "not absolute"],
@@ -94,6 +98,51 @@ describe("granted folders", () => {
     // And a parent that would swallow the existing grant.
     const parent = path.dirname(granted);
     if (parent !== os.homedir()) expect((await add(parent)).status).toBe(400);
+  });
+
+  it("adds a single document and reads it as a protocol", async () => {
+    const doc = path.join(os.homedir(), ".labee-test-loose-protocol.md");
+    fs.writeFileSync(doc, "# Steps\n\nWarm the buffer to 37 C before use.\n");
+    try {
+      const r = await add(doc);
+      expect(r.status).toBe(200);
+      const { folder } = (await r.json()) as { folder: { kind: string; label: string } };
+      expect(folder.kind).toBe("file");
+
+      // No frontmatter, so it is named after the file rather than its folder.
+      const p = (await protocols()).find((s) => s.name === ".labee-test-loose-protocol");
+      expect(p).toBeTruthy();
+
+      // Editing writes back to that file, not to a SKILL.md beside it.
+      const slug = p!.slug;
+      const put = await api(`/api/skills/${slug}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: "Loose protocol",
+          description: "Edited in place",
+          allowedTools: [],
+          body: "Warm the buffer to 42 C.",
+          kind: "protocol",
+        }),
+      });
+      expect(put.status).toBe(200);
+      expect(fs.readFileSync(doc, "utf8")).toContain("42 C");
+      expect(fs.existsSync(path.join(os.homedir(), "SKILL.md"))).toBe(false);
+
+      await api(`/api/folders?path=${encodeURIComponent(doc)}`, { method: "DELETE" });
+    } finally {
+      fs.rmSync(doc, { force: true });
+    }
+  });
+
+  it("refuses a file that is not a readable document", async () => {
+    const bin = path.join(os.homedir(), ".labee-test-not-a-doc.png");
+    fs.writeFileSync(bin, "x");
+    try {
+      expect((await add(bin)).status).toBe(400);
+    } finally {
+      fs.rmSync(bin, { force: true });
+    }
   });
 
   it("lets a protocol in a granted folder be edited, which proves it is writable", async () => {
