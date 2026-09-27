@@ -243,6 +243,27 @@ function sanitizeSkillDirName(name: string): string {
   return cleaned || "skill";
 }
 
+/** Write a standalone protocol document with the person's edited body, keeping
+ *  its frontmatter. */
+async function materializeDocumentWithOverride(
+  dst: string,
+  protocol: Skill,
+  customBody: string,
+): Promise<void> {
+  let raw = "";
+  try {
+    raw = await fs.readFile(protocol.artifactFile!, "utf8");
+  } catch {
+    // bare body fallback
+  }
+  const parsed = raw ? matter(raw) : { data: {}, content: "" };
+  await fs.writeFile(
+    dst,
+    matter.stringify(customBody.replace(/\s+$/, "") + "\n", parsed.data as Record<string, unknown>),
+    "utf8",
+  );
+}
+
 async function materializeArtifactWithOverride(
   dst: string,
   skill: Skill,
@@ -327,15 +348,28 @@ async function linkSelectedProtocols(
     let suffix = 2;
     while (used.has(name)) name = `${baseName}-${suffix++}`;
     used.add(name);
-    const dst = path.join(protocolsDir, name);
     const override = notes[protocol.slug];
+    const hasOverride = typeof override === "string" && override.trim().length > 0;
     try {
-      if (typeof override === "string" && override.trim().length > 0) {
-        await materializeArtifactWithOverride(dst, protocol, override);
+      if (protocol.artifactFile) {
+        // A standalone document: copy just that file. Symlinking its directory
+        // would expose every other file the person keeps beside it.
+        const dst = path.join(protocolsDir, `${name}.md`);
+        if (hasOverride) {
+          await materializeDocumentWithOverride(dst, protocol, override);
+        } else {
+          await fs.copyFile(protocol.artifactFile, dst);
+        }
+        linked.push({ protocol, relPath: `.claude/protocols/${name}.md` });
       } else {
-        await fs.symlink(protocol.sourcePath, dst, "dir");
+        const dst = path.join(protocolsDir, name);
+        if (hasOverride) {
+          await materializeArtifactWithOverride(dst, protocol, override);
+        } else {
+          await fs.symlink(protocol.sourcePath, dst, "dir");
+        }
+        linked.push({ protocol, relPath: `.claude/protocols/${name}/SKILL.md` });
       }
-      linked.push({ protocol, relPath: `.claude/protocols/${name}/SKILL.md` });
     } catch {
       // skip
     }
