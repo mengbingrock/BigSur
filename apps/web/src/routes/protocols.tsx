@@ -64,15 +64,13 @@ interface IndexStatus {
   available: boolean;
 }
 
-type Ownership = "all" | "mine" | "shared" | "imported";
+type Ownership = "all" | "mine" | "imported";
 
-/** Which ownership bucket a protocol falls in. `sourceLabel` is "user" /
- *  "workspace" for the caller's own, "public" for the lab's shared folder;
- *  anything with an `origin` came in from GitHub, a registry or a file. */
+/** Which bucket a protocol falls in. Every protocol is the person's own; the
+ *  only distinction worth a filter is whether it was written here or came in
+ *  from GitHub, a registry or a file (it has an `origin`). */
 function ownershipOf(p: Skill): Exclude<Ownership, "all"> {
-  if (p.sourceLabel === "public") return "shared";
-  if (p.origin) return "imported";
-  return "mine";
+  return p.origin ? "imported" : "mine";
 }
 
 /** "2 days ago", "3 weeks ago". Empty when the server sent no mtime. */
@@ -289,15 +287,12 @@ function ProtocolsPage() {
 
   const ownerCounts = useMemo(() => {
     let mine = 0;
-    let shared = 0;
     let imported = 0;
     for (const p of protocols) {
-      const o = ownershipOf(p);
-      if (o === "mine") mine += 1;
-      else if (o === "shared") shared += 1;
+      if (ownershipOf(p) === "mine") mine += 1;
       else imported += 1;
     }
-    return { all: protocols.length, mine, shared, imported };
+    return { all: protocols.length, mine, imported };
   }, [protocols]);
 
   /** Sections: recently updated first, then one per category in rail order.
@@ -320,7 +315,7 @@ function ProtocolsPage() {
           <p className="mt-1 text-sm text-ink-light">
             {isLoading
               ? "Loading…"
-              : `${protocols.length} protocol${protocols.length === 1 ? "" : "s"} · ${categories.length} categor${categories.length === 1 ? "y" : "ies"}${ownerCounts.shared ? ` · ${ownerCounts.shared} shared` : ""}`}
+              : `${protocols.length} protocol${protocols.length === 1 ? "" : "s"} · ${categories.length} categor${categories.length === 1 ? "y" : "ies"}`}
           </p>
         </div>
         {user && (
@@ -367,11 +362,6 @@ function ProtocolsPage() {
           <Chip active={owner === "mine"} onClick={() => setOwner("mine")}>
             Mine <Count>{ownerCounts.mine}</Count>
           </Chip>
-          {ownerCounts.shared > 0 && (
-            <Chip active={owner === "shared"} onClick={() => setOwner("shared")}>
-              Shared <Count>{ownerCounts.shared}</Count>
-            </Chip>
-          )}
           {ownerCounts.imported > 0 && (
             <Chip active={owner === "imported"} onClick={() => setOwner("imported")}>
               Imported <Count>{ownerCounts.imported}</Count>
@@ -650,7 +640,6 @@ function ProtocolCard({
   const navigate = useNavigate();
   const owner = ownershipOf(protocol);
   const when = relTime(protocol.updatedAt);
-  const editable = owner !== "shared";
   return (
     <article className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
       <Link
@@ -671,7 +660,7 @@ function ProtocolCard({
         {hit?.snippet ?? protocol.description}
       </p>
       <div className="mt-1 flex items-center gap-2 text-xs text-ink-light">
-        <span className="capitalize">{owner === "shared" ? "Shared" : owner}</span>
+        <span className="capitalize">{owner}</span>
         {protocol.fileCount ? <span>· {protocol.fileCount} files</span> : null}
       </div>
       <div className="mt-2 flex items-center gap-2">
@@ -690,7 +679,7 @@ function ProtocolCard({
           Use in chat
         </Button>
         <div className="flex-1" />
-        {editable && (
+        {(
           <label className="flex items-center gap-1 text-xs text-ink-light">
             <span className="sr-only">Move {protocol.name} to a category</span>
             {moving ? (

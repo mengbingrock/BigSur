@@ -69,8 +69,9 @@ export async function syncSkillsFromServer(email: string): Promise<RemoteSyncRes
 
   for (const skill of skills) {
     const dirName = path.basename(skill.sourcePath || skill.slug) || skill.slug;
-    const isPublic = skill.source?.kind === "public" || skill.sourceLabel === "public";
-    const target = path.join(root, isPublic ? "_public" : userSlug(email), dirName);
+    // Everything pulled down is this person's, filed by kind in their root.
+    const kindDir = skill.artifactKind === "protocol" ? "protocols" : "skills";
+    const target = path.join(root, userSlug(email), kindDir, dirName);
     await fsp.mkdir(target, { recursive: true });
 
     // Pull the full file tree (SKILL.md + references) — text files carry content.

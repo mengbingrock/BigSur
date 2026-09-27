@@ -1,28 +1,30 @@
 // Starter protocols shipped with the app.
 //
 // A protocol library with nothing in it teaches nobody what a protocol is, so
-// a dozen real bench protocols ride along in the bundle and are copied into the
-// shared `_public` folder the first time a server starts with an empty one.
+// a dozen real bench protocols ride along in the bundle. They are copied into
+// each person's OWN protocols folder the first time that folder is read —
+// from then on they are that person's, to edit, recategorise or delete like
+// anything else there. There is no shared copy.
 //
 // Rules that matter:
-//   - only ever writes into `_public`, never into anyone's own folder;
-//   - never overwrites a file that exists, so an edit survives a restart;
-//   - never re-adds a file it has already seeded, so a starter protocol the
-//     operator deleted stays deleted instead of returning on every boot;
-//   - still picks up protocols added by a later release, because the record is
-//     of what has been seeded, not merely that seeding happened;
+//   - never overwrites a file that exists, so an edit survives;
+//   - never re-delivers a file it has already delivered, so a starter protocol
+//     the person deleted stays deleted instead of returning on every boot;
+//   - still delivers protocols added by a later release, because the record
+//     is of what has been delivered, not merely that delivery happened;
 //   - a missing seed directory is not an error — a dev checkout that has not
 //     been built simply has nothing to copy.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { userSkillsRootPath } from "./skills";
 
-const PUBLIC_FOLDER = "_public";
-/** Record of every seed file already delivered, one relative path per line.
- *  Consulted before copying, so deletions stick and later releases still top
- *  up. Lives inside _public, which is operator-owned territory. */
-const STAMP = ".seeded";
+/** Record of every seed file already delivered to a folder, one relative path
+ *  per line. Lives inside the person's protocols folder, beside their files. */
+const STAMP = ".starter-protocols";
+
+/** Folders already checked this process, so the per-request scan that calls
+ *  this pays for one Set lookup after the first time. */
+const done = new Set<string>();
 
 /** Locate the bundled seed directory: beside dist/bin.mjs in a build, or in the
  *  source tree when running from a checkout. Mirrors resolveStaticDir(). */
@@ -50,16 +52,16 @@ function walk(dir: string, base = dir): string[] {
 }
 
 /**
- * Copy the bundled starter protocols into `<skills root>/_public/`, skipping
- * anything already present. Safe to call on every boot; returns how many files
- * it actually wrote.
+ * Copy the bundled starter protocols into `target` (a person's protocols
+ * folder), skipping anything already delivered there. Safe to call on every
+ * read; returns how many files it actually wrote.
  */
-export function seedPublicProtocols(): number {
+export function seedStarterProtocols(target: string): number {
   if (process.env.LABEE_SEED_PROTOCOLS === "false") return 0;
+  if (done.has(target)) return 0;
   const from = seedDir();
   if (!from) return 0;
   try {
-    const target = path.join(userSkillsRootPath(), PUBLIC_FOLDER);
     fs.mkdirSync(target, { recursive: true });
     const stamp = path.join(target, STAMP);
     const seeded = new Set(
@@ -70,7 +72,7 @@ export function seedPublicProtocols(): number {
 
     let copied = 0;
     for (const rel of walk(from)) {
-      // Already delivered once: whatever the operator did with it since —
+      // Already delivered once: whatever the person did with it since —
       // edited, moved, deleted — is their decision, not ours to undo.
       if (seeded.has(rel)) continue;
       const dst = path.join(target, rel);
@@ -81,14 +83,20 @@ export function seedPublicProtocols(): number {
       copied += 1;
     }
     fs.writeFileSync(stamp, [...seeded].sort().join("\n") + "\n");
+    done.add(target);
     if (copied > 0) {
-      console.info(`[seed] added ${copied} starter protocol file(s) to ${PUBLIC_FOLDER}`);
+      console.info(`[seed] delivered ${copied} starter protocol file(s) to ${target}`);
     }
     return copied;
   } catch (e) {
-    // Seeding is a convenience; a read-only or unusual filesystem must not stop
-    // the server from booting.
-    console.warn("[seed] could not seed starter protocols:", e);
+    // Seeding is a convenience; a read-only or unusual filesystem must not
+    // stop the library from loading.
+    console.warn("[seed] could not deliver starter protocols:", e);
     return 0;
   }
+}
+
+/** For tests: forget which folders were seeded this process. */
+export function resetSeedMemory(): void {
+  done.clear();
 }

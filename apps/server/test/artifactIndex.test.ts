@@ -136,7 +136,7 @@ describe("artifact index", () => {
   it("re-embeds only what changed when a protocol is edited on disk", async () => {
     const before = (await (await api(cookie, "/api/skills/index/status")).json()) as { indexed: number };
     fs.writeFileSync(
-      path.join(ownDir, "organic", "SKILL.md"),
+      path.join(ownDir, "protocols", "organic", "SKILL.md"),
       `---\nname: Organic phase separation\ndescription: Organic phase separation\nkind: protocol\n---\n\n## Procedure\n\nNow uses a column instead, with guanidine thiocyanate.\n`,
     );
     const r = await search(cookie, "guanidine thiocyanate");
@@ -148,7 +148,7 @@ describe("artifact index", () => {
   });
 
   it("drops rows for a deleted artifact", async () => {
-    fs.rmSync(path.join(ownDir, "organic"), { recursive: true, force: true });
+    fs.rmSync(path.join(ownDir, "protocols", "organic"), { recursive: true, force: true });
     const r = await search(cookie, "phenol chloroform");
     expect(r.hits.every((h) => !h.slug.includes("organic-phase-separation"))).toBe(true);
     const status = (await (await api(cookie, "/api/skills/index/status")).json()) as { total: number };

@@ -129,10 +129,10 @@ describe("categorisation agent", () => {
   });
 
   it("writes nothing — the library is untouched until a proposal is applied", async () => {
-    const before = fs.readdirSync(ownDir).sort();
+    const before = fs.readdirSync(path.join(ownDir, "protocols")).sort();
     await suggest();
-    expect(fs.readdirSync(ownDir).sort()).toEqual(before);
-    expect(fs.existsSync(path.join(ownDir, "ligation", "SKILL.md"))).toBe(true);
+    expect(fs.readdirSync(path.join(ownDir, "protocols")).sort()).toEqual(before);
+    expect(fs.existsSync(path.join(ownDir, "protocols", "ligation", "SKILL.md"))).toBe(true);
     const listed = (await (await api("/api/skills/categories")).json()) as { categories: string[] };
     expect(listed.categories).toEqual(["Cloning"]);
   });
@@ -145,7 +145,7 @@ describe("categorisation agent", () => {
       body: JSON.stringify({ category: p.category }),
     });
     expect(moved.status).toBe(200);
-    expect(fs.existsSync(path.join(ownDir, "Cloning", "ligation", "SKILL.md"))).toBe(true);
+    expect(fs.existsSync(path.join(ownDir, "protocols", "Cloning", "ligation", "SKILL.md"))).toBe(true);
     // And it stops being proposed, because it is no longer uncategorised.
     const after = await suggest();
     expect(after.proposals.map((x) => x.name)).not.toContain("Blunt end ligation");

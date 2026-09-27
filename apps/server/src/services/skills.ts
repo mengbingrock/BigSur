@@ -3,6 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import matter from "gray-matter";
 import type { Skill, SkillOrigin, SkillSource } from "@labee/contracts";
+import { seedStarterProtocols } from "./seedProtocols";
 import { grantedFilePathsSync, grantedFolderPathsSync } from "./userFolders";
 
 interface Root {
@@ -171,15 +172,130 @@ function marketplaceFromPath(filePath: string, rootPath: string): string | null 
 }
 
 /** Folder name (under each user root) holding skills visible to everyone. */
-const PUBLIC_FOLDER = "_public";
+/** Left over from when protocols had a shared folder. Old installs still have
+ *  the directory on disk; it is never read, and must not become a category. */
+const LEGACY_SHARED_FOLDER = "_public";
+
+/**
+ * Layout of a person's own artifact folder. Two kinds, two subfolders, and the
+ * folder decides the kind:
+ *
+ *   <base>/protocols/<Category>/<slug>.md   a protocol is a document; its
+ *                                            category is the subfolder it is in
+ *   <base>/skills/<slug>/SKILL.md            a skill is a folder, because it can
+ *                                            carry scripts beside its manifest
+ *
+ * `base` is the user root (`<root>/<emailSlug>/`) or the deck workspace's
+ * `.skill/`. Older installs kept both kinds side by side at the top of the
+ * base and told them apart by "is it a SKILL.md"; migrateLayout() moves that
+ * into the two subfolders once. Granted folders are the person's own choice
+ * of place and are read as they are.
+ */
+const PROTOCOLS_DIR = "protocols";
+const SKILLS_DIR = "skills";
+
+/** Where this person's protocols live. Created on demand by the writers. */
+export function ownProtocolsDir(email: string): string {
+  return path.join(ownRootDir(email), PROTOCOLS_DIR);
+}
+
+/** Where this person's skills live. */
+export function ownSkillsDir(email: string): string {
+  return path.join(ownRootDir(email), SKILLS_DIR);
+}
+
+/** Is `base` one of the folders that carries the protocols/skills layout, as
+ *  opposed to a granted folder, which is read as the person arranged it? */
+function hasLayout(base: string, email: string): boolean {
+  // Compare real paths: callers hand us both resolved and unresolved forms,
+  // and on macOS /var and /tmp are symlinks, so string equality would call
+  // the same folder two different things.
+  const real = (p: string): string => {
+    try {
+      return fs.realpathSync(p);
+    } catch {
+      return path.resolve(p);
+    }
+  };
+  const r = real(base);
+  return r === real(ownRootDir(email)) || r === real(userWorkspaceSkillDir(email));
+}
+
+/** The folder categories live in for a given base. */
+function protocolsDirOf(base: string, email: string): string {
+  return hasLayout(base, email) ? path.join(base, PROTOCOLS_DIR) : base;
+}
+
+/** Move a base's old flat layout into protocols/ and skills/. Idempotent, and
+ *  never overwrites: an entry that already exists at the destination is left
+ *  where it is and shows up as a duplicate to be sorted out by hand rather
+ *  than silently clobbered. */
+function migrateLayout(base: string): void {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(base, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const e of entries) {
+    if (e.name.startsWith(".") || e.name === PROTOCOLS_DIR || e.name === SKILLS_DIR) continue;
+    if (e.name === LEGACY_SHARED_FOLDER) continue;
+    const from = path.join(base, e.name);
+    let to: string;
+    if (e.isDirectory()) {
+      // A folder with a manifest is a skill — unless the manifest says it is a
+      // protocol, which is how protocols were written before they became
+      // documents. Honour that: the file knows what it is better than the
+      // shape it was stored in.
+      const manifest = path.join(from, "SKILL.md");
+      const isSkill = fs.existsSync(manifest) && declaredKind(manifest) !== "protocol";
+      to = path.join(base, isSkill ? SKILLS_DIR : PROTOCOLS_DIR, e.name);
+    } else if (e.isFile() && PROTOCOL_EXTENSIONS.has(path.extname(e.name).toLowerCase())) {
+      to = path.join(base, PROTOCOLS_DIR, e.name);
+    } else {
+      continue;
+    }
+    if (fs.existsSync(to)) continue;
+    fs.mkdirSync(path.dirname(to), { recursive: true });
+    fs.renameSync(from, to);
+  }
+}
+
+/** The `kind:` a manifest declares for itself, if any. Only used to place
+ *  legacy folders during migration; afterwards the folder is the authority. */
+function declaredKind(manifest: string): "skill" | "protocol" | undefined {
+  try {
+    const k = matter(fs.readFileSync(manifest, "utf8")).data?.kind;
+    return k === "protocol" || k === "skill" ? k : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Read one base in the two-folder layout, after migrating it if needed. */
+function scanOwnBase(base: string, label: string, into: Array<Omit<Skill, "slug">>): void {
+  if (!fs.existsSync(base)) return;
+  migrateLayout(base);
+  const pdir = path.join(base, PROTOCOLS_DIR);
+  if (fs.existsSync(pdir)) {
+    for (const file of findSkillFiles(pdir)) {
+      const parsed = parseSkillFile(file, { kind: "user" }, label, pdir, "protocol");
+      if (parsed) into.push(parsed);
+    }
+  }
+  const sdir = path.join(base, SKILLS_DIR);
+  if (fs.existsSync(sdir)) {
+    for (const file of findSkillFiles(sdir)) {
+      const parsed = parseSkillFile(file, { kind: "user" }, label, sdir, "skill");
+      if (parsed) into.push(parsed);
+    }
+  }
+}
 
 function slugify(name: string, source: SkillSource): string {
   const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   if (source.kind === "plugin") {
     return `${source.marketplace.toLowerCase().replace(/[^a-z0-9]+/g, "-")}--${base}`;
-  }
-  if (source.kind === "public") {
-    return `public--${base}`;
   }
   return `user--${base}`;
 }
@@ -265,6 +381,8 @@ function parseSkillFile(
   source: SkillSource,
   sourceLabel: string,
   baseDir?: string,
+  /** Set when the folder the file sits in already says what it is. */
+  forcedKind?: "skill" | "protocol",
 ): Omit<Skill, "slug"> | null {
   let parsed: matter.GrayMatterFile<string>;
   try {
@@ -288,7 +406,7 @@ function parseSkillFile(
   // folder manifest is a skill — which is what each shape is for.
   const rawKind = typeof data.kind === "string" ? data.kind.toLowerCase() : "";
   const artifactKind: "skill" | "protocol" =
-    rawKind === "protocol" ? "protocol" : rawKind === "skill" ? "skill" : loose ? "protocol" : "skill";
+    forcedKind ?? (rawKind === "protocol" ? "protocol" : rawKind === "skill" ? "skill" : loose ? "protocol" : "skill");
   // A `category` in frontmatter overrides the folder name for display only;
   // it never moves files.
   const declaredCategory =
@@ -323,11 +441,10 @@ function parseSkillFile(
 
 /**
  * List skills visible to `email`:
- *   - user: caller's own folder (`<root>/<emailSlug>/`)
- *   - public: shared, read-only folder (`<root>/_public/`) seen by everyone
+ *   - user: caller's own folder (`<root>/<emailSlug>/`), starter protocols included
  *   - plugin: all marketplace skills (read-only)
  *
- * Without `email`, user skills are skipped. Public + plugin still load.
+ * Without `email`, user skills are skipped; plugins still load.
  */
 export function getAllSkills(
   email?: string,
@@ -352,31 +469,25 @@ export function getAllSkills(
       continue;
     }
 
-    // user-kind root: scan public subfolder + caller's own subfolder
-    const publicDir = path.join(root.path, PUBLIC_FOLDER);
-    if (fs.existsSync(publicDir)) {
-      for (const file of findSkillFiles(publicDir)) {
-        const parsed = parseSkillFile(file, { kind: "public" }, "public", publicDir);
-        if (parsed) collected.push(parsed);
-      }
-    }
+    // user-kind root: the caller's own subfolder. Every protocol belongs to a
+    // person; the starter library is copied into this folder on first use
+    // (see seedProtocols), so there is nothing shared to scan.
     if (email) {
       const ownDir = path.join(root.path, userSlug(email));
-      if (fs.existsSync(ownDir)) {
-        for (const file of findSkillFiles(ownDir)) {
-          const parsed = parseSkillFile(file, { kind: "user" }, "user", ownDir);
-          if (parsed) collected.push(parsed);
-        }
-      }
+      // The starter library is delivered into this person's own protocols
+      // folder the first time it is read, so a new account is not empty.
+      seedStarterProtocols(path.join(ownDir, PROTOCOLS_DIR));
+      scanOwnBase(ownDir, "user", collected);
     }
   }
 
   // Workspace `.skill` folders: the user's deck workspace + any extra dirs
   // (e.g. the active agent's working directory). These are user-owned.
+  if (email) scanOwnBase(userWorkspaceSkillDir(email), "workspace", collected);
   const workspaceDirs: string[] = [];
-  if (email) workspaceDirs.push(userWorkspaceSkillDir(email));
   // Folders the person granted Labee access to: their protocols are part of
-  // the library, which is what makes them searchable and editable.
+  // the library, which is what makes them searchable and editable. They are
+  // read as the person arranged them — no layout is imposed on their folders.
   for (const d of grantedFolderPathsSync(email)) workspaceDirs.push(d);
   for (const d of opts?.extraSkillDirs ?? []) workspaceDirs.push(d);
   const seenWs = new Set<string>();
@@ -561,12 +672,8 @@ export interface SkillUpdate {
 
 function assertEditable(skill: Skill) {
   if (skill.source.kind !== "user") {
-    const reason =
-      skill.source.kind === "public"
-        ? "shared and read-only via the UI (edit it on disk under <root>/_public/)"
-        : "from a plugin marketplace (edit it in the source repository)";
     const err = new Error(
-      `This skill is ${reason}. Only your own skills can be edited here.`,
+      "This skill is from a plugin marketplace (edit it in the source repository). Only your own skills can be edited here.",
     );
     (err as Error & { code: string }).code = "READ_ONLY";
     throw err;
@@ -706,13 +813,13 @@ export function createSkill(input: SkillUpdate, email: string): Skill {
     throw err;
   }
 
-  // New artifacts are written into the user's workspace `.skill` folder.
-  const ownFolder = userWorkspaceSkillDir(email);
-  fs.mkdirSync(ownFolder, { recursive: true });
-
   // A protocol is a document, so it is written as one file. A skill needs a
   // folder because it can carry scripts and references beside its manifest.
+  // Each goes to its own folder in the person's root — the one place their
+  // artifacts live, on their own machine.
   const asDocument = input.kind === "protocol";
+  const ownFolder = asDocument ? ownProtocolsDir(email) : ownSkillsDir(email);
+  fs.mkdirSync(ownFolder, { recursive: true });
   const targetDir = path.join(ownFolder, dirName);
   const file = asDocument
     ? path.join(ownFolder, `${dirName}.md`)
@@ -783,7 +890,7 @@ export function importSkill(slug: string, email: string): Skill {
     throw err;
   }
 
-  const ownFolder = scopedRootPath(userRoot, email);
+  const ownFolder = path.join(scopedRootPath(userRoot, email), SKILLS_DIR);
   fs.mkdirSync(ownFolder, { recursive: true });
 
   const baseName = path.basename(source.sourcePath);
@@ -859,7 +966,7 @@ export function importSkillFromFiles(
     (err as Error & { code: string }).code = "NO_ROOT";
     throw err;
   }
-  const ownFolder = scopedRootPath(userRoot, email);
+  const ownFolder = path.join(scopedRootPath(userRoot, email), SKILLS_DIR);
   if (!ownFolder) {
     const err = new Error("Authentication required.");
     (err as Error & { code: string }).code = "INVALID";
@@ -1008,12 +1115,12 @@ export function saveSkillFile(
 // caller's folder, the same guard the write paths use.
 
 /** Folder-name rules: one path segment, no separators, dots or control
- *  characters, and never a dotfile or the shared `_public` folder. */
+ *  characters, and never a dotfile or the legacy `_public` folder. */
 function assertCategoryName(name: string): string {
   const clean = name.trim();
   if (!clean) throw invalidCategory("A category needs a name.");
   if (clean.length > 64) throw invalidCategory("Category names are limited to 64 characters.");
-  if (clean === PUBLIC_FOLDER) throw invalidCategory(`"${PUBLIC_FOLDER}" is reserved.`);
+  if (clean === LEGACY_SHARED_FOLDER) throw invalidCategory(`"${LEGACY_SHARED_FOLDER}" is reserved.`);
   if (clean.startsWith(".")) throw invalidCategory("A category name cannot start with a dot.");
   // eslint-disable-next-line no-control-regex
   if (/[/\\:*?"<>|\u0000-\u001f]/.test(clean)) {
@@ -1047,7 +1154,7 @@ function ownRootDir(email: string): string {
  *  name in two bases is one category. */
 export function listCategories(email: string): string[] {
   const names = new Set<string>();
-  for (const dir of ownBases(email)) {
+  for (const dir of ownBases(email).map((b) => protocolsDirOf(b, email))) {
     let entries: fs.Dirent[];
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -1055,7 +1162,7 @@ export function listCategories(email: string): string[] {
       continue;
     }
     for (const e of entries) {
-      if (!e.isDirectory() || e.name.startsWith(".") || e.name === PUBLIC_FOLDER) continue;
+      if (!e.isDirectory() || e.name.startsWith(".") || e.name === LEGACY_SHARED_FOLDER) continue;
       if (fs.existsSync(path.join(dir, e.name, "SKILL.md"))) continue;
       names.add(e.name);
     }
@@ -1065,7 +1172,7 @@ export function listCategories(email: string): string[] {
 
 export function createCategory(name: string, email: string): string {
   const clean = assertCategoryName(name);
-  const target = path.join(ownRootDir(email), clean);
+  const target = path.join(ownProtocolsDir(email), clean);
   if (fs.existsSync(target)) throw invalidCategory(`"${clean}" already exists.`);
   fs.mkdirSync(target, { recursive: true });
   return clean;
@@ -1075,7 +1182,7 @@ export function renameCategory(from: string, to: string, email: string): string 
   const fromClean = assertCategoryName(from);
   const clean = assertCategoryName(to);
   let renamed = 0;
-  for (const base of ownBases(email)) {
+  for (const base of ownBases(email).map((b) => protocolsDirOf(b, email))) {
     const src = path.join(base, fromClean);
     const dst = path.join(base, clean);
     if (!fs.existsSync(src)) continue;
@@ -1097,7 +1204,7 @@ export function renameCategory(from: string, to: string, email: string): string 
 export function deleteCategory(name: string, email: string): void {
   const clean = assertCategoryName(name);
   const dirs = ownBases(email)
-    .map((b) => path.join(b, clean))
+    .map((b) => path.join(protocolsDirOf(b, email), clean))
     .filter((d) => fs.existsSync(d));
   if (dirs.length === 0) throw notFound(`No category named "${name}".`);
   let held = 0;
@@ -1126,13 +1233,16 @@ export function moveSkillToCategory(
   const existing = getSkillBySlug(slug, email);
   if (!existing) throw notFound("Artifact not found.");
   assertEditable(existing);
+  if (existing.artifactKind !== "protocol") {
+    throw invalidCategory("Only protocols have categories.");
+  }
   if (!isInsideOwnFolder(existing.artifactFile ?? existing.sourcePath, email)) {
     throw invalidCategory("Refusing to move outside your own folder.");
   }
   // Categorise inside whichever of the caller's bases already holds this
-  // artifact, so an app-created one (deck workspace) is not relocated across
-  // roots just to be filed.
-  const root = baseHolding(existing.artifactFile ?? existing.sourcePath, email) ?? ownRootDir(email);
+  // artifact, so a protocol is not relocated across roots just to be filed.
+  const held = baseHolding(existing.artifactFile ?? existing.sourcePath, email) ?? ownRootDir(email);
+  const root = protocolsDirOf(held, email);
   const clean = category == null || category === "" ? null : assertCategoryName(category);
   const targetDir = clean ? path.join(root, clean) : root;
   if (clean && !fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });

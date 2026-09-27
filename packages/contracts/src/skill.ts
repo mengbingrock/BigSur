@@ -8,7 +8,6 @@ export type ArtifactKind = typeof ArtifactKind.Type;
  *  pool, or an installed plugin marketplace. */
 export const SkillSource = Schema.Union([
   Schema.Struct({ kind: Schema.Literals(["user"]) }),
-  Schema.Struct({ kind: Schema.Literals(["public"]) }),
   Schema.Struct({ kind: Schema.Literals(["plugin"]), marketplace: Schema.String }),
 ]);
 export type SkillSource = typeof SkillSource.Type;

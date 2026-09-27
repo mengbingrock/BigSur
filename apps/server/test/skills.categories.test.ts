@@ -78,14 +78,14 @@ describe("artifact categories", () => {
 
     const renamed = await api("/api/skills/categories/PCR", { method: "PATCH", body: JSON.stringify({ name: "Amplification" }) });
     expect(renamed.status).toBe(200);
-    expect(fs.existsSync(path.join(ownDir, "Amplification"))).toBe(true);
+    expect(fs.existsSync(path.join(ownDir, "protocols", "Amplification"))).toBe(true);
 
     // empty → deletable
     expect((await api("/api/skills/categories/Amplification", { method: "DELETE" })).status).toBe(200);
     // non-empty → refused, and nothing is removed
     const refused = await api("/api/skills/categories/Cloning", { method: "DELETE" });
     expect(refused.status).toBe(400);
-    expect(fs.existsSync(path.join(ownDir, "Cloning", "gibson", "SKILL.md"))).toBe(true);
+    expect(fs.existsSync(path.join(ownDir, "protocols", "Cloning", "gibson", "SKILL.md"))).toBe(true);
   });
 
   it("rejects a name that would escape the folder", async () => {
@@ -96,12 +96,9 @@ describe("artifact categories", () => {
     expect(fs.existsSync(path.join(ownDir, "..", "evil"))).toBe(false);
   });
 
-  it("categorises an artifact created in the app, which lives in the deck workspace", async () => {
-    // Anything created through POST /api/skills is written to the deck
-    // workspace `.skill` folder, not the user root. That folder is just as
-    // much the caller's, so the own-folder guard must accept it — before this
-    // was fixed, editing, deleting or categorising an app-created artifact
-    // all failed with PATH_ESCAPE.
+  it("categorises an artifact created in the app", async () => {
+    // Anything created through POST /api/skills goes to the person's own
+    // protocols folder, and filing it must keep it there.
     const created = await api("/api/skills", {
       method: "POST",
       body: JSON.stringify({
@@ -114,7 +111,7 @@ describe("artifact categories", () => {
     });
     expect(created.status).toBe(200);
     const { skill } = (await created.json()) as { skill: { slug: string; sourcePath: string } };
-    expect(skill.sourcePath).toContain(".skill");
+    expect(skill.sourcePath).toContain(path.join(ownDir, "protocols"));
 
     const moved = await api(`/api/skills/${skill.slug}/move`, {
       method: "POST",
@@ -123,8 +120,8 @@ describe("artifact categories", () => {
     expect(moved.status).toBe(200);
     const after = (await moved.json()) as { skill: { category?: string; sourcePath: string } };
     expect(after.skill.category).toBe("Cloning");
-    // Filed in place, not relocated into the other root.
-    expect(after.skill.sourcePath).toContain(".skill");
+    // Filed in place, inside the protocols folder.
+    expect(after.skill.sourcePath).toContain(path.join(ownDir, "protocols", "Cloning"));
     // And the category shows in the rail even though it was made in a
     // different base.
     const listed = (await (await api("/api/skills/categories")).json()) as { categories: string[] };
@@ -138,13 +135,13 @@ describe("artifact categories", () => {
     const into = await api(`/api/skills/${slug}/move`, { method: "POST", body: JSON.stringify({ category: "Cloning" }) });
     expect(into.status).toBe(200);
     expect((await into.json() as { skill: { category?: string } }).skill.category).toBe("Cloning");
-    expect(fs.existsSync(path.join(ownDir, "Cloning", "miniprep", "SKILL.md"))).toBe(true);
-    expect(fs.existsSync(path.join(ownDir, "miniprep"))).toBe(false);
+    expect(fs.existsSync(path.join(ownDir, "protocols", "Cloning", "miniprep", "SKILL.md"))).toBe(true);
+    expect(fs.existsSync(path.join(ownDir, "protocols", "miniprep"))).toBe(false);
 
     const out = await api(`/api/skills/${slug}/move`, { method: "POST", body: JSON.stringify({ category: null }) });
     expect(out.status).toBe(200);
     expect((await out.json() as { skill: { category?: string } }).skill.category).toBeUndefined();
-    expect(fs.existsSync(path.join(ownDir, "miniprep", "SKILL.md"))).toBe(true);
+    expect(fs.existsSync(path.join(ownDir, "protocols", "miniprep", "SKILL.md"))).toBe(true);
   });
 });
 

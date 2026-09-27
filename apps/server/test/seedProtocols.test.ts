@@ -3,87 +3,99 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-/** The seeder reads the skills root at call time, so each test gets a fresh
- *  one and re-imports the module to clear any module-level state. */
+/** The seeder delivers the bundled starters into a given folder — a person's
+ *  own protocols folder — and remembers, per process, which folders it has
+ *  checked. Each test gets a fresh bundle and target, and clears that memory. */
 let root: string;
 let seedSrc: string;
+let target: string;
 
 async function seed(): Promise<number> {
   const mod = await import("../src/services/seedProtocols");
-  return mod.seedPublicProtocols();
+  return mod.seedStarterProtocols(target);
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), "labee-seed-"));
   seedSrc = path.join(root, "bundle", "protocols");
-  fs.mkdirSync(path.join(seedSrc, "Cloning", "ligation"), { recursive: true });
+  fs.mkdirSync(path.join(seedSrc, "Cloning"), { recursive: true });
   fs.writeFileSync(
-    path.join(seedSrc, "Cloning", "ligation", "SKILL.md"),
+    path.join(seedSrc, "Cloning", "ligation.md"),
     "---\nname: T4 ligation\ndescription: d\nkind: protocol\n---\n\nBody.\n",
   );
-  fs.mkdirSync(path.join(seedSrc, "PCR", "taq"), { recursive: true });
+  fs.mkdirSync(path.join(seedSrc, "PCR"), { recursive: true });
   fs.writeFileSync(
-    path.join(seedSrc, "PCR", "taq", "SKILL.md"),
+    path.join(seedSrc, "PCR", "taq.md"),
     "---\nname: Taq PCR\ndescription: d\nkind: protocol\n---\n\nBody.\n",
   );
-
-  process.env.SKILLS_ROOTS = path.join(root, "skills");
+  target = path.join(root, "skills", "someone-at-example-com", "protocols");
   process.env.LABEE_SEED_DIR = seedSrc;
   delete process.env.LABEE_SEED_PROTOCOLS;
+  (await import("../src/services/seedProtocols")).resetSeedMemory();
 });
 
 afterEach(() => {
   fs.rmSync(root, { recursive: true, force: true });
   delete process.env.LABEE_SEED_DIR;
-  delete process.env.SKILLS_ROOTS;
 });
 
-const pub = () => path.join(root, "skills", "_public");
-
 describe("starter protocols", () => {
-  it("seeds an empty library and writes nothing outside _public", async () => {
+  it("delivers into the person's own protocols folder and nowhere else", async () => {
     expect(await seed()).toBe(2);
-    expect(fs.existsSync(path.join(pub(), "Cloning", "ligation", "SKILL.md"))).toBe(true);
-    expect(fs.existsSync(path.join(pub(), "PCR", "taq", "SKILL.md"))).toBe(true);
-    // Only _public exists under the skills root — no user folder was touched.
-    expect(fs.readdirSync(path.join(root, "skills"))).toEqual(["_public"]);
+    expect(fs.existsSync(path.join(target, "Cloning", "ligation.md"))).toBe(true);
+    expect(fs.existsSync(path.join(target, "PCR", "taq.md"))).toBe(true);
+    // Nothing shared: the only thing under the root is this person's folder.
+    expect(fs.readdirSync(path.join(root, "skills"))).toEqual(["someone-at-example-com"]);
+    expect(fs.existsSync(path.join(root, "skills", "_public"))).toBe(false);
   });
 
-  it("does nothing on a second boot", async () => {
+  it("does nothing on a second read", async () => {
     await seed();
+    (await import("../src/services/seedProtocols")).resetSeedMemory();
     expect(await seed()).toBe(0);
   });
 
-  it("keeps an operator's edit", async () => {
+  it("keeps the person's edit", async () => {
     await seed();
-    const f = path.join(pub(), "PCR", "taq", "SKILL.md");
-    fs.writeFileSync(f, "edited by the operator");
+    const f = path.join(target, "PCR", "taq.md");
+    fs.writeFileSync(f, "edited by the person who owns it");
+    (await import("../src/services/seedProtocols")).resetSeedMemory();
     await seed();
-    expect(fs.readFileSync(f, "utf8")).toBe("edited by the operator");
+    expect(fs.readFileSync(f, "utf8")).toBe("edited by the person who owns it");
   });
 
   it("leaves a deleted starter protocol deleted", async () => {
     await seed();
-    fs.rmSync(path.join(pub(), "PCR"), { recursive: true, force: true });
+    fs.rmSync(path.join(target, "PCR"), { recursive: true, force: true });
+    (await import("../src/services/seedProtocols")).resetSeedMemory();
     expect(await seed()).toBe(0);
-    expect(fs.existsSync(path.join(pub(), "PCR", "taq", "SKILL.md"))).toBe(false);
+    expect(fs.existsSync(path.join(target, "PCR", "taq.md"))).toBe(false);
   });
 
   it("delivers a protocol added by a later release", async () => {
     await seed();
-    fs.mkdirSync(path.join(seedSrc, "Imaging", "confocal"), { recursive: true });
+    fs.mkdirSync(path.join(seedSrc, "Imaging"), { recursive: true });
     fs.writeFileSync(
-      path.join(seedSrc, "Imaging", "confocal", "SKILL.md"),
+      path.join(seedSrc, "Imaging", "confocal.md"),
       "---\nname: Confocal\ndescription: d\nkind: protocol\n---\n\nBody.\n",
     );
+    (await import("../src/services/seedProtocols")).resetSeedMemory();
     expect(await seed()).toBe(1);
-    expect(fs.existsSync(path.join(pub(), "Imaging", "confocal", "SKILL.md"))).toBe(true);
+    expect(fs.existsSync(path.join(target, "Imaging", "confocal.md"))).toBe(true);
+  });
+
+  it("delivers to each person separately", async () => {
+    await seed();
+    const other = path.join(root, "skills", "else-at-example-com", "protocols");
+    const mod = await import("../src/services/seedProtocols");
+    expect(mod.seedStarterProtocols(other)).toBe(2);
+    expect(fs.existsSync(path.join(other, "Cloning", "ligation.md"))).toBe(true);
   });
 
   it("can be turned off", async () => {
     process.env.LABEE_SEED_PROTOCOLS = "false";
     expect(await seed()).toBe(0);
-    expect(fs.existsSync(pub())).toBe(false);
+    expect(fs.existsSync(target)).toBe(false);
     delete process.env.LABEE_SEED_PROTOCOLS;
   });
 });
