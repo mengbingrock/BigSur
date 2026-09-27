@@ -101,6 +101,40 @@ describe("Device Link", () => {
     }, 10000);
   }, 40000);
 
+  it("a desktop lists and revokes the devices the box holds, not its own", async () => {
+    // A phone pairs with the box, so the desktop's own link_devices table is
+    // always empty. Reading it locally showed "no devices" on a machine that
+    // plainly had some, and revoking there reported success while revoking
+    // nothing.
+    const created = await api("/api/link/devices", {
+      method: "POST",
+      body: JSON.stringify({ name: "iPad", platform: "iPad" }),
+    });
+    const { device } = (await created.json()) as { device: { id: string } };
+    await api(`/api/link/pending/${device.id}/approve`, { method: "POST" });
+
+    const seenByDesktop = async () => {
+      const r = await fetch(`${desktop.base}/api/link/devices`, { headers: { cookie } });
+      expect(r.status).toBe(200);
+      return ((await r.json()) as { devices: { id: string }[] }).devices;
+    };
+
+    expect((await seenByDesktop()).some((d) => d.id === device.id)).toBe(true);
+
+    // And revoking from the desktop reaches the box, rather than silently
+    // doing nothing to an empty local table.
+    const revoked = await fetch(`${desktop.base}/api/link/devices/${device.id}`, {
+      method: "DELETE",
+      headers: { cookie },
+    });
+    expect(revoked.status).toBe(200);
+
+    const onBox = (await (await api("/api/link/devices")).json()) as {
+      devices: { id: string; status: string }[];
+    };
+    expect(onBox.devices.find((d) => d.id === device.id)?.status).toBe("revoked");
+  });
+
   it("serves the mirror when the Mac is offline, and 503s for writes", async () => {
     // Create + run one turn while online so there's something to mirror.
     const { session } = (await (await api(`/api/hosts/${hostId}/api/sessions`, { method: "POST", body: "{}" })).json()) as { session: { id: string } };

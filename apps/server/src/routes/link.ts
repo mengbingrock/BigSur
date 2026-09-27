@@ -356,6 +356,13 @@ export const listDevicesRoute = HttpRouter.add(
   Effect.gen(function* () {
     const user = yield* sessionUser;
     if (!user) return yield* error("Unauthorized.", 401);
+    // A phone pairs with the box, never with a Mac, so a desktop's own
+    // link_devices table is always empty — listing from it showed "no devices"
+    // next to machines that plainly had some. Ask the box, as /pending does.
+    if (isDesktop()) {
+      const r = yield* Effect.promise(() => proxyToBox("GET", "/api/link/devices"));
+      return yield* json(r.body, r.status);
+    }
     const rows = yield* Effect.promise(() => devices.listDevices(user.email));
     return yield* json({ devices: rows.map(({ pushToken: _p, ...d }) => d) });
   }),
@@ -368,6 +375,14 @@ export const revokeDeviceRoute = HttpRouter.add(
     const user = yield* sessionUser;
     if (!user) return yield* error("Unauthorized.", 401);
     const { id } = yield* params;
+    // Revoke where the device actually lives, for the same reason as the list
+    // above: otherwise the button reports success and nothing is revoked.
+    if (isDesktop()) {
+      const r = yield* Effect.promise(() =>
+        proxyToBox("DELETE", `/api/link/devices/${encodeURIComponent(id ?? "")}`),
+      );
+      return yield* json(r.body, r.status);
+    }
     const ok = yield* Effect.promise(() => devices.setDeviceStatus(user.email, id ?? "", "revoked"));
     if (!ok) return yield* error("Device not found.", 404);
     return yield* json({ ok: true });
@@ -392,7 +407,10 @@ export const pushTokenRoute = HttpRouter.add(
 );
 
 /** Pending approvals: served here on the box; proxied to the box on a desktop. */
-async function proxyToBox(method: "GET" | "POST", path: string): Promise<{ status: number; body: unknown }> {
+async function proxyToBox(
+  method: "GET" | "POST" | "DELETE",
+  path: string,
+): Promise<{ status: number; body: unknown }> {
   const cookie = boxSessionCookie();
   if (!cookie) return { status: 409, body: { error: "Connect to Labee first (Settings → Connection)." } };
   const res = await fetch(`${proxyServerBase()}${path}`, { method, headers: { cookie, accept: "application/json" } });
