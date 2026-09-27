@@ -3,6 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import matter from "gray-matter";
 import type { Skill, SkillOrigin, SkillSource } from "@labee/contracts";
+import { grantedFolderPathsSync } from "./userFolders";
 
 interface Root {
   path: string;
@@ -314,6 +315,9 @@ export function getAllSkills(
   // (e.g. the active agent's working directory). These are user-owned.
   const workspaceDirs: string[] = [];
   if (email) workspaceDirs.push(userWorkspaceSkillDir(email));
+  // Folders the person granted Labee access to: their protocols are part of
+  // the library, which is what makes them searchable and editable.
+  for (const d of grantedFolderPathsSync(email)) workspaceDirs.push(d);
   for (const d of opts?.extraSkillDirs ?? []) workspaceDirs.push(d);
   const seenWs = new Set<string>();
   for (const dir of workspaceDirs) {
@@ -513,6 +517,8 @@ function ownBases(email: string): string[] {
     .map((r) => scopedRootPath(r, email))
     .filter(Boolean);
   bases.push(userWorkspaceSkillDir(email));
+  // A granted folder is writable by design: it is where new protocols go.
+  for (const d of grantedFolderPathsSync(email)) bases.push(d);
   return bases;
 }
 

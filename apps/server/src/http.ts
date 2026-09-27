@@ -6,6 +6,7 @@ import { authRoutes } from "./routes/auth";
 import { billingRoutes } from "./routes/billing";
 import { chatRoute } from "./routes/chat";
 import { deckRoutes } from "./routes/deck";
+import { folderRoutes } from "./routes/folders";
 import { fsRoutes } from "./routes/fs";
 import { googleRoutes } from "./routes/google";
 import { extractChoicesRoute } from "./routes/extractChoices";
@@ -35,6 +36,7 @@ export const routesLayer = Layer.mergeAll(
   ...researchRoutes,
   ...sessionRoutes,
   ...linkRoutes,
+  ...folderRoutes,
   ...fsRoutes,
   mcpTokenRoute,
   mcpProxyRoute,
