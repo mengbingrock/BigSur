@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import type { SessionSummary } from "@labee/session-core";
 import { apiGet } from "~/lib/api";
+import { DevicesPanel } from "~/components/DevicesPanel";
 import { GrantedFolders } from "~/components/GrantedFolders";
 import { LabeeConnectionPanel } from "~/components/LabeeConnectionPanel";
 
@@ -77,8 +78,6 @@ function MacsPage() {
               person does here, so it leads rather than hiding in Settings. */}
           <LabeeConnectionPanel />
 
-          <GrantedFolders />
-
           <section className="flex flex-col gap-4">
             <div>
               <h2 className="font-display text-lg text-ink">Linked machines</h2>
@@ -98,6 +97,13 @@ function MacsPage() {
               <HostSessions key={h.hostId} host={h} />
             ))}
           </section>
+
+          {/* Phones and tablets live here too, beside the machines. Splitting
+              them across two pages meant "my devices" was never answerable in
+              one place — the Mac was here and the iPhone was in Settings. */}
+          <DevicesPanel />
+
+          <GrantedFolders />
         </div>
       </div>
     </div>

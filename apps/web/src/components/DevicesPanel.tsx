@@ -1,5 +1,9 @@
-// Settings › Devices: approve or reject phones/tablets that asked to pair
-// with this Mac through labee.online, and list/revoke approved ones.
+// My Device › Phones and tablets: approve or reject devices that asked to pair
+// with this account through labee.online, and list/revoke approved ones.
+//
+// It sits beside "Linked machines" rather than in Settings, because "what
+// devices do I have?" is one question — a Mac in one place and an iPhone in
+// another made it impossible to answer without looking twice.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiSend } from "~/lib/api";
 
@@ -41,10 +45,10 @@ export function DevicesPanel() {
 
   return (
     <section className="rounded-xl border border-border bg-card p-5" data-testid="devices-panel">
-      <h2 className="font-display text-base text-ink">Devices</h2>
+      <h2 className="font-display text-base text-ink">Phones and tablets</h2>
       <p className="mt-1 text-sm text-ink-light">
-        Phones and tablets that can attach to this Mac's sessions through labee.online. Approve a device only if the
-        code on its screen matches.
+        Devices that can attach to your machines&apos; sessions through labee.online. Approve one only
+        if the code on its screen matches.
       </p>
       {pending.error ? <p className="mt-3 text-sm text-ink-light">{(pending.error as Error).message}</p> : null}
       {pendingList.length > 0 ? (

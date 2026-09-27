@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { BillingPanel } from "~/components/BillingPanel";
-import { DevicesPanel } from "~/components/DevicesPanel";
 import { LlmSettingsPanel } from "~/components/LlmSettingsPanel";
 import { RunsOnPanel } from "~/components/RunsOnPanel";
 import { useCurrentUser } from "~/lib/auth";
@@ -53,7 +52,8 @@ function SettingsPage() {
           <RunsOnPanel />
           <LlmSettingsPanel />
           {showBilling ? <BillingPanel checkout={checkout} /> : null}
-          <DevicesPanel />
+          {/* Devices — phones, tablets and machines alike — live together under
+              My Device rather than half here and half there. */}
         </div>
       </div>
     </div>
