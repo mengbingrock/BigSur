@@ -426,7 +426,9 @@ async function applyGoogleSession(msg: { value: string; next?: string }): Promis
   await cookies.flushStore();
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.focus();
-  const next = msg.next && msg.next.startsWith("/") ? msg.next : "/chat";
+  // Default landing after sign-in is the protocol library, matching the web
+  // client's root route. An explicit `next` (a deep link) still wins.
+  const next = msg.next && msg.next.startsWith("/") ? msg.next : "/protocols";
   await mainWindow.loadURL(serverBaseUrl + next);
 }
 
