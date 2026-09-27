@@ -44,8 +44,27 @@ cp -R "$ROOT/apps/server/dist/." "$STAGE/server/"
 cp -R "$ROOT/apps/web/dist" "$STAGE/server/client"     # served next to bin.mjs
 cp -R "$ROOT/scripts" "$STAGE/scripts"
 bold "==> Copying artifacts → $SSH_HOST:/opt/labee ($(du -sh "$STAGE" | cut -f1))"
-$SSH 'sudo mkdir -p /opt/labee && sudo chown -R ubuntu:ubuntu /opt/labee'
-rsync -az --delete -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=accept-new" "$STAGE/" "$SSH_USER@$SSH_HOST:/opt/labee/"
+$SSH 'sudo mkdir -p /opt/labee/server /opt/labee/scripts /opt/labee/data /opt/labee/decks /opt/labee/skills && sudo chown -R ubuntu:ubuntu /opt/labee'
+
+# Back up the database before touching anything. VACUUM INTO writes a
+# consistent copy even with a live WAL, unlike cp.
+bold "==> Backing up the database"
+$SSH 'set -e
+if [ -f /opt/labee/data/labee.sqlite ]; then
+  mkdir -p /opt/labee/backups
+  OUT=/opt/labee/backups/labee.$(date +%Y%m%d-%H%M%S).sqlite
+  python3 -c "import sqlite3,sys; sqlite3.connect(sys.argv[1]).execute(\"VACUUM INTO ?\", (sys.argv[2],))" /opt/labee/data/labee.sqlite "$OUT"
+  echo "  $(basename "$OUT") ($(du -h "$OUT" | cut -f1)), $(python3 -c "import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute(\"select count(*) from users\").fetchone()[0])" "$OUT") users"
+  ls -1t /opt/labee/backups/labee.*.sqlite | tail -n +11 | xargs -r rm --
+else
+  echo "  no database yet — nothing to back up"
+fi'
+
+# --delete is scoped to the CODE directories. It must never be pointed at
+# /opt/labee itself: the runtime data (data/, decks/, skills/) lives there and
+# rsync would prune it, which once destroyed every account on the box.
+rsync -az --delete -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=accept-new" "$STAGE/server/" "$SSH_USER@$SSH_HOST:/opt/labee/server/"
+rsync -az --delete -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=accept-new" "$STAGE/scripts/" "$SSH_USER@$SSH_HOST:/opt/labee/scripts/"
 
 # --- 3. env file ------------------------------------------------------------
 bold "==> Environment (/etc/labee.env)"
@@ -121,6 +140,7 @@ else
   exit 1
 fi
 curl -sf -o /dev/null -w "  local /api/auth/providers → %{http_code}\n" "http://127.0.0.1:$PORT/api/auth/providers"
+echo "  accounts on the box: $(python3 -c "import sqlite3; print(sqlite3.connect('/opt/labee/data/labee.sqlite').execute('select count(*) from users').fetchone()[0])" 2>/dev/null || echo '?')"
 REMOTE
 
 # --- 5. Caddy route ---------------------------------------------------------
