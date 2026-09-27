@@ -9,6 +9,39 @@ import type { Readable } from "node:stream";
 
 export const CLAUDE_BIN = process.env.CLAUDE_BIN || "claude";
 
+/** Variables a running Claude Code session injects into everything it starts.
+ *  They describe *that* session — its socket, its id, who is attending it — so
+ *  a CLI that inherits them believes it is a nested sub-agent of it: it reports
+ *  "another auth source is set", disables the user's claude.ai connectors, and
+ *  can exit non-zero before doing any work. Labee starts the CLI as an
+ *  independent agent, so they have to go.
+ *
+ *  Deliberate configuration is deliberately NOT in this list — ANTHROPIC_API_KEY,
+ *  CLAUDE_CODE_USE_BEDROCK, CLAUDE_BIN and the like are the operator's choice
+ *  and are passed through untouched. */
+const SESSION_SCOPED_ENV = [
+  "CLAUDECODE",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_MESSAGING_TOKEN",
+  "CLAUDE_CODE_ATTRIBUTION_HEADER",
+  "CLAUDE_EFFORT",
+  "CLAUDE_JOB_DIR",
+  "CLAUDE_PID",
+] as const;
+
+/** The environment for a process we spawn: ours, minus whatever session we
+ *  happen to have been launched from, plus the caller's additions. */
+export function childEnv(extraEnv?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  for (const key of SESSION_SCOPED_ENV) delete env[key];
+  return { ...env, ...extraEnv };
+}
+
 export const CLAUDE_NOT_FOUND =
   "Claude Code isn't installed (or wasn't found on your PATH). Install it with " +
   "`npm i -g @anthropic-ai/claude-code`, then restart the app. To use OpenAI " +
@@ -99,7 +132,7 @@ export function spawnClaudeStream(
     {
       cwd: opts.cwd,
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, ...opts.extraEnv },
+      env: childEnv(opts.extraEnv),
     },
   );
 
@@ -193,7 +226,7 @@ export function runClaudeText(opts: ClaudeTextOpts): Promise<string> {
     const proc = spawn(CLAUDE_BIN, args, {
       ...(opts.cwd ? { cwd: opts.cwd } : {}),
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, ...opts.extraEnv },
+      env: childEnv(opts.extraEnv),
     });
     let stdout = "";
     let stderr = "";
