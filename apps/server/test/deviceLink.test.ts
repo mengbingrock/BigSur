@@ -101,6 +101,44 @@ describe("Device Link", () => {
     }, 10000);
   }, 40000);
 
+  it("a desktop reaches a Mac's sessions through the box, not its own empty mirror", async () => {
+    // A desktop has no host registry and no mirror, so answering
+    // /api/hosts/:id locally reported every Mac as offline — an empty list,
+    // a 404 on open, a 503 on a turn. It must hand the request to the box,
+    // which tunnels it to the right host: here, back to this same desktop.
+    const viaDesktop = (p: string, init: RequestInit = {}) =>
+      fetch(`${desktop.base}${p}`, { ...init, headers: { cookie, "content-type": "application/json", ...(init.headers ?? {}) } });
+
+    // The list, with the session the tunnel test created.
+    const list = await viaDesktop(`/api/hosts/${hostId}/api/sessions`);
+    expect(list.status).toBe(200);
+    const { sessions } = (await list.json()) as { sessions: { id: string; title: string }[] };
+    const mine = sessions.find((s) => s.title === "via phone");
+    expect(mine).toBeTruthy();
+
+    // Opening it, with its messages.
+    const one = await viaDesktop(`/api/hosts/${hostId}/api/sessions/${mine!.id}`);
+    expect(one.status).toBe(200);
+    const body = (await one.json()) as { session: { title: string }; messages: unknown[] };
+    expect(body.session.title).toBe("via phone");
+    expect(body.messages.length).toBeGreaterThan(0);
+
+    // And a live turn, with its SSE tail streamed all the way through —
+    // the part a buffering proxy would silently break.
+    const tail = await viaDesktop(`/api/hosts/${hostId}/api/sessions/${mine!.id}/events?after=0`, {
+      headers: { accept: "text/event-stream" },
+    });
+    expect(tail.status).toBe(200);
+    expect(tail.headers.get("content-type")).toContain("text/event-stream");
+    const turn = await viaDesktop(`/api/hosts/${hostId}/api/sessions/${mine!.id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({ text: "and back again" }),
+    });
+    expect(turn.status).toBe(202);
+    const frames = await readSse(tail, (f) => evType(f) === "turn_ended", 15000);
+    expect(frames.map(evType)).toContain("turn_ended");
+  }, 40000);
+
   it("lists every chat across machines, from the box and from a desktop alike", async () => {
     // The tunnel test above ran a turn on the desktop, which mirrored the
     // session to the box. Both surfaces should now list it, tagged with the

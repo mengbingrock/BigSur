@@ -170,6 +170,16 @@ export const tunnelRoute = HttpRouter.add(
     const raw = request.url;
     const idx = raw.indexOf(prefix);
     const rest = idx === -1 ? `/${p["*"] ?? ""}` : raw.slice(idx + prefix.length) || "/";
+    // A desktop has no registry of hosts (nothing dials it) and no mirror
+    // (it is the thing being mirrored), so answering here would report every
+    // Mac — including this one — as offline. Hand the whole request to the
+    // box, streaming, so SSE tails and turn bodies pass through untouched.
+    // For this machine's own sessions that is one hop out and back; correct,
+    // and not worth a special case that would need its own auth path.
+    if (isDesktop()) {
+      return yield* forwardToBox(request, `${prefix}${rest}`);
+    }
+
     const host = getHost(user.email, hostId);
 
     if (!host) {
@@ -284,6 +294,47 @@ export const tunnelRoute = HttpRouter.add(
     return response;
   }),
 );
+
+/** Forward a request from a desktop to the same path on the box, verbatim,
+ *  and stream the answer back. Unlike proxyToBox this carries the method,
+ *  body and the headers the tunnel cares about, and never buffers the
+ *  response — an SSE tail has no end to wait for. */
+function forwardToBox(request: HttpServerRequest.HttpServerRequest, path: string) {
+  return Effect.gen(function* () {
+    const cookie = boxSessionCookie();
+    if (!cookie) return yield* error("Connect to Labee first (Settings → Connection).", 409);
+    const method = request.method;
+    const headers: Record<string, string> = { cookie };
+    for (const h of FORWARD_HEADERS) {
+      const v = request.headers[h];
+      if (typeof v === "string") headers[h] = v;
+    }
+    if (!headers.accept) headers.accept = "application/json";
+    const body =
+      method === "GET" || method === "HEAD"
+        ? undefined
+        : yield* request.arrayBuffer.pipe(Effect.catch(() => Effect.succeed(new ArrayBuffer(0))));
+
+    const res = yield* Effect.tryPromise({
+      try: () => fetch(`${proxyServerBase()}${path}`, { method, headers, ...(body ? { body } : {}) }),
+      catch: (e) => e,
+    }).pipe(Effect.catch(() => Effect.succeed(null)));
+    if (!res) return yield* error("labee.online is unreachable.", 502);
+
+    const contentType = res.headers.get("content-type") ?? "application/json";
+    if (!res.body) {
+      const text = yield* Effect.promise(() => res.text().catch(() => ""));
+      return HttpServerResponse.text(text, { status: res.status, contentType });
+    }
+    return HttpServerResponse.stream(
+      Stream.fromReadableStream({
+        evaluate: () => res.body as ReadableStream<Uint8Array>,
+        onError: (cause) => cause,
+      }),
+      { status: res.status, contentType, headers: { "cache-control": "no-cache" } },
+    );
+  });
+}
 
 /** Offline host: serve session list / session / events from the mirror. */
 function serveFromMirror(email: string, hostId: string, method: string, rest: string) {
