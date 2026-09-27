@@ -1,10 +1,16 @@
-// Pull the user's saved agents from a central Labee server (labee.online) into
-// the local `agents` table — the local-first desktop counterpart to
-// services/remoteSkills.ts. Lets a locally-running instance bring the user's
-// hosted agents onto their machine so they run locally against local folders.
+// Keep this machine's agents and the account's agents on labee.online in step.
+//
+// Two-way: we send everything we hold (tombstones included), the box merges it
+// with what every other device has sent, and we store the reconciled set it
+// returns. Last write wins per agent on `updatedAt`, so an edit made anywhere
+// reaches everywhere, and a deletion stays deleted instead of being re-created
+// by the next device to sync.
+//
+// A synced agent keeps the `workingDir` it was created with, which may not
+// exist on this machine — that is reported as `needsFolder` rather than
+// treated as an error, so the person can re-pick a folder here.
 import fs from "node:fs";
-import type { Agent } from "@labee/contracts";
-import { upsertAgentFromRemote } from "./agents";
+import { listAgentsForSync, mergeAgents, type SyncAgent } from "./agents";
 
 function serverBase(): string {
   return (process.env.LABEE_SKILLS_SERVER || "https://labee.online").replace(/\/+$/, "");
@@ -61,28 +67,38 @@ export interface RemoteAgentSyncResult {
   needsFolder: string[];
 }
 
-/** Mirror the box's saved agents into the local `agents` table for `email`. */
+/** Reconcile this machine's agents with the account's, in both directions. */
 export async function syncAgentsFromServer(email: string): Promise<RemoteAgentSyncResult> {
   const base = serverBase();
   const cookie = await remoteCookie(base);
   if (!cookie) throw invalid("Not connected to Labee — connect your Labee account first.");
 
-  const res = await fetch(`${base}/api/agents`, {
-    headers: { accept: "application/json", cookie },
+  const mine = await listAgentsForSync(email);
+  const res = await fetch(`${base}/api/agents/merge`, {
+    method: "POST",
+    headers: { accept: "application/json", "content-type": "application/json", cookie },
+    body: JSON.stringify({ agents: mine }),
   });
   if (res.status === 401)
     throw invalid("Your Labee connection expired — reconnect your account.");
-  if (!res.ok) throw invalid(`${base} returned HTTP ${res.status} for /api/agents`);
+  if (!res.ok) throw invalid(`${base} returned HTTP ${res.status} for /api/agents/merge`);
 
-  const { agents } = (await res.json()) as { agents: Agent[] };
-  const names: string[] = [];
+  const { agents } = (await res.json()) as { agents: SyncAgent[] };
+  // Apply the reconciled set locally. Same merge, same rule, so this device
+  // ends up byte-identical to the box without trusting it blindly: a local row
+  // that is genuinely newer still wins.
+  const merged = await mergeAgents(email, agents ?? []);
+
+  const live = merged.filter((a) => !a.deletedAt);
   const needsFolder: string[] = [];
-  for (const agent of agents ?? []) {
-    if (!agent?.id) continue;
-    await upsertAgentFromRemote(email, agent);
-    names.push(agent.name);
+  for (const agent of live) {
     const wd = (agent.workingDir ?? "").trim();
     if (!wd || !fs.existsSync(wd)) needsFolder.push(agent.name);
   }
-  return { server: base, synced: names.length, agents: names, needsFolder };
+  return {
+    server: base,
+    synced: live.length,
+    agents: live.map((a) => a.name),
+    needsFolder,
+  };
 }

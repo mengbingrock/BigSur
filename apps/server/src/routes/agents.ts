@@ -7,10 +7,8 @@ import {
   createAgent,
   deleteAgent,
   getAgent,
-  installPublicAgent,
   listAgents,
-  listPublicAgents,
-  setAgentPublic,
+  mergeAgents,
   updateAgent,
 } from "../services/agents";
 import { agentRoots, listAgentDir, readAgentFile } from "../services/agentFiles";
@@ -46,69 +44,35 @@ export const agentEnginesRoute = HttpRouter.add(
 );
 
 /**
- * GET /api/agents/market — all publicly listed agents.
+ * POST /api/agents/merge — two-way merge of a device's agents with this account.
  *
- * Deliberately unauthenticated: the marketplace is a shop window, browsable
- * before signing up. Listings carry no machine paths and no full email
- * addresses (see toPublicAgent), so this exposes only what a publisher opted
- * into sharing. Installing still requires an account.
+ * The caller sends everything it holds (tombstones included); the reply is the
+ * reconciled set, which the caller then stores verbatim. Last write wins per
+ * agent on `updatedAt`. Idempotent, so a device may call it as often as it
+ * likes — re-sending identical rows changes nothing.
  */
-export const agentMarketRoute = HttpRouter.add(
-  "GET",
-  "/api/agents/market",
-  Effect.gen(function* () {
-    const agents = yield* Effect.promise(() => listPublicAgents());
-    return yield* json({ agents });
-  }),
-);
-
-/** POST /api/agents/market/:id/install — copy a listing into the caller's account. */
-export const agentInstallRoute = HttpRouter.add(
+export const agentMergeRoute = HttpRouter.add(
   "POST",
-  "/api/agents/market/:id/install",
+  "/api/agents/merge",
   Effect.gen(function* () {
     const user = yield* sessionUser;
     if (!user) return yield* error("Authentication required.", 401);
-    const { id } = yield* params;
-    const result = yield* Effect.tryPromise({
-      try: () => installPublicAgent(user.email, id ?? ""),
+    const body = yield* bodyJson<{ agents?: unknown }>().pipe(
+      Effect.catch(() => Effect.succeed({ agents: [] as unknown })),
+    );
+    const incoming = Array.isArray(body.agents) ? body.agents : [];
+    const merged = yield* Effect.tryPromise({
+      try: () => mergeAgents(user.email, incoming as never),
       catch: (e) => e,
     }).pipe(
       Effect.map((r) => ({ ok: true as const, r })),
       Effect.catch((e) => Effect.succeed({ ok: false as const, e })),
     );
-    if (!result.ok) {
-      const { status, message } = statusForError(result.e);
+    if (!merged.ok) {
+      const { status, message } = statusForError(merged.e);
       return yield* error(message, status);
     }
-    return yield* json(result.r);
-  }),
-);
-
-/** POST /api/agents/:id/publish — list/unlist the caller's agent publicly. */
-export const agentPublishRoute = HttpRouter.add(
-  "POST",
-  "/api/agents/:id/publish",
-  Effect.gen(function* () {
-    const user = yield* sessionUser;
-    if (!user) return yield* error("Authentication required.", 401);
-    const { id } = yield* params;
-    const body = yield* safeBody<{ public?: boolean }>();
-    if (!body || typeof body.public !== "boolean") {
-      return yield* error("Body must be { public: boolean }.", 400);
-    }
-    const result = yield* Effect.tryPromise({
-      try: () => setAgentPublic(user.email, id ?? "", body.public!),
-      catch: (e) => e,
-    }).pipe(
-      Effect.map((agent) => ({ ok: true as const, agent })),
-      Effect.catch((e) => Effect.succeed({ ok: false as const, e })),
-    );
-    if (!result.ok) {
-      const { status, message } = statusForError(result.e);
-      return yield* error(message, status);
-    }
-    return yield* json({ agent: result.agent });
+    return yield* json({ agents: merged.r });
   }),
 );
 
@@ -322,12 +286,10 @@ export const syncAgentsRoute = HttpRouter.add(
 );
 
 export const agentRoutes = [
+  agentMergeRoute,
   syncAgentsRoute,
   listAgentsRoute,
   agentEnginesRoute,
-  agentMarketRoute,
-  agentInstallRoute,
-  agentPublishRoute,
   getAgentRoute,
   createAgentRoute,
   updateAgentRoute,

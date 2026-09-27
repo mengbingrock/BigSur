@@ -82,6 +82,11 @@ async function openDb(): Promise<SqlDb> {
   // other. `team_order` is the position in that hand-off (1-based).
   ensureColumn(db, "agents", "team", "TEXT");
   ensureColumn(db, "agents", "team_order", "INTEGER NOT NULL DEFAULT 0");
+  // Multi-device sync: an agent belongs to the account, not to one machine, so
+  // every device merges against the box by `updated_at` (last write wins).
+  // Deleting therefore has to leave a tombstone — a hard DELETE would simply be
+  // re-created by the next device that syncs and still has the row.
+  ensureColumn(db, "agents", "deleted_at", "TEXT");
   // Per-user billing: Stripe customer/subscription + a credit balance (cents).
   db.exec(
     "CREATE TABLE IF NOT EXISTS billing (" +

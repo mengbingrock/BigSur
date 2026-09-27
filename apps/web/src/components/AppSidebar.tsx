@@ -54,19 +54,18 @@ const WORKSPACE_ITEMS: NavItem[] = [
     icon: FlaskConical,
     match: (p) => p === "/research" || p.startsWith("/research"),
   },
-  // The old "Agents" entry (/agents) was dropped: the marketplace page below is
-  // now labelled "Agents" and covers discovery, and your own agents are listed
-  // further down this sidebar with a "new agent" action. The /agents routes
-  // themselves remain reachable from those places.
-  {
-    label: "Agents",
-    to: "/marketplace",
-    icon: Bot,
-    match: (p) => p.startsWith("/marketplace"),
-  },
+  // Your agents. There is no public listing any more — an agent belongs to its
+  // owner and follows them to every device they sign in on.
+  //
   // Skills have no nav entry of their own: an agent is what you run and skills
   // are what it is made of, so they live as a section of the Agents page. The
   // /skills routes are unchanged and still reachable from there.
+  {
+    label: "Agents",
+    to: "/agents",
+    icon: Bot,
+    match: (p) => p.startsWith("/agents"),
+  },
   {
     label: "Protocols",
     to: "/protocols",
