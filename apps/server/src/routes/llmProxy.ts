@@ -75,7 +75,7 @@ function claudeOAuthToken(): string | null {
 function anthropicAuth(): AnthropicAuth {
   const key = process.env.LABEE_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (key) return { kind: "apiKey", value: key };
-  /**if (!devSubscriptionProxyEnabled()) return null;*//
+  /**if (!devSubscriptionProxyEnabled()) return null;**/
   const oauth = claudeOAuthToken();
   return oauth ? { kind: "oauth", value: oauth } : null;
 }
