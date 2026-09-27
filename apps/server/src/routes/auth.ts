@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { HttpRouter, HttpServerResponse } from "effect/unstable/http";
 import { bodyJson, error, sessionUser } from "../httpKit";
 import { deleteAccount } from "../services/account";
+import { grantSignupCredits } from "../services/billing";
 import {
   clearSessionCookie,
   sealSessionCookie,
@@ -9,6 +10,7 @@ import {
 import {
   createUser,
   isSignupEnabled,
+  shouldAutoPromoteFirstUser,
   toPublic,
   verifyCredentials,
 } from "../services/users";
@@ -57,7 +59,7 @@ export const signupRoute = HttpRouter.add(
     if (!email || !password) return yield* error("Email and password are required.", 400);
 
     const created = yield* Effect.tryPromise({
-      try: () => createUser(email, password, { autoPromoteFirst: true }),
+      try: () => createUser(email, password, { autoPromoteFirst: shouldAutoPromoteFirstUser() }),
       catch: (e) => e,
     }).pipe(Effect.map((u) => ({ ok: true as const, user: u })), Effect.catch((e) =>
       Effect.succeed({ ok: false as const, message: e instanceof Error ? e.message : String(e) }),
@@ -65,10 +67,17 @@ export const signupRoute = HttpRouter.add(
     if (!created.ok) return yield* error(created.message, 400);
 
     const pub = toPublic(created.user);
+    const signupCredits = yield* Effect.promise(() => grantSignupCredits(pub.email));
     const cookie = yield* Effect.promise(() =>
       sealSessionCookie({ email: pub.email, isAdmin: pub.isAdmin }),
     );
-    return yield* withCookie({ ok: true, email: pub.email, isAdmin: pub.isAdmin }, cookie);
+    return yield* withCookie({
+      ok: true,
+      email: pub.email,
+      isAdmin: pub.isAdmin,
+      signupCredits,
+      creditCurrency: "usd-cents",
+    }, cookie);
   }),
 );
 

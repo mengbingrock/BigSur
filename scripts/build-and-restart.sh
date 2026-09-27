@@ -15,6 +15,7 @@ ok()   { printf '\033[32m%s\033[0m\n' "  ✓ $*"; }
 
 # Keep Node's heap modest — this box often has <512 MB RAM.
 export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=384}"
+MANAGE_LABEE_MCP="${MANAGE_LABEE_MCP:-true}"
 
 bold "[1/3] bun install"
 bun install --frozen-lockfile
@@ -28,13 +29,19 @@ bun run turbo run build --filter=@labee/server --filter=@labee/web
 ok "build complete"
 
 bold "[3/3] restart services"
-# labee-mcp first: the app resolves protocol-search tools against it at chat
-# time, so bringing it up before the app avoids a window of missing tools.
-for svc in labee-mcp labee; do
+# labee-mcp first when this deployment owns it: the app resolves
+# protocol-search tools against it at chat time, so bringing it up before the
+# app avoids a window of missing tools. Shared hosts may run another managed
+# service on the same loopback port.
+services=(labee)
+if [ "$MANAGE_LABEE_MCP" = "true" ]; then
+  services=(labee-mcp labee)
+fi
+for svc in "${services[@]}"; do
   sudo systemctl restart "$svc"
 done
 sleep 2
-for svc in labee-mcp labee; do
+for svc in "${services[@]}"; do
   sudo systemctl is-active "$svc" --quiet && ok "$svc is running" || {
     echo "    $svc did NOT come up. Last 30 log lines:"
     sudo journalctl -u "$svc" -n 30 --no-pager

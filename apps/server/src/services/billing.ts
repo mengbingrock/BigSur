@@ -53,6 +53,11 @@ export function signupGrantCents(): number {
   return intEnv("LABEE_SIGNUP_CREDITS", 2000);
 }
 
+/** Cost of one successful protocol-search call, in usage-credit cents. */
+export function protocolSearchCostCents(): number {
+  return intEnv("LABEE_PROTOCOL_SEARCH_CENTS", 1);
+}
+
 /** The usage-credit allowance (cents) a paid plan grants per billing period.
  *  Pro = $20, Max = $100 by default; override with LABEE_PLAN_CREDITS_PRO /
  *  LABEE_PLAN_CREDITS_MAX. */
@@ -443,6 +448,34 @@ export async function consumeCredits(email: string, cents: number): Promise<bool
   if (current < cents) return false;
   await upsert(email, { credits: current - Math.round(cents) });
   return true;
+}
+
+/** Reserve credit for protocol searches. Active plans, complimentary plans,
+ *  and admins are unmetered. Free accounts spend one configurable cent per
+ *  search from their signup/top-up balance. The conditional UPDATE makes the
+ *  reservation safe when several searches arrive concurrently. */
+export async function reserveProtocolSearch(
+  email: string,
+  count = 1,
+): Promise<{ allowed: boolean; charged: number }> {
+  const user = await findUser(email);
+  if (user?.isAdmin) return { allowed: true, charged: 0 };
+  await grantSignupCredits(email);
+  const row = await readRow(email);
+  if (compActive(row)) return { allowed: true, charged: 0 };
+  const planActive = row?.plan !== "free" &&
+    (row?.subscription_status === "active" || row?.subscription_status === "trialing");
+  if (planActive) return { allowed: true, charged: 0 };
+
+  const charged = protocolSearchCostCents() * Math.max(1, Math.floor(count));
+  if (charged <= 0) return { allowed: true, charged: 0 };
+  const db = await getDb();
+  const result = db.prepare(
+    "UPDATE billing SET credits = credits - ?, updated_at = ? WHERE email = ? AND credits >= ?",
+  ).run(charged, new Date().toISOString(), email, charged) as { changes?: number };
+  if (Number(result?.changes ?? 0) < 1) return { allowed: false, charged: 0 };
+  await ledger(email, { kind: "spend", amount: -charged, provider: "labee", model: "protocol-search" });
+  return { allowed: true, charged };
 }
 
 /** Meter a completed Provided-inference call: price the tokens, debit the
