@@ -72,6 +72,9 @@
         "AppImage"
       ],
       "category": "Utility"
+    },
+    "dmg": {
+      "sign": true
     }
   },
   "devDependencies": {
