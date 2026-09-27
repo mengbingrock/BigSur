@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import type { Agent } from "@labee/contracts";
-import { Bot, Folder, Globe, Loader2, Pencil, Play, Plus, Trash2 } from "lucide-react";
+import type { Agent, Skill } from "@labee/contracts";
+import { Bot, Boxes, Folder, Loader2, Pencil, Play, Plus, Trash2, Users } from "lucide-react";
 
 import { ApiError, apiGet, apiSend } from "~/lib/api";
 import { chatStore } from "~/store/chat-store";
 import { Button } from "~/components/ui/button";
+import { SkillCard } from "~/components/SkillCard";
 import { Badge } from "~/components/ui/badge";
 import { useCurrentUser } from "~/lib/auth";
 import { RefreshCw } from "lucide-react";
@@ -135,13 +136,125 @@ function AgentsPage() {
         ) : agents.length === 0 ? (
           <EmptyState />
         ) : (
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {agents.map((agent) => (
+          <AgentList agents={agents} />
+        )}
+        <SkillsSection />
+      </div>
+    </div>
+  );
+}
+
+/** Skills, shown here rather than in the nav: an agent is what you run and a
+ *  skill is what it is made of, so this is where people look for them. Links
+ *  go to the unchanged /skills routes. */
+function SkillsSection() {
+  const { data: user } = useCurrentUser();
+  const skillsQ = useQuery({
+    queryKey: ["skills"],
+    queryFn: () => apiGet<{ skills: Skill[] }>("/api/skills"),
+  });
+  // Protocols have their own page; this section is skills only.
+  const skills = (skillsQ.data?.skills ?? []).filter((s) => s.artifactKind !== "protocol");
+
+  return (
+    <section className="mt-14 border-t border-border pt-10">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-2xl text-ink tracking-tight">
+            <Boxes className="size-5 text-ink-faint" />
+            Skills
+          </h2>
+          <p className="mt-1 max-w-2xl text-ink-light text-sm">
+            The capabilities an agent is assembled from. Attach them to an agent, or open one to
+            read what it does.
+          </p>
+        </div>
+        {user ? (
+          <div className="flex items-center gap-2">
+            <Button variant="outline" render={<Link to="/skills" />}>
+              Browse all
+            </Button>
+            <Button render={<Link to="/skills/new" />}>New skill</Button>
+          </div>
+        ) : null}
+      </div>
+
+      {skillsQ.isLoading ? (
+        <div className="mt-6 flex items-center gap-2 text-ink-light text-sm">
+          <Loader2 className="size-4 animate-spin" /> Loading skills…
+        </div>
+      ) : skills.length === 0 ? (
+        <p className="mt-6 rounded-lg border border-dashed border-border p-8 text-center text-ink-light text-sm">
+          No skills yet.
+        </p>
+      ) : (
+        <>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {skills.slice(0, 6).map((s) => (
+              <SkillCard key={s.slug} skill={s} />
+            ))}
+          </div>
+          {skills.length > 6 ? (
+            <p className="mt-4 text-sm">
+              <Link to="/skills" className="text-brand hover:underline">
+                See all {skills.length} skills →
+              </Link>
+            </p>
+          ) : null}
+        </>
+      )}
+    </section>
+  );
+}
+
+
+/** Agents, with pipeline teams kept together.
+ *
+ *  A team is a set of agents that hand off to each other — one's output is the
+ *  next one's input — so showing them in hand-off order, boxed together, is the
+ *  only way the set reads as a pipeline rather than four unrelated presets.
+ *  Everything else follows underneath, most recently edited first. */
+function AgentList({ agents }: { agents: Agent[] }) {
+  // The server returns teams contiguous and in hand-off order; preserve that.
+  const teams: Array<{ name: string; members: Agent[] }> = [];
+  const loners: Agent[] = [];
+  for (const agent of agents) {
+    if (!agent.team) {
+      loners.push(agent);
+      continue;
+    }
+    const existing = teams.find((t) => t.name === agent.team);
+    if (existing) existing.members.push(agent);
+    else teams.push({ name: agent.team, members: [agent] });
+  }
+  return (
+    <div className="flex flex-col gap-8">
+      {teams.map((team) => (
+        <section key={team.name} className="rounded-xl border-2 border-border bg-surface/40 p-5">
+          <h2 className="flex flex-wrap items-center gap-2 font-medium text-ink text-lg">
+            <Users className="size-5 shrink-0 text-ink-faint" />
+            {team.name}
+            <Badge variant="secondary">team of {team.members.length}</Badge>
+          </h2>
+          <p className="mt-1 max-w-2xl text-ink-light text-sm">
+            These agents work together as a pipeline — each one&apos;s output is the next
+            one&apos;s input. They are shown in hand-off order.
+          </p>
+          <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {team.members.map((agent) => (
               <AgentCard key={agent.id} agent={agent} />
             ))}
           </ul>
-        )}
-      </div>
+        </section>
+      ))}
+
+      {loners.length > 0 ? (
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {loners.map((agent) => (
+            <AgentCard key={agent.id} agent={agent} />
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }
@@ -173,17 +286,6 @@ function AgentCard({ agent }: { agent: Agent }) {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["agents"] }),
   });
 
-  const publish = useMutation({
-    mutationFn: () =>
-      apiSend<{ agent: Agent }>("POST", `/api/agents/${agent.id}/publish`, {
-        public: !agent.isPublic,
-      }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["agents"] });
-      void qc.invalidateQueries({ queryKey: ["agent-market"] });
-    },
-  });
-
   return (
     <li className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-2">
@@ -205,12 +307,6 @@ function AgentCard({ agent }: { agent: Agent }) {
           {agent.referenceFolders.length} ref folder
           {agent.referenceFolders.length === 1 ? "" : "s"}
         </Badge>
-        {agent.isPublic ? (
-          <Badge variant="outline">
-            <Globe className="size-3" />
-            public
-          </Badge>
-        ) : null}
       </div>
 
       <div className="flex items-center gap-1.5 rounded-md bg-surface px-2 py-1">
@@ -240,24 +336,6 @@ function AgentCard({ agent }: { agent: Agent }) {
         >
           <Pencil className="size-4" />
           Edit
-        </Button>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label={agent.isPublic ? "Remove from marketplace" : "Publish to marketplace"}
-          title={
-            agent.isPublic
-              ? "Remove from the public marketplace"
-              : "Publish to the public marketplace (name, description, skills, engine — never your folders)"
-          }
-          disabled={publish.isPending}
-          onClick={() => publish.mutate()}
-        >
-          {publish.isPending ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Globe className={agent.isPublic ? "text-ink" : "text-ink-faint"} />
-          )}
         </Button>
         <div className="ml-auto">
           {confirming ? (

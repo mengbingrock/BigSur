@@ -1,3 +1,4 @@
+import { resolve as apiUrl } from "./api";
 // Client helpers for research runs: REST wrappers + a live event-stream hook.
 // Server state is authoritative (persisted events replay on reconnect) — this
 // deliberately does NOT follow chat-store's localStorage pattern.
@@ -95,7 +96,7 @@ export function useRunEvents(runId: string | null): LiveRunState {
     if (!runId) return;
     lastSeq.current = 0;
     setState({ events: [], liveText: {}, status: null, stage: null, pendingGate: null, connected: false });
-    const source = new EventSource(`/api/research/runs/${runId}/events?after=0`, {
+    const source = new EventSource(apiUrl(`/api/research/runs/${runId}/events?after=0`), {
       withCredentials: true,
     });
     source.addEventListener("open", () => setState((s) => ({ ...s, connected: true })));

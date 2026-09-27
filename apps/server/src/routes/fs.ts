@@ -1,6 +1,8 @@
-// Read-only filesystem folder browser for the agent folder picker. Lists
-// immediate subdirectories of a path, confined to under the user's home
-// directory so an authenticated request can't enumerate the whole machine.
+// Read-only filesystem browser for the folder pickers. Lists the immediate
+// subdirectories of a path, and with `?files=1` the document files too, so a
+// single protocol can be picked as well as a whole folder. Confined to under
+// the user's home directory, so an authenticated request cannot enumerate the
+// whole machine.
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -23,7 +25,12 @@ function confine(p: string | null): string {
   return home;
 }
 
-/** GET /api/fs/browse?path=… — subdirectories of a folder (default: home). */
+/** Document extensions worth offering as a protocol. Anything else would only
+ *  be noise in the picker: a protocol has to be readable text. */
+const DOC_EXTENSIONS = new Set([".md", ".markdown", ".txt", ".rst"]);
+
+/** GET /api/fs/browse?path=…&files=1 — subdirectories, and optionally the
+ *  document files, of a folder (default: home). */
 export const fsBrowseRoute = HttpRouter.add(
   "GET",
   "/api/fs/browse",
@@ -33,11 +40,13 @@ export const fsBrowseRoute = HttpRouter.add(
     const url = yield* requestUrl;
     const target = confine(url.searchParams.get("path"));
     const home = homeDir();
+    const wantFiles = url.searchParams.get("files") === "1";
 
     const result = yield* Effect.tryPromise({
       try: async (): Promise<FsBrowse> => {
         const entries = await fsp.readdir(target, { withFileTypes: true });
         const dirs: FsDir[] = [];
+        const files: FsDir[] = [];
         for (const entry of entries) {
           if (entry.name.startsWith(".")) continue;
           let isDir = entry.isDirectory();
@@ -48,12 +57,19 @@ export const fsBrowseRoute = HttpRouter.add(
               isDir = false;
             }
           }
-          if (!isDir) continue;
-          dirs.push({ name: entry.name, path: path.join(target, entry.name) });
+          const full = path.join(target, entry.name);
+          if (!isDir) {
+            if (wantFiles && DOC_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+              files.push({ name: entry.name, path: full });
+            }
+            continue;
+          }
+          dirs.push({ name: entry.name, path: full });
         }
         dirs.sort((a, b) => a.name.localeCompare(b.name));
+        files.sort((a, b) => a.name.localeCompare(b.name));
         const parent = target === home ? null : path.dirname(target);
-        return { path: target, parent, home, dirs };
+        return { path: target, parent, home, dirs, ...(wantFiles ? { files } : {}) };
       },
       catch: (e) => e,
     }).pipe(

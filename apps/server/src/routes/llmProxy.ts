@@ -23,16 +23,32 @@ const OPENAI_UPSTREAM = (process.env.OPENAI_API_BASE || "https://api.openai.com/
 );
 const OAUTH_BETA = "oauth-2025-04-20";
 
-/** How Labee authenticates to Anthropic upstream: a console API key, or a Claude
- *  subscription OAuth token (the box's own Max/Pro login — no API billing). */
+/** How Labee authenticates to Anthropic upstream: a Console API key, or — in
+ *  local development only — this machine's own Claude subscription token. */
 type AnthropicAuth =
   | { kind: "apiKey"; value: string }
   | { kind: "oauth"; value: string }
   | null;
 
-/** Read the box's Claude subscription OAuth access token, in order of preference:
- *  an explicit long-lived token (from `claude setup-token`), else the access
- *  token in the CLI credential store (`~/.claude/.credentials.json`). */
+/**
+ * Whether the subscription fallback below may be used at all. Off unless
+ * switched on explicitly, which is the entire point of the flag.
+ *
+ * Serving users from a Claude subscription is something Anthropic prohibits —
+ * "Anthropic does not permit third-party developers to ... route requests
+ * through Free, Pro, or Max plan credentials on behalf of their users"
+ * (https://code.claude.com/docs/en/legal-and-compliance) — so it must not be
+ * reachable on a hosted box. Note it cannot simply be gated on "no API key is
+ * configured": that is exactly the state a misconfigured production box is in,
+ * which is how this came to be live on labee.online in the first place. An
+ * explicit opt-in is the only form of "development only" that is actually true.
+ */
+function devSubscriptionProxyEnabled(): boolean {
+  return process.env.LABEE_DEV_SUBSCRIPTION_PROXY === "1";
+}
+
+/** Read this machine's Claude subscription OAuth access token, in order of
+ *  preference: an explicit long-lived token, else the one the CLI stored. */
 function claudeOAuthToken(): string | null {
   const explicit =
     process.env.LABEE_ANTHROPIC_OAUTH_TOKEN || process.env.CLAUDE_CODE_OAUTH_TOKEN;
@@ -54,14 +70,14 @@ function claudeOAuthToken(): string | null {
   }
 }
 
-/** Resolve how to authenticate the Anthropic upstream call. Prefer a real API
- *  key (clean, ToS-simple); else fall back to the box's subscription token. */
+/** Resolve how to authenticate the Anthropic upstream call. An API key always
+ *  wins; the subscription token is a local-development fallback only. */
 function anthropicAuth(): AnthropicAuth {
   const key = process.env.LABEE_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (key) return { kind: "apiKey", value: key };
+  if (!devSubscriptionProxyEnabled()) return null;
   const oauth = claudeOAuthToken();
-  if (oauth) return { kind: "oauth", value: oauth };
-  return null;
+  return oauth ? { kind: "oauth", value: oauth } : null;
 }
 
 function openaiKey(): string | null {
@@ -283,7 +299,7 @@ function vendorError(e: unknown): Response {
 }
 
 /** POST /api/llm/anthropic/* — forward to api.anthropic.com using Labee's API
- *  key, or (fallback) the box's Claude subscription OAuth token. */
+ *  key, or the development-only subscription fallback. 503 when neither. */
 export const anthropicProxyRoute = HttpRouter.add(
   "POST",
   "/api/llm/anthropic/*",
@@ -299,9 +315,7 @@ export const anthropicProxyRoute = HttpRouter.add(
     if (auth.kind === "apiKey") {
       headers["x-api-key"] = auth.value;
     } else {
-      // Subscription auth: Bearer token + the oauth beta. The incoming request
-      // comes from a real claude CLI, so its system prompt already leads with the
-      // required "You are Claude Code…" identity block.
+      // Development-only subscription auth: Bearer token plus the oauth beta.
       headers["authorization"] = `Bearer ${auth.value}`;
       betas.add(OAUTH_BETA);
     }
@@ -322,3 +336,7 @@ export const openaiProxyRoute = HttpRouter.add(
 );
 
 export const llmProxyRoutes = [proxyTokenRoute, anthropicProxyRoute, openaiProxyRoute] as const;
+
+/** Exposed for tests: the gate on the dev-only subscription fallback is the
+ *  kind of thing that gets loosened by accident, so it is pinned directly. */
+export const __testAnthropicAuth = anthropicAuth;

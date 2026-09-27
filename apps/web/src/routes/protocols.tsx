@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { FileText, FolderPlus, Loader2, Plus, Search } from "lucide-react";
+import { FileText, FolderPlus, Loader2, MessagesSquare, Plus, Search, Sparkles } from "lucide-react";
 import type { Skill } from "@labee/contracts";
 import { Button } from "~/components/ui/button";
 import { useCurrentUser } from "~/lib/auth";
@@ -17,8 +17,51 @@ const UNCATEGORISED = "Uncategorised";
 interface SearchHit {
   slug: string;
   score: number;
-  field: "name" | "description" | "body";
+  /** Heading path of the matching chunk, e.g. "Materials › Buffers". */
+  heading?: string;
   snippet?: string;
+}
+
+interface SearchResponse {
+  /** "lexical" when no embedding credential resolved on the server. */
+  mode: "semantic" | "lexical";
+  hits: SearchHit[];
+}
+
+interface CategoryProposal {
+  slug: string;
+  name: string;
+  category: string | null;
+  confidence: number;
+  reason: string;
+  isNew: boolean;
+}
+
+interface SuggestResult {
+  proposals: CategoryProposal[];
+  newCategories: string[];
+  usedModel: boolean;
+}
+
+interface Citation {
+  n: number;
+  slug: string;
+  name: string;
+  heading: string;
+  quote: string;
+}
+
+interface AskResult {
+  answer: string;
+  citations: Citation[];
+  available: boolean;
+}
+
+interface IndexStatus {
+  total: number;
+  indexed: number;
+  pending: number;
+  available: boolean;
 }
 
 type Ownership = "all" | "mine" | "shared" | "imported";
@@ -100,8 +143,52 @@ function ProtocolsPage() {
       apiSend<{ skill: Skill }>("POST", `/api/skills/${v.slug}/move`, { category: v.category }),
     onSuccess: refresh,
   });
+  // The categorisation agent. Proposals are held in local state and nothing is
+  // written until "Apply selected" — the server side never moves a file.
+  const [proposals, setProposals] = useState<CategoryProposal[] | null>(null);
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const suggest = useMutation({
+    mutationFn: () => apiSend<SuggestResult>("POST", "/api/skills/categories/suggest", {}),
+    onSuccess: (d) => {
+      setProposals(d.proposals);
+      // Pre-tick the confident ones; the rest are a deliberate choice.
+      setChosen(new Set(d.proposals.filter((p) => p.confidence >= 0.8).map((p) => p.slug)));
+    },
+  });
+  const applySuggestions = useMutation({
+    mutationFn: async (picked: CategoryProposal[]) => {
+      // Create any new folders first, then move each protocol into place.
+      for (const name of new Set(picked.filter((p) => p.isNew && p.category).map((p) => p.category!))) {
+        await apiSend<{ name: string }>("POST", "/api/skills/categories", { name }).catch(() => null);
+      }
+      for (const p of picked) {
+        if (!p.category) continue;
+        await apiSend<unknown>("POST", `/api/skills/${p.slug}/move`, { category: p.category });
+      }
+      return picked.length;
+    },
+    onSuccess: () => {
+      setProposals(null);
+      setChosen(new Set());
+      refresh();
+    },
+  });
+
+  // Ask the library. A deliberate button, not something that fires while
+  // typing: it costs a model call and takes a second or two.
+  const askMut = useMutation({
+    mutationFn: (question: string) =>
+      apiSend<AskResult>("POST", "/api/skills/ask", { q: question, kind: "protocol" }),
+  });
+
   const mutError =
-    createCat.error ?? renameCat.error ?? deleteCat.error ?? moveOne.error ?? null;
+    createCat.error ??
+    renameCat.error ??
+    deleteCat.error ??
+    moveOne.error ??
+    suggest.error ??
+    applySuggestions.error ??
+    null;
 
   const [q, setQ] = useState("");
   const [owner, setOwner] = useState<Ownership>("all");
@@ -125,12 +212,29 @@ function ProtocolsPage() {
   const searchQ = useQuery({
     queryKey: ["protocol-search", debounced],
     queryFn: () =>
-      apiGet<{ hits: SearchHit[] }>(
+      apiGet<SearchResponse>(
         `/api/skills/search?kind=protocol&q=${encodeURIComponent(debounced)}`,
       ),
     enabled: debounced.length > 0,
     staleTime: 15_000,
   });
+
+  // Indexing progress. Polled only while the index is still catching up, so a
+  // warm library makes one request and stops.
+  const statusQ = useQuery({
+    queryKey: ["protocol-index-status"],
+    queryFn: () => apiGet<IndexStatus>("/api/skills/index/status"),
+    enabled: !!user,
+    refetchInterval: (q) => {
+      const d = q.state.data;
+      return d && d.available && d.indexed < d.total ? 2000 : false;
+    },
+  });
+  const indexing =
+    statusQ.data && statusQ.data.available && statusQ.data.indexed < statusQ.data.total
+      ? statusQ.data
+      : null;
+  const lexical = searchQ.data?.mode === "lexical";
 
   /** slug → hit, so a card can show why it matched. */
   const hits = useMemo(() => {
@@ -235,9 +339,26 @@ function ProtocolsPage() {
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && q.trim()) askMut.mutate(q.trim());
+            }}
             placeholder="Search protocols, steps, reagents…"
             className="min-w-0 flex-1 bg-transparent text-base text-ink placeholder:text-ink-faint focus:outline-none"
           />
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={!q.trim() || askMut.isPending}
+            onClick={() => askMut.mutate(q.trim())}
+            title="Answer this from your protocols, with citations"
+          >
+            {askMut.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <MessagesSquare className="size-4" />
+            )}
+            Ask
+          </Button>
         </label>
         <div className="flex flex-wrap items-center gap-2">
           <Chip active={owner === "all"} onClick={() => setOwner("all")}>
@@ -277,6 +398,48 @@ function ProtocolsPage() {
           )}
         </div>
       </div>
+
+      {indexing ? (
+        <p className="mt-2 flex items-center gap-2 text-sm text-ink-light">
+          <Loader2 className="size-3.5 animate-spin" />
+          Indexing {indexing.indexed} of {indexing.total} protocols for search…
+        </p>
+      ) : lexical ? (
+        <p className="mt-2 text-sm text-ink-light">
+          Semantic search needs a model key — showing text matches instead.
+        </p>
+      ) : null}
+
+      {askMut.data || askMut.isPending ? (
+        <AskPanel
+          result={askMut.data ?? null}
+          pending={askMut.isPending}
+          onDismiss={() => askMut.reset()}
+        />
+      ) : null}
+
+      {proposals ? (
+        <ProposalReview
+          proposals={proposals}
+          chosen={chosen}
+          onToggle={(slug) =>
+            setChosen((cur) => {
+              const next = new Set(cur);
+              if (next.has(slug)) next.delete(slug);
+              else next.add(slug);
+              return next;
+            })
+          }
+          onDismiss={() => {
+            setProposals(null);
+            setChosen(new Set());
+          }}
+          onApply={() =>
+            applySuggestions.mutate(proposals.filter((p) => chosen.has(p.slug) && p.category))
+          }
+          applying={applySuggestions.isPending}
+        />
+      ) : null}
 
       {mutError ? (
         <p className="mt-3 text-sm text-destructive">
@@ -319,6 +482,20 @@ function ProtocolsPage() {
                 >
                   <FolderPlus className="size-3.5" />
                   New category
+                </button>
+                <button
+                  type="button"
+                  disabled={suggest.isPending}
+                  onClick={() => suggest.mutate()}
+                  title="Propose a category for each unfiled protocol"
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-left text-sm text-brand transition hover:bg-muted/60 disabled:opacity-50"
+                >
+                  {suggest.isPending ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="size-3.5" />
+                  )}
+                  Suggest categories
                 </button>
                 {category && category !== UNCATEGORISED && (
                   <div className="flex items-center gap-2 px-2.5 text-xs text-ink-light">
@@ -487,6 +664,9 @@ function ProtocolCard({
         {protocol.category ?? UNCATEGORISED}
         {when ? ` · updated ${when}` : ""}
       </p>
+      {hit?.heading ? (
+        <p className="text-[11px] uppercase tracking-[0.12em] text-ink-faint">{hit.heading}</p>
+      ) : null}
       <p className="line-clamp-2 text-sm leading-relaxed text-ink-light">
         {hit?.snippet ?? protocol.description}
       </p>
@@ -534,6 +714,144 @@ function ProtocolCard({
         )}
       </div>
     </article>
+  );
+}
+
+/** The answer to a question, with the passages it cited. Every claim is
+ *  supposed to carry a [n] marker; the citations below are exactly the
+ *  passages those markers point at, so a reader can check any of them. */
+function AskPanel({
+  result,
+  pending,
+  onDismiss,
+}: {
+  result: AskResult | null;
+  pending: boolean;
+  onDismiss: () => void;
+}) {
+  return (
+    <section className="mt-5 rounded-xl border border-border bg-card p-4">
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="font-display text-lg text-ink">Answer</h2>
+        {!pending && (
+          <Button variant="ghost" size="sm" onClick={onDismiss}>
+            Dismiss
+          </Button>
+        )}
+      </div>
+      {pending ? (
+        <p className="mt-2 flex items-center gap-2 text-sm text-ink-light">
+          <Loader2 className="size-3.5 animate-spin" />
+          Reading your protocols…
+        </p>
+      ) : !result?.available ? (
+        <p className="mt-2 text-sm text-ink-light">
+          Answering needs a model key. Add one in Settings, or use search instead.
+        </p>
+      ) : (
+        <>
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-ink">
+            {result.answer}
+          </p>
+          {result.citations.length > 0 && (
+            <ol className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
+              {result.citations.map((c) => (
+                <li key={c.n} className="flex gap-2 text-sm">
+                  <span className="shrink-0 font-mono text-xs text-ink-faint">[{c.n}]</span>
+                  <span className="min-w-0">
+                    <Link
+                      to="/skills/$slug"
+                      params={{ slug: c.slug }}
+                      className="font-medium text-ink hover:underline"
+                    >
+                      {c.name}
+                    </Link>
+                    {c.heading ? (
+                      <span className="text-ink-light"> · {c.heading}</span>
+                    ) : null}
+                    <span className="mt-0.5 block line-clamp-2 text-ink-light">{c.quote}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+/** The agent's proposals, as a review list. Nothing has been written at this
+ *  point: every row is a suggestion the person opts into. */
+function ProposalReview({
+  proposals,
+  chosen,
+  onToggle,
+  onDismiss,
+  onApply,
+  applying,
+}: {
+  proposals: CategoryProposal[];
+  chosen: Set<string>;
+  onToggle: (slug: string) => void;
+  onDismiss: () => void;
+  onApply: () => void;
+  applying: boolean;
+}) {
+  const placeable = proposals.filter((p) => p.category);
+  return (
+    <section className="mt-5 rounded-xl border border-border bg-card p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-display text-lg text-ink">Suggested categories</h2>
+          <p className="mt-0.5 text-sm text-ink-light">
+            {placeable.length === 0
+              ? "Nothing to propose — every protocol is already filed."
+              : `${placeable.length} protocol${placeable.length === 1 ? "" : "s"} could be filed. Nothing moves until you apply.`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={onDismiss}>
+            Dismiss
+          </Button>
+          <Button size="sm" disabled={chosen.size === 0 || applying} onClick={onApply}>
+            {applying ? <Loader2 className="size-4 animate-spin" /> : null}
+            Apply {chosen.size > 0 ? chosen.size : ""}
+          </Button>
+        </div>
+      </div>
+      {placeable.length > 0 && (
+        <ul className="mt-3 divide-y divide-border">
+          {placeable.map((p) => (
+            <li key={p.slug} className="flex items-start gap-3 py-2.5">
+              <input
+                type="checkbox"
+                id={`prop-${p.slug}`}
+                checked={chosen.has(p.slug)}
+                onChange={() => onToggle(p.slug)}
+                className="mt-1 size-4 shrink-0"
+              />
+              <label htmlFor={`prop-${p.slug}`} className="min-w-0 flex-1 cursor-pointer">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-ink">{p.name}</span>
+                  <span className="text-ink-faint">→</span>
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-ink">
+                    {p.category}
+                  </span>
+                  {p.isNew && (
+                    <span className="text-[11px] uppercase tracking-[0.12em] text-brand">new</span>
+                  )}
+                </span>
+                <span className="mt-0.5 block text-sm text-ink-light">{p.reason}</span>
+              </label>
+              <span className="shrink-0 text-xs text-ink-faint">
+                {Math.round(p.confidence * 100)}%
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

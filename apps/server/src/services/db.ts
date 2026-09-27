@@ -82,6 +82,11 @@ async function openDb(): Promise<SqlDb> {
   // other. `team_order` is the position in that hand-off (1-based).
   ensureColumn(db, "agents", "team", "TEXT");
   ensureColumn(db, "agents", "team_order", "INTEGER NOT NULL DEFAULT 0");
+  // Multi-device sync: an agent belongs to the account, not to one machine, so
+  // every device merges against the box by `updated_at` (last write wins).
+  // Deleting therefore has to leave a tombstone — a hard DELETE would simply be
+  // re-created by the next device that syncs and still has the row.
+  ensureColumn(db, "agents", "deleted_at", "TEXT");
   // Per-user billing: Stripe customer/subscription + a credit balance (cents).
   db.exec(
     "CREATE TABLE IF NOT EXISTS billing (" +
@@ -352,6 +357,48 @@ async function openDb(): Promise<SqlDb> {
       "last_seen_at TEXT);",
   );
   db.exec("CREATE INDEX IF NOT EXISTS idx_link_devices_email ON link_devices (email, status);");
+  // Folders on this machine the person has granted Labee access to. Protocols
+  // inside them are listed, indexed for search, and writable — so this table is
+  // a permission grant, not a convenience list, and nothing outside it (or the
+  // built-in roots) is ever read or written.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS user_folders (" +
+      "email TEXT NOT NULL, " +
+      "path TEXT NOT NULL, " +
+      "label TEXT NOT NULL DEFAULT '', " +
+      "kind TEXT NOT NULL DEFAULT 'folder', " +
+      "added_at TEXT NOT NULL, " +
+      "PRIMARY KEY (email, path));",
+  );
+
+  ensureColumn(db, "user_folders", "kind", "TEXT NOT NULL DEFAULT 'folder'");
+
+  // Retrieval index for artifacts (protocols + skills). One row per artifact
+  // recording what was embedded, and one row per chunk holding its vector as a
+  // little-endian Float32 BLOB. Cosine runs in-process: a lab library is a few
+  // thousand chunks, so no vector database is warranted. `model` is stored so
+  // changing the embedding model marks every row stale.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS artifact_index (" +
+      // Keyed by the artifact's directory, not its slug: slugs are only unique
+      // within one caller's view (two users can both own "user--miniprep"), so
+      // a slug-keyed index would let one account evict another's rows.
+      "source_path TEXT PRIMARY KEY, " +
+      "slug TEXT NOT NULL, " +
+      "content_hash TEXT NOT NULL, " +
+      "model TEXT NOT NULL, " +
+      "chunk_count INTEGER NOT NULL DEFAULT 0, " +
+      "indexed_at TEXT NOT NULL);",
+  );
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS artifact_chunks (" +
+      "source_path TEXT NOT NULL, " +
+      "idx INTEGER NOT NULL, " +
+      "heading TEXT NOT NULL DEFAULT '', " +
+      "text TEXT NOT NULL, " +
+      "vector BLOB NOT NULL, " +
+      "PRIMARY KEY (source_path, idx));",
+  );
   db.exec(
     "CREATE TABLE IF NOT EXISTS mirror_sessions (" +
       "email TEXT NOT NULL, " +

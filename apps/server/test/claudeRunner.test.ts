@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildClaudeArgs, extractLastJson, runClaudeJson } from "../src/services/claudeRunner";
+import { buildClaudeArgs, childEnv, extractLastJson, runClaudeJson } from "../src/services/claudeRunner";
 
 /** Read the (single) value following a flag in an argv array. */
 function flagValue(args: string[], flag: string): string | undefined {
@@ -135,5 +135,83 @@ describe("runClaudeJson", () => {
         async () => "{}",
       ),
     ).rejects.toThrow(/after 2 attempts: nope/);
+  });
+});
+
+describe("childEnv", () => {
+  /** Set vars for one test and restore whatever was there before. */
+  function withEnv<T>(vars: Record<string, string | undefined>, fn: () => T): T {
+    const saved = new Map(Object.keys(vars).map((k) => [k, process.env[k]]));
+    for (const [k, v] of Object.entries(vars)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+    try {
+      return fn();
+    } finally {
+      for (const [k, v] of saved) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    }
+  }
+
+  it("drops the session a parent Claude Code launched us from", () => {
+    // Launching the server from inside a Claude Code session used to leak these
+    // into the CLI, which then reported "another auth source is set", disabled
+    // the user's claude.ai connectors and exited 1 without doing any work.
+    const env = withEnv(
+      {
+        CLAUDECODE: "1",
+        CLAUDE_CODE_ENTRYPOINT: "cli",
+        CLAUDE_CODE_SESSION_ID: "abc123",
+        CLAUDE_CODE_MESSAGING_SOCKET: "/tmp/sock",
+        CLAUDE_CODE_MESSAGING_TOKEN: "tok",
+        CLAUDE_CODE_EXECPATH: "/usr/bin/claude",
+      },
+      () => childEnv(),
+    );
+    for (const key of [
+      "CLAUDECODE",
+      "CLAUDE_CODE_ENTRYPOINT",
+      "CLAUDE_CODE_SESSION_ID",
+      "CLAUDE_CODE_MESSAGING_SOCKET",
+      "CLAUDE_CODE_MESSAGING_TOKEN",
+      "CLAUDE_CODE_EXECPATH",
+    ]) {
+      expect(env[key], key).toBeUndefined();
+    }
+  });
+
+  it("keeps configuration the operator set on purpose", () => {
+    const env = withEnv(
+      {
+        CLAUDECODE: "1",
+        ANTHROPIC_API_KEY: "sk-ant-deliberate",
+        CLAUDE_CODE_USE_BEDROCK: "1",
+        CLAUDE_BIN: "/opt/claude",
+      },
+      () => childEnv(),
+    );
+    expect(env.ANTHROPIC_API_KEY).toBe("sk-ant-deliberate");
+    expect(env.CLAUDE_CODE_USE_BEDROCK).toBe("1");
+    expect(env.CLAUDE_BIN).toBe("/opt/claude");
+    expect(env.CLAUDECODE).toBeUndefined();
+  });
+
+  it("lets the caller add to and override the environment", () => {
+    const env = withEnv({ CLAUDECODE: "1", LABEE_MODE: "desktop" }, () =>
+      childEnv({ LABEE_MODE: "server", EXTRA: "x" }),
+    );
+    expect(env.LABEE_MODE).toBe("server");
+    expect(env.EXTRA).toBe("x");
+    expect(env.CLAUDECODE).toBeUndefined();
+  });
+
+  it("does not mutate process.env", () => {
+    withEnv({ CLAUDECODE: "1" }, () => {
+      childEnv();
+      expect(process.env.CLAUDECODE).toBe("1");
+    });
   });
 });

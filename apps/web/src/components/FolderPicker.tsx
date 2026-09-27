@@ -1,16 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FsBrowse } from "@labee/contracts";
-import {
-  Check,
-  ChevronUp,
-  Folder,
-  FolderOpen,
-  FolderPlus,
-  FolderSearch,
-  Loader2,
-  Plus,
-} from "lucide-react";
+import { Check, ChevronUp, FileText, Folder, FolderOpen, FolderPlus, FolderSearch, Loader2, Plus } from "lucide-react";
 
 import { apiGet, apiSend } from "~/lib/api";
 import { desktopBridge } from "~/lib/desktop";
@@ -18,9 +9,9 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { cn } from "~/lib/utils";
 
-function browse(path?: string): Promise<FsBrowse> {
+function browse(path?: string, withFiles?: boolean): Promise<FsBrowse> {
   const qs = path ? "?path=" + encodeURIComponent(path) : "";
-  return apiGet<FsBrowse>("/api/fs/browse" + qs);
+  return apiGet<FsBrowse>("/api/fs/browse" + qs + (withFiles ? (qs ? "&" : "?") + "files=1" : ""));
 }
 
 interface FolderPickerProps {
@@ -34,6 +25,8 @@ interface FolderPickerProps {
   selected?: readonly string[];
   /** Called when the user finishes adding (multi mode). */
   onDone?: () => void;
+  /** Also list document files, and let one be chosen instead of a folder. */
+  allowFiles?: boolean;
 }
 
 /**
@@ -47,6 +40,7 @@ interface FolderPickerProps {
 export function FolderPicker({
   value,
   onSelect,
+  allowFiles = false,
   title,
   className,
   multi = false,
@@ -59,8 +53,8 @@ export function FolderPicker({
   const [newFolder, setNewFolder] = useState<string | null>(null);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ["fs-browse", path ?? "@home"],
-    queryFn: () => browse(path),
+    queryKey: ["fs-browse", path ?? "@home", allowFiles],
+    queryFn: () => browse(path, allowFiles),
   });
 
   const currentDir = data?.path ?? path;
@@ -180,8 +174,10 @@ export function FolderPicker({
           <div className="px-2 py-3 text-destructive text-sm">
             {error instanceof Error ? error.message : "Could not read this folder."}
           </div>
-        ) : data && data.dirs.length === 0 ? (
-          <div className="px-2 py-3 text-ink-faint text-sm">No subfolders here.</div>
+        ) : data && data.dirs.length === 0 && (data.files ?? []).length === 0 ? (
+          <div className="px-2 py-3 text-ink-faint text-sm">
+            {allowFiles ? "Nothing here." : "No subfolders here."}
+          </div>
         ) : (
           <ul className="flex flex-col">
             {data?.dirs.map((dir) => {
@@ -216,6 +212,19 @@ export function FolderPicker({
                 </li>
               );
             })}
+            {(data?.files ?? []).map((f) => (
+              <li key={f.path} className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onSelect(f.path)}
+                  title="Use this document"
+                  className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-ink text-sm transition hover:bg-surface"
+                >
+                  <FileText className="size-4 shrink-0 text-ink-light" />
+                  <span className="truncate">{f.name}</span>
+                </button>
+              </li>
+            ))}
           </ul>
         )}
       </div>

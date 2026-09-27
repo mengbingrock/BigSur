@@ -1,3 +1,4 @@
+import { resolve as apiUrl } from "~/lib/api";
 
 import { useState, useTransition } from "react";
 import {
@@ -47,7 +48,7 @@ export default function AdminUsersClient({
 
   const refresh = () => {
     startTransition(() => {
-      fetch("/api/admin/users")
+      fetch(apiUrl("/api/admin/users"))
         .then((r) => r.json())
         .then((d: { users?: PublicUser[] }) => {
           if (d.users) setUsers(d.users);
@@ -61,7 +62,7 @@ export default function AdminUsersClient({
     setError(null);
     setBusyEmail("__create__");
     try {
-      const res = await fetch("/api/admin/users", {
+      const res = await fetch(apiUrl("/api/admin/users"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

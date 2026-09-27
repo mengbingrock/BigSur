@@ -156,6 +156,16 @@
         credit balance and usage totals.
       </p>
 
+      <h3>Protocol search</h3>
+      <p>
+        To let you search your protocols by meaning rather than by exact words, the text of each
+        protocol is sent to the embedding provider once, and again whenever you edit it. When you
+        use “Ask”, the passages most relevant to your question are sent to the model that writes
+        the answer. This applies to protocols you have never used in a chat. If you would rather
+        that did not happen, leave no model key configured and search falls back to plain text
+        matching.
+      </p>
+
       <h3>What we do not collect</h3>
       <ul>
         <li>No advertising identifier, and no App Tracking Transparency prompt, because we do not track you.</li>
@@ -177,8 +187,8 @@
         </tr>
         <tr>
           <td>OpenAI</td>
-          <td>Voice recordings for transcription, and conversation content when you choose an OpenAI model</td>
-          <td>Speech-to-text and model replies</td>
+          <td>Voice recordings for transcription, conversation content when you choose an OpenAI model, and the text of your protocols when they are indexed for search or used to answer a question</td>
+          <td>Speech-to-text, model replies, and protocol search</td>
         </tr>
         <tr>
           <td>Stripe</td>

@@ -127,10 +127,14 @@ cat <<EOF
 
 Next steps (one-time):
 
-  1. Log in to the Claude CLI on the server (requires a Claude subscription):
+  1. Put an Anthropic Console API key on the server, for the provided tier:
        ssh -i $SSH_KEY $SSH_USER@$SSH_HOST
-       claude /login          # or: claude setup-token
-     Follow the prompts. OAuth creds are stored in ~/.claude/ on the box.
+       sudo sh -c 'echo LABEE_ANTHROPIC_API_KEY=sk-ant-... >> /etc/labee.env'
+       sudo systemctl restart labee
+     Do NOT sign the server in to a Claude subscription. Anthropic does not
+     permit routing users' requests through Free/Pro/Max plan credentials
+     (https://code.claude.com/docs/en/legal-and-compliance); a subscription is
+     used by running the CLI on the person's own machine instead.
 
   2. Open the Lightsail firewall (AWS console → instance → Networking):
        - HTTP   (TCP 80)   — required for HTTPS too (ACME challenge + redirect)

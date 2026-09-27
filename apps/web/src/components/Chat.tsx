@@ -1,3 +1,4 @@
+import { resolve as apiUrl } from "~/lib/api";
 
 import {
   lazy,
@@ -2359,7 +2360,7 @@ function ArtifactToggleSection({
     setEditError(null);
     setBusyMode("applying");
     try {
-      const res = await fetch(`/api/skills/${encodeURIComponent(skill.slug)}`, {
+      const res = await fetch(apiUrl(`/api/skills/${encodeURIComponent(skill.slug)}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

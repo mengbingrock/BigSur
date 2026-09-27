@@ -31,6 +31,15 @@ import {
 } from "../services/marketplaces";
 import { importSkillFromRegistry } from "../services/registryImport";
 import { checkForUpdate, updateSkill } from "../services/updateSkill";
+import { suggestCategories } from "../services/artifactIndex/agent";
+import { askLibrary } from "../services/artifactIndex/ask";
+import {
+  enqueueArtifacts,
+  ensureIndexed,
+  indexStatus,
+  rebuild,
+  retrieve,
+} from "../services/artifactIndex";
 
 const params = HttpRouter.params;
 
@@ -69,7 +78,11 @@ export const createSkillRoute = HttpRouter.add(
     if (!user) return yield* error("Authentication required.", 401);
     const body = yield* safeBody<SkillUpdate>();
     if (!body) return yield* error("Invalid JSON body.", 400);
-    return yield* attempt(() => ({ skill: createSkill(body, user.email) }));
+    return yield* attempt(() => {
+      const skill = createSkill(body, user.email);
+      enqueueArtifacts([skill.slug], user.email);
+      return { skill };
+    });
   }),
 );
 
@@ -102,7 +115,11 @@ export const updateSkillRoute = HttpRouter.add(
     const { slug } = yield* params;
     const body = yield* safeBody<SkillUpdate>();
     if (!body) return yield* error("Invalid JSON body.", 400);
-    return yield* attempt(() => ({ skill: saveSkill(slug ?? "", body, user.email) }));
+    return yield* attempt(() => {
+      const skill = saveSkill(slug ?? "", body, user.email);
+      enqueueArtifacts([skill.slug], user.email);
+      return { skill };
+    });
   }),
 );
 
@@ -133,6 +150,7 @@ export const saveSkillFileRoute = HttpRouter.add(
     if (!body?.relPath) return yield* error("relPath is required.", 400);
     return yield* attempt(() => {
       saveSkillFile(slug ?? "", body.relPath, body.content ?? "", user.email);
+      enqueueArtifacts([slug ?? ""], user.email);
       return { ok: true };
     });
   }),
@@ -450,8 +468,14 @@ export const moveSkillRoute = HttpRouter.add(
   }),
 );
 
-/** GET /api/skills/search?q=&kind=&limit= — substring search over name,
- *  description and body. Bodies stay here; only a snippet is returned. */
+/**
+ * GET /api/skills/search?q=&kind=&limit= — retrieval over embeddings.
+ *
+ * Chunks are scored by cosine against the query's vector, so "phenol
+ * extraction" finds a protocol that says "organic phase separation". Falls
+ * back to substring matching when no embedding credential resolves; `mode`
+ * tells the client which it got, so the page can say so.
+ */
 export const searchSkillsRoute = HttpRouter.add(
   "GET",
   "/api/skills/search",
@@ -462,17 +486,94 @@ export const searchSkillsRoute = HttpRouter.add(
     const kindParam = url.searchParams.get("kind");
     const kind = kindParam === "skill" || kindParam === "protocol" ? kindParam : undefined;
     const limitParam = Number(url.searchParams.get("limit"));
-    return yield* attempt(() => ({
-      hits: searchSkills(q, user?.email, {
-        ...(kind ? { kind } : {}),
-        ...(Number.isFinite(limitParam) && limitParam > 0 ? { limit: limitParam } : {}),
+    const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : undefined;
+    const opts: { kind?: "skill" | "protocol"; limit?: number } = {
+      ...(kind ? { kind } : {}),
+      ...(limit ? { limit } : {}),
+    };
+
+    return yield* attempt(async () => {
+      // Pick up anything edited on disk since the last pass, then query. On a
+      // warm index this is a few hashes.
+      await ensureIndexed(user?.email);
+      const hits = await retrieve(q, user?.email, opts);
+      if (hits) return { mode: "semantic" as const, hits };
+      return { mode: "lexical" as const, hits: searchSkills(q, user?.email, opts) };
+    });
+  }),
+);
+
+/**
+ * POST /api/skills/categories/suggest — the categorisation agent.
+ *
+ * Proposes a category for each uncategorised protocol: nearest centroid first
+ * (free), then one batched model call, then a clustered taxonomy when there is
+ * nothing to choose from. Writes nothing; the caller applies what it wants
+ * through the category and move endpoints.
+ */
+export const suggestCategoriesRoute = HttpRouter.add(
+  "POST",
+  "/api/skills/categories/suggest",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const body = yield* safeBody<{ slugs?: string[]; kind?: "skill" | "protocol" }>();
+    return yield* attempt(() =>
+      suggestCategories(user.email, {
+        ...(body?.slugs ? { slugs: body.slugs } : {}),
+        ...(body?.kind ? { kind: body.kind } : {}),
       }),
-    }));
+    );
+  }),
+);
+
+/**
+ * POST /api/skills/ask — answer a question from the caller's protocols.
+ *
+ * Retrieval, then one chat call over the retrieved passages, with the model
+ * told to answer only from them and to decline otherwise. Returns the answer
+ * plus the passages it actually cited.
+ */
+export const askRoute = HttpRouter.add(
+  "POST",
+  "/api/skills/ask",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const body = yield* safeBody<{ q?: string; kind?: "skill" | "protocol" }>();
+    return yield* attempt(() =>
+      askLibrary(body?.q ?? "", user.email, { ...(body?.kind ? { kind: body.kind } : {}) }),
+    );
+  }),
+);
+
+/** GET /api/skills/index/status — indexing progress, for the page's notice. */
+export const indexStatusRoute = HttpRouter.add(
+  "GET",
+  "/api/skills/index/status",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    return yield* attempt(() => indexStatus(user?.email));
+  }),
+);
+
+/** POST /api/skills/index/rebuild — drop and re-embed everything visible. */
+export const indexRebuildRoute = HttpRouter.add(
+  "POST",
+  "/api/skills/index/rebuild",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    return yield* attempt(() => rebuild(user.email));
   }),
 );
 
 // Longer/static paths before parametric ones so exact matches win.
 export const skillsRoutes = [
+  askRoute,
+  suggestCategoriesRoute,
+  indexStatusRoute,
+  indexRebuildRoute,
   listCategoriesRoute,
   createCategoryRoute,
   renameCategoryRoute,

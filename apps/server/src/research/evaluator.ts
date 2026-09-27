@@ -4,6 +4,7 @@
 // only — those scores are never treated as verified results).
 import { spawn } from "node:child_process";
 import type { EvaluatorSpec } from "@labee/contracts";
+import { childEnv } from "../services/claudeRunner";
 
 export interface EvalResult {
   score: number;
@@ -45,7 +46,7 @@ export function runCommandEvaluator(
       cwd,
       shell: true,
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, ...env },
+      env: childEnv(env),
     });
     let stdout = "";
     let stderr = "";

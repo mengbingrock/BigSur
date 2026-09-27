@@ -12,6 +12,7 @@ import { boxSessionCookie, isDesktop, proxyServerBase } from "../llmSettings";
 import type { BoxToHost, HostToBox } from "./protocol";
 import { LINK_VERSION } from "./protocol";
 import { ensureLinkSecret } from "./secret";
+import { subscribeAgents } from "../agents";
 
 const CHUNK = 64 * 1024;
 const HEARTBEAT_MS = 20_000;
@@ -125,6 +126,8 @@ function runSocket(
 ): Promise<boolean> {
   return new Promise((resolve) => {
     let welcomed = false;
+    /** The account this link is for — learned from the welcome frame. */
+    let accountEmail = "";
     let socket: WebSocket;
     try {
       socket = new WebSocket(url);
@@ -181,6 +184,34 @@ function runSocket(
       }
     });
 
+    // Agents belong to the account, not this machine, so reconcile them with
+    // the box whenever we (re)connect and whenever something here changes.
+    // Debounced because renaming an agent writes on every keystroke upstream,
+    // and coalesced by `agentSyncing` so a slow round trip can't overlap itself.
+    let agentTimer: ReturnType<typeof setTimeout> | null = null;
+    let agentSyncing = false;
+    const syncAgents = async () => {
+      if (!welcomed || agentSyncing || !accountEmail) return;
+      agentSyncing = true;
+      try {
+        const { syncAgentsFromServer } = await import("../remoteAgents");
+        await syncAgentsFromServer(accountEmail);
+      } catch {
+        // Offline, or not connected to Labee yet: the next change or reconnect
+        // tries again. Never let this take down the link.
+      } finally {
+        agentSyncing = false;
+      }
+    };
+    const scheduleAgentSync = (delay = 1500) => {
+      if (agentTimer) clearTimeout(agentTimer);
+      agentTimer = setTimeout(() => {
+        agentTimer = null;
+        void syncAgents();
+      }, delay);
+    };
+    const unsubscribeAgents = subscribeAgents(() => scheduleAgentSync());
+
     const fullSync = async () => {
       // Sessions of every local account: the desktop is single-user in practice.
       const rows = await sdb.listRunningSessions().catch(() => []);
@@ -204,9 +235,11 @@ function runSocket(
       }
       if (frame.t === "welcome") {
         welcomed = true;
+        accountEmail = frame.email;
         console.log(`[link] connected as ${frame.email}, host ${frame.hostId}`);
         setState("connected", opts);
         void fullSync();
+        scheduleAgentSync(0);
         return;
       }
       if (frame.t === "pong") {
@@ -232,6 +265,8 @@ function runSocket(
     const done = () => {
       clearInterval(heartbeat);
       unsubscribe();
+      unsubscribeAgents();
+      if (agentTimer) clearTimeout(agentTimer);
       for (const c of inflight.values()) c.abort();
       inflight.clear();
       if (ws === socket) ws = null;

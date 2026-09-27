@@ -21,10 +21,8 @@ export const Agent = Schema.Struct({
   referenceFolders: Schema.Array(Schema.String),
   /** Which local CLI runs the agent (defaults to "claude"). */
   engine: Schema.optional(AgentEngine),
-  /** Listed in the public agent marketplace. */
-  isPublic: Schema.optional(Schema.Boolean),
   /** Name of the team this agent belongs to, when it's one of a set designed
-   *  to work together (marketplace groups listings by it). */
+   *  to work together; research runs hand off along the team order. */
   team: Schema.optional(Schema.NullOr(Schema.String)),
   /** Position in the team's hand-off order (1-based; 0 = unordered). */
   teamOrder: Schema.optional(Schema.Number),
@@ -32,37 +30,6 @@ export const Agent = Schema.Struct({
   updatedAt: Schema.optional(Schema.String),
 });
 export type Agent = typeof Agent.Type;
-
-/**
- * A marketplace listing: the shareable subset of a published agent. Machine
- * paths (workingDir, referenceFolders) never leave the owner's account — an
- * installer picks their own folders after installing.
- */
-export const PublicAgent = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  description: Schema.optional(Schema.String),
-  skillSlugs: Schema.Array(Schema.String),
-  engine: Schema.optional(AgentEngine),
-  /** Display handle of the publisher (email local part, not the full email). */
-  author: Schema.String,
-  publishedAt: Schema.optional(Schema.String),
-  installs: Schema.Number,
-  /** Set when this listing is part of a team meant to be used together. */
-  team: Schema.optional(Schema.NullOr(Schema.String)),
-  /** Position in the team's hand-off order (1-based). */
-  teamOrder: Schema.optional(Schema.Number),
-});
-export type PublicAgent = typeof PublicAgent.Type;
-
-/** Result of installing a marketplace agent into the caller's account. */
-export const AgentInstallResult = Schema.Struct({
-  agent: Agent,
-  /** Skill slugs from the listing that don't resolve for the installer
-   *  (private skills of the publisher) and were left off the copy. */
-  droppedSkillSlugs: Schema.Array(Schema.String),
-});
-export type AgentInstallResult = typeof AgentInstallResult.Type;
 
 /** Create/update payload for an agent. */
 export const AgentUpdate = Schema.Struct({
@@ -88,5 +55,7 @@ export const FsBrowse = Schema.Struct({
   parent: Schema.NullOr(Schema.String),
   home: Schema.String,
   dirs: Schema.Array(FsDir),
+  /** Files in this directory, present only when the caller asked for them. */
+  files: Schema.optional(Schema.Array(FsDir)),
 });
 export type FsBrowse = typeof FsBrowse.Type;
