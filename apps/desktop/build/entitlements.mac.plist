@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    Hardened Runtime exceptions for a Developer ID build.
+
+    Electron's renderer is V8, which writes and then executes machine code —
+    the first two keys allow that. The third lets the process load libraries
+    signed by a different team, which Electron's own frameworks need under
+    Developer ID. Without these the app launches to a blank window or not at
+    all, and the notary service does not tell you why.
+
+    Microphone: the app records for voice input (see NSMicrophoneUsageDescription).
+    Without this entitlement the hardened runtime denies the device silently.
+
+    Nothing here loosens the file system: Labee is not sandboxed, and the
+    Developer ID path does not require it — which is the point. The product
+    runs a CLI against the person's own files.
+  -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
+</dict>
+</plist>
