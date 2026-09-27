@@ -15,6 +15,7 @@ import { getAllSkills } from "../skills";
 import {
   blobToVector,
   cosine,
+  normalise,
   embedBatch,
   embedModel,
   resolveEmbedTarget,
@@ -338,4 +339,32 @@ export async function retrieve(
   return scored
     .sort((a, b) => b.score - a.score)
     .slice(0, Math.min(Math.max(opts?.limit ?? 20, 1), 100));
+}
+
+/** One unit vector per indexed artifact: the mean of its chunk vectors. Used
+ *  by the categorisation agent for centroids and clustering. Keyed by the
+ *  artifact directory, like the index itself. */
+export async function artifactVectors(
+  email?: string,
+  opts?: { kind?: "skill" | "protocol" },
+): Promise<Map<string, Float32Array>> {
+  const visible = new Set(
+    getAllSkills(email)
+      .filter((s) => !opts?.kind || s.artifactKind === opts.kind)
+      .map((s) => s.sourcePath),
+  );
+  const sums = new Map<string, { v: Float32Array; n: number }>();
+  for (const c of await loadChunks()) {
+    if (!visible.has(c.sourcePath)) continue;
+    const cur = sums.get(c.sourcePath);
+    if (!cur) {
+      sums.set(c.sourcePath, { v: Float32Array.from(c.vector), n: 1 });
+      continue;
+    }
+    for (let i = 0; i < cur.v.length; i++) cur.v[i] = (cur.v[i] ?? 0) + (c.vector[i] ?? 0);
+    cur.n += 1;
+  }
+  const out = new Map<string, Float32Array>();
+  for (const [sp, { v }] of sums) out.set(sp, normalise(v));
+  return out;
 }
