@@ -155,6 +155,54 @@ describe("artifact index", () => {
     expect(status.total).toBe(2);
   });
 
+  it("keeps a plain-document protocol indexed across reconciles", async () => {
+    // Every other fixture here is a folder with a SKILL.md, which is why this
+    // was never caught: the dead-row check looked for <path>/SKILL.md, which
+    // a document file can never have, so a protocol's row was deleted on each
+    // reconcile and re-embedded on the next — the library looked permanently
+    // half-indexed and paid for the other half on every pass.
+    fs.writeFileSync(
+      path.join(ownDir, "lysis-buffer.md"),
+      "---\nname: Lysis buffer\ndescription: RIPA-style lysis buffer\nkind: protocol\n---\n\n## Recipe\n\n50 mM Tris, 150 mM NaCl, 1% NP-40.\n",
+    );
+    const status = async () =>
+      (await (await api(cookie, "/api/skills/index/status")).json()) as { total: number; indexed: number };
+
+    // First search: reconcile queues it, drain embeds it.
+    await search(cookie, "lysis buffer recipe");
+    const first = await status();
+    expect(first.indexed).toBe(first.total);
+
+    // Each further search runs another reconcile. The document must survive
+    // every one of them, not just the first.
+    for (let i = 0; i < 3; i++) {
+      await search(cookie, "lysis buffer recipe");
+      const again = await status();
+      expect(again.indexed, `after reconcile ${i + 2}`).toBe(again.total);
+    }
+    const hit = (await search(cookie, "NP-40 lysis")).hits.find((h) => h.slug.includes("lysis-buffer"));
+    expect(hit).toBeTruthy();
+  });
+
+  it("indexes two documents in the same folder as two artifacts, not one", async () => {
+    // A document's sourcePath is its *folder*, so two documents side by side
+    // used to share one index key and overwrite each other — search then
+    // returned one protocol's text for its neighbour. Keyed by file now.
+    fs.writeFileSync(
+      path.join(ownDir, "gel-stain.md"),
+      "---\nname: Gel stain\ndescription: post-stain\nkind: protocol\n---\n\n## Steps\n\nSoak the gel in SYBR Safe for 30 minutes.\n",
+    );
+    await search(cookie, "warm");
+    const status = (await (await api(cookie, "/api/skills/index/status")).json()) as { total: number; indexed: number };
+    expect(status.indexed).toBe(status.total);
+
+    // Each one is found on its own text, with its own slug.
+    const stain = (await search(cookie, "SYBR Safe soak")).hits[0];
+    const lysis = (await search(cookie, "NP-40 lysis buffer")).hits[0];
+    expect(stain?.slug).toContain("gel-stain");
+    expect(lysis?.slug).toContain("lysis-buffer");
+  });
+
   it("rebuilds from scratch on request", async () => {
     const r = (await (await api(cookie, "/api/skills/index/rebuild", { method: "POST" })).json()) as {
       queued: number;

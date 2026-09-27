@@ -83,7 +83,7 @@ export function enqueueArtifacts(slugs: readonly string[], email?: string): void
   const visible = getAllSkills(email);
   for (const slug of slugs) {
     const hit = visible.find((s) => s.slug === slug);
-    if (hit) pending.add(hit.sourcePath);
+    if (hit) pending.add(indexKey(hit));
   }
 }
 
@@ -99,18 +99,16 @@ export async function reconcile(email?: string): Promise<{ queued: number; total
   const model = embedModel();
   let queued = 0;
   for (const s of skills) {
-    const row = known.get(s.sourcePath);
+    const row = known.get(indexKey(s));
     if (!row || row.model !== model || row.content_hash !== contentHash(s)) {
-      pending.add(s.sourcePath);
+      pending.add(indexKey(s));
       queued += 1;
     }
   }
-  // Drop rows whose file is gone. Judged by the filesystem, never by this
+  // Drop rows whose artifact is gone. Judged by the filesystem, never by this
   // caller's visibility — another account's artifact is invisible here but
   // very much still indexed.
-  const dead = rows
-    .map((r) => r.source_path)
-    .filter((p) => !fs.existsSync(path.join(p, "SKILL.md")));
+  const dead = rows.map((r) => r.source_path).filter((p) => !artifactExists(p));
   if (dead.length > 0) {
     for (const sp of dead) {
       db.prepare("DELETE FROM artifact_chunks WHERE source_path = ?").run(sp);
@@ -121,6 +119,31 @@ export async function reconcile(email?: string): Promise<{ queued: number; total
   return { queued, total: skills.length };
 }
 
+/** What an artifact is keyed by in the index. A skill is its folder; a
+ *  protocol is its document file. Keying a document by its folder — which is
+ *  what `sourcePath` holds for it — made every document in one folder share a
+ *  single row, each overwriting the last, so search returned one protocol's
+ *  text for all of its neighbours. */
+export function indexKey(s: Skill): string {
+  return s.artifactFile ?? s.sourcePath;
+}
+
+/** Is there still an artifact at this source path? A skill is a folder with
+ *  a SKILL.md in it; a protocol is a plain document file. The check used to
+ *  look only for `<path>/SKILL.md`, which no document can satisfy — so every
+ *  protocol's row was judged dead and deleted on each reconcile, then queued
+ *  and re-embedded on the next, forever. The library looked permanently
+ *  half-indexed and paid for the other half on every pass. */
+function artifactExists(sourcePath: string): boolean {
+  try {
+    const st = fs.statSync(sourcePath);
+    if (st.isFile()) return true;
+    return st.isDirectory() && fs.existsSync(path.join(sourcePath, "SKILL.md"));
+  } catch {
+    return false;
+  }
+}
+
 /** Embed one artifact and replace its rows. */
 async function indexOne(skill: Skill, target: EmbedTarget): Promise<void> {
   const chunks = chunkArtifact(skill.body);
@@ -128,13 +151,13 @@ async function indexOne(skill: Skill, target: EmbedTarget): Promise<void> {
   if (chunks.length === 0) {
     // Nothing to embed (an empty body). Record the hash so it is not retried
     // on every pass.
-    db.prepare("DELETE FROM artifact_chunks WHERE source_path = ?").run(skill.sourcePath);
+    db.prepare("DELETE FROM artifact_chunks WHERE source_path = ?").run(indexKey(skill));
     db.prepare(
       "INSERT INTO artifact_index (source_path, slug, content_hash, model, chunk_count, indexed_at) " +
         "VALUES (?, ?, ?, ?, 0, ?) ON CONFLICT(source_path) DO UPDATE SET slug = excluded.slug, " +
         "content_hash = excluded.content_hash, model = excluded.model, chunk_count = 0, " +
         "indexed_at = excluded.indexed_at",
-    ).run(skill.sourcePath, skill.slug, contentHash(skill), embedModel(), new Date().toISOString());
+    ).run(indexKey(skill), skill.slug, contentHash(skill), embedModel(), new Date().toISOString());
     return;
   }
   const vectors = await embedBatch(
@@ -143,19 +166,19 @@ async function indexOne(skill: Skill, target: EmbedTarget): Promise<void> {
   );
   db.exec("BEGIN");
   try {
-    db.prepare("DELETE FROM artifact_chunks WHERE source_path = ?").run(skill.sourcePath);
+    db.prepare("DELETE FROM artifact_chunks WHERE source_path = ?").run(indexKey(skill));
     const insert = db.prepare(
       "INSERT INTO artifact_chunks (source_path, idx, heading, text, vector) VALUES (?, ?, ?, ?, ?)",
     );
     chunks.forEach((c, i) => {
-      insert.run(skill.sourcePath, i, c.heading, c.text, vectorToBlob(vectors[i]!));
+      insert.run(indexKey(skill), i, c.heading, c.text, vectorToBlob(vectors[i]!));
     });
     db.prepare(
       "INSERT INTO artifact_index (source_path, slug, content_hash, model, chunk_count, indexed_at) " +
         "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(source_path) DO UPDATE SET slug = excluded.slug, " +
         "content_hash = excluded.content_hash, model = excluded.model, " +
         "chunk_count = excluded.chunk_count, indexed_at = excluded.indexed_at",
-    ).run(skill.sourcePath, skill.slug, contentHash(skill), embedModel(), chunks.length, new Date().toISOString());
+    ).run(indexKey(skill), skill.slug, contentHash(skill), embedModel(), chunks.length, new Date().toISOString());
     db.exec("COMMIT");
   } catch (e) {
     db.exec("ROLLBACK");
@@ -179,7 +202,7 @@ export async function drain(email?: string): Promise<void> {
     while (pending.size > 0) {
       const sourcePath = pending.values().next().value as string;
       pending.delete(sourcePath);
-      const skill = getAllSkills(email).find((s) => s.sourcePath === sourcePath);
+      const skill = getAllSkills(email).find((s) => indexKey(s) === sourcePath);
       if (!skill) continue;
       try {
         await indexOne(skill, target);
@@ -223,7 +246,7 @@ export async function indexStatus(email?: string): Promise<IndexStatus> {
   const target = await resolveEmbedTarget(email);
   return {
     total: skills.length,
-    indexed: skills.filter((s) => indexed.has(s.sourcePath)).length,
+    indexed: skills.filter((s) => indexed.has(indexKey(s))).length,
     pending: pending.size,
     model,
     available: Boolean(target),
@@ -304,7 +327,7 @@ export async function retrieve(
   const visible = new Map(
     getAllSkills(email)
       .filter((s) => !opts?.kind || s.artifactKind === opts.kind)
-      .map((s) => [s.sourcePath, s]),
+      .map((s) => [indexKey(s), s]),
   );
   const chunks = (await loadChunks()).filter((c) => visible.has(c.sourcePath));
 
@@ -351,7 +374,7 @@ export async function artifactVectors(
   const visible = new Set(
     getAllSkills(email)
       .filter((s) => !opts?.kind || s.artifactKind === opts.kind)
-      .map((s) => s.sourcePath),
+      .map((s) => indexKey(s)),
   );
   const sums = new Map<string, { v: Float32Array; n: number }>();
   for (const c of await loadChunks()) {
@@ -398,7 +421,7 @@ export async function retrievePassages(
   const visible = new Map(
     getAllSkills(email)
       .filter((s) => !opts?.kind || s.artifactKind === opts.kind)
-      .map((s) => [s.sourcePath, s]),
+      .map((s) => [indexKey(s), s]),
   );
   const scored: Passage[] = [];
   for (const c of await loadChunks()) {

@@ -13,7 +13,7 @@
 // endpoints, one click at a time.
 import type { Skill } from "@labee/contracts";
 import { getAllSkills, listCategories } from "../skills";
-import { artifactVectors, ensureIndexed } from "./index";
+import { indexKey, artifactVectors, ensureIndexed } from "./index";
 import { cosine, normalise, resolveEmbedTarget } from "./embed";
 import { chatJSON } from "./chat";
 
@@ -134,11 +134,11 @@ export async function suggestCategories(
   // --- 1. nearest centroid ---------------------------------------------------
   const centroids = new Map<string, Float32Array>();
   for (const cat of existing) {
-    const members = all.filter((s) => s.category === cat && vectors.has(s.sourcePath));
+    const members = all.filter((s) => s.category === cat && vectors.has(indexKey(s)));
     if (members.length === 0) continue;
-    const acc = new Float32Array(vectors.get(members[0]!.sourcePath)!.length);
+    const acc = new Float32Array(vectors.get(indexKey(members[0]!))!.length);
     for (const m of members) {
-      const v = vectors.get(m.sourcePath)!;
+      const v = vectors.get(indexKey(m))!;
       for (let i = 0; i < acc.length; i++) acc[i] = (acc[i] ?? 0) + (v[i] ?? 0);
     }
     centroids.set(cat, normalise(acc));
@@ -147,7 +147,7 @@ export async function suggestCategories(
   const proposals: CategoryProposal[] = [];
   const leftover: Skill[] = [];
   for (const s of target) {
-    const v = vectors.get(s.sourcePath);
+    const v = vectors.get(indexKey(s));
     let best: { cat: string; sim: number } | null = null;
     if (v) {
       for (const [cat, c] of centroids) {
@@ -224,10 +224,10 @@ export async function suggestCategories(
   const newCategories: string[] = [];
   if (stillUnplaced.length >= 2) {
     usedModel = true;
-    const withVectors = stillUnplaced.filter((s) => vectors.has(s.sourcePath));
+    const withVectors = stillUnplaced.filter((s) => vectors.has(indexKey(s)));
     if (withVectors.length >= 2) {
       const k = Math.min(8, Math.max(1, Math.ceil(Math.sqrt(withVectors.length / 2))));
-      const assign = kmeans(withVectors.map((s) => vectors.get(s.sourcePath)!), k);
+      const assign = kmeans(withVectors.map((s) => vectors.get(indexKey(s))!), k);
       const clusters = new Map<number, Skill[]>();
       assign.forEach((c, i) => {
         const list = clusters.get(c) ?? [];
