@@ -56,6 +56,10 @@ export const Skill = Schema.Struct({
   origin: Schema.optional(SkillOrigin),
   /** Absolute path of the directory containing SKILL.md (server-only). */
   sourcePath: Schema.String,
+  /** For an artifact that is a single granted document rather than a folder
+   *  with a SKILL.md, the absolute path of that file (server-only). Edits are
+   *  written back to it instead of to a manifest. */
+  artifactFile: Schema.optional(Schema.String),
   artifactKind: ArtifactKind,
   /** Folder this artifact sits in, relative to the root it was scanned from
    *  ("Cloning"). Absent for artifacts stored flat, which the UI groups under
