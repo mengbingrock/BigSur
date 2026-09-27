@@ -1,3 +1,4 @@
+import { resolve as apiUrl } from "~/lib/api";
 
 /**
  * Module-scoped chat session store.
@@ -677,7 +678,7 @@ class ChatStore {
     this.ensureHydrated();
     const meta = this.state.sessions.find((s) => s.id === id);
     if (meta?.serverId) {
-      void fetch(`/api/sessions/${meta.serverId}`, { method: "DELETE" }).catch(() => {});
+      void fetch(apiUrl(`/api/sessions/${meta.serverId}`), { method: "DELETE" }).catch(() => {});
     }
     if (id === this.state.currentSessionId) {
       this.stopTail();
@@ -738,7 +739,7 @@ class ChatStore {
 
   private async ensureServerSession(agentId?: string): Promise<string> {
     if (this.serverId) return this.serverId;
-    const res = await fetch("/api/sessions", {
+    const res = await fetch(apiUrl("/api/sessions"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...(agentId ? { agentId } : {}), title: deriveTitle(this.state.messages) }),
@@ -772,7 +773,7 @@ class ChatStore {
       let backoff = 500;
       while (!ctrl.signal.aborted) {
         try {
-          const res = await fetch(`/api/sessions/${serverId}/events?after=${this.serverSeq}`, {
+          const res = await fetch(apiUrl(`/api/sessions/${serverId}/events?after=${this.serverSeq}`), {
             signal: ctrl.signal,
             headers: { accept: "text/event-stream" },
           });
@@ -967,7 +968,7 @@ class ChatStore {
 
   cancel = () => {
     if (this.serverId && this.state.streaming) {
-      void fetch(`/api/sessions/${this.serverId}/cancel`, { method: "POST" }).catch(() => {});
+      void fetch(apiUrl(`/api/sessions/${this.serverId}/cancel`), { method: "POST" }).catch(() => {});
     }
     this.abort?.abort();
     this.abort = null;
@@ -1082,7 +1083,7 @@ class ChatStore {
       // can deliver turn_started before the POST response arrives.
       this.pendingByText.set(text, assistantMsg.id);
       await this.startTail(serverId);
-      const started = await fetch(`/api/sessions/${serverId}/turns`, {
+      const started = await fetch(apiUrl(`/api/sessions/${serverId}/turns`), {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-labee-device": deviceLabel() },
         body: JSON.stringify({
@@ -1185,7 +1186,7 @@ class ChatStore {
     }));
     this.persist();
     try {
-      const res = await fetch("/api/extract-choices", {
+      const res = await fetch(apiUrl("/api/extract-choices"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
@@ -1414,7 +1415,7 @@ class ChatStore {
     this.abort = ctrl;
 
     try {
-      const res = await fetch("/api/chat", {
+      const res = await fetch(apiUrl("/api/chat"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

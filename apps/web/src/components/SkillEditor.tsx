@@ -1,3 +1,4 @@
+import { resolve as apiUrl } from "~/lib/api";
 
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
@@ -66,7 +67,7 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/artifacts/extract-text", {
+      const res = await fetch(apiUrl("/api/artifacts/extract-text"), {
         method: "POST",
         body: fd,
       });
@@ -109,12 +110,12 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
         kind,
       };
       const res = isCreate
-        ? await fetch(`/api/skills`, {
+        ? await fetch(apiUrl(`/api/skills`), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           })
-        : await fetch(`/api/skills/${skill!.slug}`, {
+        : await fetch(apiUrl(`/api/skills/${skill!.slug}`), {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -137,7 +138,7 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
     setError(null);
     setDeleting(true);
     try {
-      const res = await fetch(`/api/skills/${skill.slug}`, { method: "DELETE" });
+      const res = await fetch(apiUrl(`/api/skills/${skill.slug}`), { method: "DELETE" });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(data.error ?? `Delete failed (HTTP ${res.status})`);

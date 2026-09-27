@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { BillingPanel } from "~/components/BillingPanel";
 import { DevicesPanel } from "~/components/DevicesPanel";
 import { LlmSettingsPanel } from "~/components/LlmSettingsPanel";
+import { RunsOnPanel } from "~/components/RunsOnPanel";
 import { useCurrentUser } from "~/lib/auth";
 import { useActiveCredentialMode } from "~/lib/billing";
 
@@ -47,6 +48,9 @@ function SettingsPage() {
       </header>
       <div className="p-6">
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+          {/* First, because it decides which server every panel below reads
+              from — and it is the only way a browser reaches a subscription. */}
+          <RunsOnPanel />
           <LlmSettingsPanel />
           {showBilling ? <BillingPanel checkout={checkout} /> : null}
           <DevicesPanel />

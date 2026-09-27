@@ -1,3 +1,4 @@
+import { resolve as apiUrl } from "~/lib/api";
 
 import {
   useCallback,
@@ -121,7 +122,7 @@ const ChatDeckPanel = forwardRef<ChatDeckPanelHandle, Props>(function ChatDeckPa
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/deck", { cache: "no-store" });
+      const res = await fetch(apiUrl("/api/deck"), { cache: "no-store" });
       if (!res.ok) return;
       const data = (await res.json()) as { files: DeckFile[] };
       setEntries(data.files);
@@ -234,7 +235,7 @@ const ChatDeckPanel = forwardRef<ChatDeckPanelHandle, Props>(function ChatDeckPa
         const fd = new FormData();
         for (const f of list) fd.append("file", f, f.name);
         if (subdir) fd.append("subdir", subdir);
-        const res = await fetch("/api/deck", { method: "POST", body: fd });
+        const res = await fetch(apiUrl("/api/deck"), { method: "POST", body: fd });
         const data = (await res.json()) as UploadResult | { error?: string };
         if (!res.ok && "error" in data && res.status !== 207) {
           throw new Error(data.error ?? `Upload failed (HTTP ${res.status})`);
@@ -258,7 +259,7 @@ const ChatDeckPanel = forwardRef<ChatDeckPanelHandle, Props>(function ChatDeckPa
     if (name === intoDir) return;
     setError(null);
     try {
-      const res = await fetch(`/api/deck/${encodeURIComponent(name)}`, {
+      const res = await fetch(apiUrl(`/api/deck/${encodeURIComponent(name)}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ intoDir }),
@@ -278,7 +279,7 @@ const ChatDeckPanel = forwardRef<ChatDeckPanelHandle, Props>(function ChatDeckPa
     if (!name) return;
     setError(null);
     try {
-      const res = await fetch("/api/deck/dir", {
+      const res = await fetch(apiUrl("/api/deck/dir"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -345,7 +346,7 @@ const ChatDeckPanel = forwardRef<ChatDeckPanelHandle, Props>(function ChatDeckPa
     }
     setError(null);
     try {
-      const res = await fetch("/api/artifacts/from-deck-file", {
+      const res = await fetch(apiUrl("/api/artifacts/from-deck-file"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deckPath: qualifiedPath, name: trimmed }),
