@@ -368,3 +368,51 @@ export async function artifactVectors(
   for (const [sp, { v }] of sums) out.set(sp, normalise(v));
   return out;
 }
+
+export interface Passage {
+  slug: string;
+  name: string;
+  heading: string;
+  /** The whole chunk, not a snippet — this is what the model reads. */
+  text: string;
+  score: number;
+}
+
+/**
+ * Top chunks for a query, ungrouped. Search wants one row per protocol;
+ * Ask wants passages, and more than one from the same protocol is normal when
+ * an answer spans two sections. Returns null when no credential resolves.
+ */
+export async function retrievePassages(
+  query: string,
+  email?: string,
+  opts?: { kind?: "skill" | "protocol"; limit?: number },
+): Promise<Passage[] | null> {
+  const q = query.trim();
+  if (!q) return [];
+  const target = await resolveEmbedTarget(email);
+  if (!target) return null;
+  const [queryVector] = await embedBatch([q], target);
+  if (!queryVector) return null;
+
+  const visible = new Map(
+    getAllSkills(email)
+      .filter((s) => !opts?.kind || s.artifactKind === opts.kind)
+      .map((s) => [s.sourcePath, s]),
+  );
+  const scored: Passage[] = [];
+  for (const c of await loadChunks()) {
+    const skill = visible.get(c.sourcePath);
+    if (!skill) continue;
+    scored.push({
+      slug: skill.slug,
+      name: skill.name,
+      heading: c.heading,
+      text: c.text,
+      score: cosine(queryVector, c.vector),
+    });
+  }
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, Math.min(Math.max(opts?.limit ?? 8, 1), 30));
+}

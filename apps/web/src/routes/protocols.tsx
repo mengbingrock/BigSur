@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { FileText, FolderPlus, Loader2, Plus, Search, Sparkles } from "lucide-react";
+import { FileText, FolderPlus, Loader2, MessagesSquare, Plus, Search, Sparkles } from "lucide-react";
 import type { Skill } from "@labee/contracts";
 import { Button } from "~/components/ui/button";
 import { useCurrentUser } from "~/lib/auth";
@@ -41,6 +41,20 @@ interface SuggestResult {
   proposals: CategoryProposal[];
   newCategories: string[];
   usedModel: boolean;
+}
+
+interface Citation {
+  n: number;
+  slug: string;
+  name: string;
+  heading: string;
+  quote: string;
+}
+
+interface AskResult {
+  answer: string;
+  citations: Citation[];
+  available: boolean;
 }
 
 interface IndexStatus {
@@ -158,6 +172,13 @@ function ProtocolsPage() {
       setChosen(new Set());
       refresh();
     },
+  });
+
+  // Ask the library. A deliberate button, not something that fires while
+  // typing: it costs a model call and takes a second or two.
+  const askMut = useMutation({
+    mutationFn: (question: string) =>
+      apiSend<AskResult>("POST", "/api/skills/ask", { q: question, kind: "protocol" }),
   });
 
   const mutError =
@@ -318,9 +339,26 @@ function ProtocolsPage() {
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && q.trim()) askMut.mutate(q.trim());
+            }}
             placeholder="Search protocols, steps, reagents…"
             className="min-w-0 flex-1 bg-transparent text-base text-ink placeholder:text-ink-faint focus:outline-none"
           />
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={!q.trim() || askMut.isPending}
+            onClick={() => askMut.mutate(q.trim())}
+            title="Answer this from your protocols, with citations"
+          >
+            {askMut.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <MessagesSquare className="size-4" />
+            )}
+            Ask
+          </Button>
         </label>
         <div className="flex flex-wrap items-center gap-2">
           <Chip active={owner === "all"} onClick={() => setOwner("all")}>
@@ -370,6 +408,14 @@ function ProtocolsPage() {
         <p className="mt-2 text-sm text-ink-light">
           Semantic search needs a model key — showing text matches instead.
         </p>
+      ) : null}
+
+      {askMut.data || askMut.isPending ? (
+        <AskPanel
+          result={askMut.data ?? null}
+          pending={askMut.isPending}
+          onDismiss={() => askMut.reset()}
+        />
       ) : null}
 
       {proposals ? (
@@ -668,6 +714,70 @@ function ProtocolCard({
         )}
       </div>
     </article>
+  );
+}
+
+/** The answer to a question, with the passages it cited. Every claim is
+ *  supposed to carry a [n] marker; the citations below are exactly the
+ *  passages those markers point at, so a reader can check any of them. */
+function AskPanel({
+  result,
+  pending,
+  onDismiss,
+}: {
+  result: AskResult | null;
+  pending: boolean;
+  onDismiss: () => void;
+}) {
+  return (
+    <section className="mt-5 rounded-xl border border-border bg-card p-4">
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="font-display text-lg text-ink">Answer</h2>
+        {!pending && (
+          <Button variant="ghost" size="sm" onClick={onDismiss}>
+            Dismiss
+          </Button>
+        )}
+      </div>
+      {pending ? (
+        <p className="mt-2 flex items-center gap-2 text-sm text-ink-light">
+          <Loader2 className="size-3.5 animate-spin" />
+          Reading your protocols…
+        </p>
+      ) : !result?.available ? (
+        <p className="mt-2 text-sm text-ink-light">
+          Answering needs a model key. Add one in Settings, or use search instead.
+        </p>
+      ) : (
+        <>
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-ink">
+            {result.answer}
+          </p>
+          {result.citations.length > 0 && (
+            <ol className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
+              {result.citations.map((c) => (
+                <li key={c.n} className="flex gap-2 text-sm">
+                  <span className="shrink-0 font-mono text-xs text-ink-faint">[{c.n}]</span>
+                  <span className="min-w-0">
+                    <Link
+                      to="/skills/$slug"
+                      params={{ slug: c.slug }}
+                      className="font-medium text-ink hover:underline"
+                    >
+                      {c.name}
+                    </Link>
+                    {c.heading ? (
+                      <span className="text-ink-light"> · {c.heading}</span>
+                    ) : null}
+                    <span className="mt-0.5 block line-clamp-2 text-ink-light">{c.quote}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 

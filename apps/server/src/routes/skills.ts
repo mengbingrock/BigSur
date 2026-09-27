@@ -32,6 +32,7 @@ import {
 import { importSkillFromRegistry } from "../services/registryImport";
 import { checkForUpdate, updateSkill } from "../services/updateSkill";
 import { suggestCategories } from "../services/artifactIndex/agent";
+import { askLibrary } from "../services/artifactIndex/ask";
 import {
   enqueueArtifacts,
   ensureIndexed,
@@ -526,6 +527,26 @@ export const suggestCategoriesRoute = HttpRouter.add(
   }),
 );
 
+/**
+ * POST /api/skills/ask — answer a question from the caller's protocols.
+ *
+ * Retrieval, then one chat call over the retrieved passages, with the model
+ * told to answer only from them and to decline otherwise. Returns the answer
+ * plus the passages it actually cited.
+ */
+export const askRoute = HttpRouter.add(
+  "POST",
+  "/api/skills/ask",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const body = yield* safeBody<{ q?: string; kind?: "skill" | "protocol" }>();
+    return yield* attempt(() =>
+      askLibrary(body?.q ?? "", user.email, { ...(body?.kind ? { kind: body.kind } : {}) }),
+    );
+  }),
+);
+
 /** GET /api/skills/index/status — indexing progress, for the page's notice. */
 export const indexStatusRoute = HttpRouter.add(
   "GET",
@@ -549,6 +570,7 @@ export const indexRebuildRoute = HttpRouter.add(
 
 // Longer/static paths before parametric ones so exact matches win.
 export const skillsRoutes = [
+  askRoute,
   suggestCategoriesRoute,
   indexStatusRoute,
   indexRebuildRoute,
