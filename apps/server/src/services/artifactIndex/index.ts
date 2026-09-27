@@ -254,6 +254,16 @@ export async function indexStatus(email?: string): Promise<IndexStatus> {
   };
 }
 
+/** Drop one artifact's rows right now — called when it is deleted, so search
+ *  stops returning it immediately rather than at the next reconcile. */
+export async function forgetArtifact(key: string): Promise<void> {
+  const db = await getDb();
+  db.prepare("DELETE FROM artifact_chunks WHERE source_path = ?").run(key);
+  db.prepare("DELETE FROM artifact_index WHERE source_path = ?").run(key);
+  pending.delete(key);
+  invalidateCache();
+}
+
 /** Drop every row and re-embed from scratch. */
 export async function rebuild(email?: string): Promise<{ queued: number }> {
   const db = await getDb();

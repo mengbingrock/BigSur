@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { applyTestEnv } from "./helpers/env";
+import { applyTestEnv, waitFor } from "./helpers/env";
 import { startServer, type TestServer } from "./helpers/server";
 
 const EMAIL = "rag@example.com";
@@ -201,6 +201,59 @@ describe("artifact index", () => {
     const lysis = (await search(cookie, "NP-40 lysis buffer")).hits[0];
     expect(stain?.slug).toContain("gel-stain");
     expect(lysis?.slug).toContain("lysis-buffer");
+  });
+
+  it("re-embeds an edit as soon as it is saved, without waiting for a search", async () => {
+    // Saving used to only *queue* the re-embed; nothing drained the queue
+    // until the next search ran a reconcile. So an edit was invisible to
+    // search until someone searched — "the index doesn't follow my changes".
+    // This reads the index tables directly: a search here would itself
+    // trigger the reconcile and hide the bug.
+    const { getDb } = await import("../src/services/db");
+    const db = await getDb();
+    const slug = (await search(cookie, "NP-40 lysis buffer")).hits.find((h) => h.slug.includes("lysis-buffer"))!.slug;
+    const detail = (await (await api(cookie, `/api/skills/${slug}`)).json()) as {
+      skill: { slug: string; name: string; description?: string; allowedTools?: string[]; artifactFile?: string; sourcePath: string };
+    };
+    const key = detail.skill.artifactFile ?? detail.skill.sourcePath;
+
+    const put = await api(cookie, `/api/skills/${detail.skill.slug}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        name: detail.skill.name,
+        description: detail.skill.description ?? "",
+        allowedTools: [],
+        kind: "protocol",
+        body: "## Recipe\n\nNow with 0.5% sodium deoxycholate as well.\n",
+      }),
+    });
+    expect(put.status).toBe(200);
+
+    await waitFor(async () => {
+      const rows = db.prepare("SELECT text FROM artifact_chunks WHERE source_path = ?").all(key) as { text: string }[];
+      return rows.some((r) => r.text.includes("sodium deoxycholate"));
+    }, 10000);
+  });
+
+  it("forgets a deleted protocol from the index at once", async () => {
+    const { getDb } = await import("../src/services/db");
+    const db = await getDb();
+    const slug = (await search(cookie, "sodium deoxycholate")).hits.find((h) => h.slug.includes("lysis-buffer"))!.slug;
+    const detail = (await (await api(cookie, `/api/skills/${slug}`)).json()) as {
+      skill: { slug: string; artifactFile?: string; sourcePath: string };
+    };
+    const key = detail.skill.artifactFile ?? detail.skill.sourcePath;
+    expect((db.prepare("SELECT COUNT(*) AS n FROM artifact_index WHERE source_path = ?").get(key) as { n: number }).n).toBe(1);
+
+    const del = await api(cookie, `/api/skills/${detail.skill.slug}`, { method: "DELETE" });
+    expect(del.status).toBe(200);
+
+    await waitFor(async () => {
+      const n = (db.prepare("SELECT COUNT(*) AS n FROM artifact_index WHERE source_path = ?").get(key) as { n: number }).n;
+      const c = (db.prepare("SELECT COUNT(*) AS n FROM artifact_chunks WHERE source_path = ?").get(key) as { n: number }).n;
+      return n === 0 && c === 0;
+    }, 5000);
+    expect(fs.existsSync(key)).toBe(false);
   });
 
   it("rebuilds from scratch on request", async () => {

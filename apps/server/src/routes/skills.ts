@@ -34,12 +34,25 @@ import { checkForUpdate, updateSkill } from "../services/updateSkill";
 import { suggestCategories } from "../services/artifactIndex/agent";
 import { askLibrary } from "../services/artifactIndex/ask";
 import {
+  drain,
   enqueueArtifacts,
   ensureIndexed,
+  forgetArtifact,
+  indexKey,
   indexStatus,
   rebuild,
   retrieve,
 } from "../services/artifactIndex";
+
+/** Queue an artifact for re-embedding and start on it now. Queuing alone left
+ *  the index stale until the next search happened to run a reconcile, so an
+ *  edit did not show up in search until someone searched — which reads as
+ *  "the index does not follow my changes". Fire-and-forget: the write already
+ *  succeeded, and a provider hiccup is reported in the index status, not here. */
+function reindexSoon(slug: string, email: string): void {
+  enqueueArtifacts([slug], email);
+  void drain(email).catch(() => {});
+}
 
 const params = HttpRouter.params;
 
@@ -80,7 +93,7 @@ export const createSkillRoute = HttpRouter.add(
     if (!body) return yield* error("Invalid JSON body.", 400);
     return yield* attempt(() => {
       const skill = createSkill(body, user.email);
-      enqueueArtifacts([skill.slug], user.email);
+      reindexSoon(skill.slug, user.email);
       return { skill };
     });
   }),
@@ -117,7 +130,7 @@ export const updateSkillRoute = HttpRouter.add(
     if (!body) return yield* error("Invalid JSON body.", 400);
     return yield* attempt(() => {
       const skill = saveSkill(slug ?? "", body, user.email);
-      enqueueArtifacts([skill.slug], user.email);
+      reindexSoon(skill.slug, user.email);
       return { skill };
     });
   }),
@@ -131,8 +144,13 @@ export const deleteSkillRoute = HttpRouter.add(
     const user = yield* sessionUser;
     if (!user) return yield* error("Authentication required.", 401);
     const { slug } = yield* params;
+    // Resolve the index key before the file is gone; deleting first would
+    // leave nothing to look it up by.
+    const existing = getSkillBySlug(slug ?? "", user.email);
+    const key = existing ? indexKey(existing) : null;
     return yield* attempt(() => {
       deleteSkill(slug ?? "", user.email);
+      if (key) void forgetArtifact(key);
       return { ok: true };
     });
   }),
@@ -150,7 +168,7 @@ export const saveSkillFileRoute = HttpRouter.add(
     if (!body?.relPath) return yield* error("relPath is required.", 400);
     return yield* attempt(() => {
       saveSkillFile(slug ?? "", body.relPath, body.content ?? "", user.email);
-      enqueueArtifacts([slug ?? ""], user.email);
+      reindexSoon(slug ?? "", user.email);
       return { ok: true };
     });
   }),
