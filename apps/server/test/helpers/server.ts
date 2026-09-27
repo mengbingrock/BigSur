@@ -42,6 +42,10 @@ export async function startServer(env: NodeJS.ProcessEnv, opts: { port?: number 
       LABEE_OPENAI_API_KEY: "",
       ANTHROPIC_API_KEY: "",
       LABEE_ANTHROPIC_API_KEY: "",
+      // A test's library is exactly what the test wrote. Without this the
+      // bundled starter protocols land in every fixture and quietly change
+      // counts and search results.
+      LABEE_SEED_PROTOCOLS: "false",
       ...env,
       LABEE_PORT: String(port),
       LABEE_HOST: "127.0.0.1",
