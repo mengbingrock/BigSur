@@ -102,7 +102,7 @@ describe("artifact index", () => {
       available: boolean;
     };
     expect(status.available).toBe(true);
-    expect(status.model).toBe("fake-hash-64");
+    expect(status.model).toBe("fake-hash-256");
     expect(status.total).toBe(3); // 2 protocols + 1 skill, all indexed
     expect(status.indexed).toBe(3);
   });

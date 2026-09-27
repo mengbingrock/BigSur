@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { FileText, FolderPlus, Loader2, Plus, Search } from "lucide-react";
+import { FileText, FolderPlus, Loader2, Plus, Search, Sparkles } from "lucide-react";
 import type { Skill } from "@labee/contracts";
 import { Button } from "~/components/ui/button";
 import { useCurrentUser } from "~/lib/auth";
@@ -26,6 +26,21 @@ interface SearchResponse {
   /** "lexical" when no embedding credential resolved on the server. */
   mode: "semantic" | "lexical";
   hits: SearchHit[];
+}
+
+interface CategoryProposal {
+  slug: string;
+  name: string;
+  category: string | null;
+  confidence: number;
+  reason: string;
+  isNew: boolean;
+}
+
+interface SuggestResult {
+  proposals: CategoryProposal[];
+  newCategories: string[];
+  usedModel: boolean;
 }
 
 interface IndexStatus {
@@ -114,8 +129,45 @@ function ProtocolsPage() {
       apiSend<{ skill: Skill }>("POST", `/api/skills/${v.slug}/move`, { category: v.category }),
     onSuccess: refresh,
   });
+  // The categorisation agent. Proposals are held in local state and nothing is
+  // written until "Apply selected" — the server side never moves a file.
+  const [proposals, setProposals] = useState<CategoryProposal[] | null>(null);
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const suggest = useMutation({
+    mutationFn: () => apiSend<SuggestResult>("POST", "/api/skills/categories/suggest", {}),
+    onSuccess: (d) => {
+      setProposals(d.proposals);
+      // Pre-tick the confident ones; the rest are a deliberate choice.
+      setChosen(new Set(d.proposals.filter((p) => p.confidence >= 0.8).map((p) => p.slug)));
+    },
+  });
+  const applySuggestions = useMutation({
+    mutationFn: async (picked: CategoryProposal[]) => {
+      // Create any new folders first, then move each protocol into place.
+      for (const name of new Set(picked.filter((p) => p.isNew && p.category).map((p) => p.category!))) {
+        await apiSend<{ name: string }>("POST", "/api/skills/categories", { name }).catch(() => null);
+      }
+      for (const p of picked) {
+        if (!p.category) continue;
+        await apiSend<unknown>("POST", `/api/skills/${p.slug}/move`, { category: p.category });
+      }
+      return picked.length;
+    },
+    onSuccess: () => {
+      setProposals(null);
+      setChosen(new Set());
+      refresh();
+    },
+  });
+
   const mutError =
-    createCat.error ?? renameCat.error ?? deleteCat.error ?? moveOne.error ?? null;
+    createCat.error ??
+    renameCat.error ??
+    deleteCat.error ??
+    moveOne.error ??
+    suggest.error ??
+    applySuggestions.error ??
+    null;
 
   const [q, setQ] = useState("");
   const [owner, setOwner] = useState<Ownership>("all");
@@ -320,6 +372,29 @@ function ProtocolsPage() {
         </p>
       ) : null}
 
+      {proposals ? (
+        <ProposalReview
+          proposals={proposals}
+          chosen={chosen}
+          onToggle={(slug) =>
+            setChosen((cur) => {
+              const next = new Set(cur);
+              if (next.has(slug)) next.delete(slug);
+              else next.add(slug);
+              return next;
+            })
+          }
+          onDismiss={() => {
+            setProposals(null);
+            setChosen(new Set());
+          }}
+          onApply={() =>
+            applySuggestions.mutate(proposals.filter((p) => chosen.has(p.slug) && p.category))
+          }
+          applying={applySuggestions.isPending}
+        />
+      ) : null}
+
       {mutError ? (
         <p className="mt-3 text-sm text-destructive">
           {mutError instanceof Error ? mutError.message : "Something went wrong."}
@@ -361,6 +436,20 @@ function ProtocolsPage() {
                 >
                   <FolderPlus className="size-3.5" />
                   New category
+                </button>
+                <button
+                  type="button"
+                  disabled={suggest.isPending}
+                  onClick={() => suggest.mutate()}
+                  title="Propose a category for each unfiled protocol"
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-left text-sm text-brand transition hover:bg-muted/60 disabled:opacity-50"
+                >
+                  {suggest.isPending ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="size-3.5" />
+                  )}
+                  Suggest categories
                 </button>
                 {category && category !== UNCATEGORISED && (
                   <div className="flex items-center gap-2 px-2.5 text-xs text-ink-light">
@@ -579,6 +668,80 @@ function ProtocolCard({
         )}
       </div>
     </article>
+  );
+}
+
+/** The agent's proposals, as a review list. Nothing has been written at this
+ *  point: every row is a suggestion the person opts into. */
+function ProposalReview({
+  proposals,
+  chosen,
+  onToggle,
+  onDismiss,
+  onApply,
+  applying,
+}: {
+  proposals: CategoryProposal[];
+  chosen: Set<string>;
+  onToggle: (slug: string) => void;
+  onDismiss: () => void;
+  onApply: () => void;
+  applying: boolean;
+}) {
+  const placeable = proposals.filter((p) => p.category);
+  return (
+    <section className="mt-5 rounded-xl border border-border bg-card p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-display text-lg text-ink">Suggested categories</h2>
+          <p className="mt-0.5 text-sm text-ink-light">
+            {placeable.length === 0
+              ? "Nothing to propose — every protocol is already filed."
+              : `${placeable.length} protocol${placeable.length === 1 ? "" : "s"} could be filed. Nothing moves until you apply.`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={onDismiss}>
+            Dismiss
+          </Button>
+          <Button size="sm" disabled={chosen.size === 0 || applying} onClick={onApply}>
+            {applying ? <Loader2 className="size-4 animate-spin" /> : null}
+            Apply {chosen.size > 0 ? chosen.size : ""}
+          </Button>
+        </div>
+      </div>
+      {placeable.length > 0 && (
+        <ul className="mt-3 divide-y divide-border">
+          {placeable.map((p) => (
+            <li key={p.slug} className="flex items-start gap-3 py-2.5">
+              <input
+                type="checkbox"
+                id={`prop-${p.slug}`}
+                checked={chosen.has(p.slug)}
+                onChange={() => onToggle(p.slug)}
+                className="mt-1 size-4 shrink-0"
+              />
+              <label htmlFor={`prop-${p.slug}`} className="min-w-0 flex-1 cursor-pointer">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-ink">{p.name}</span>
+                  <span className="text-ink-faint">→</span>
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-ink">
+                    {p.category}
+                  </span>
+                  {p.isNew && (
+                    <span className="text-[11px] uppercase tracking-[0.12em] text-brand">new</span>
+                  )}
+                </span>
+                <span className="mt-0.5 block text-sm text-ink-light">{p.reason}</span>
+              </label>
+              <span className="shrink-0 text-xs text-ink-faint">
+                {Math.round(p.confidence * 100)}%
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

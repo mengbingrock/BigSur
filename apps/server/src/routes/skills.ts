@@ -31,6 +31,7 @@ import {
 } from "../services/marketplaces";
 import { importSkillFromRegistry } from "../services/registryImport";
 import { checkForUpdate, updateSkill } from "../services/updateSkill";
+import { suggestCategories } from "../services/artifactIndex/agent";
 import {
   enqueueArtifacts,
   ensureIndexed,
@@ -501,6 +502,30 @@ export const searchSkillsRoute = HttpRouter.add(
   }),
 );
 
+/**
+ * POST /api/skills/categories/suggest — the categorisation agent.
+ *
+ * Proposes a category for each uncategorised protocol: nearest centroid first
+ * (free), then one batched model call, then a clustered taxonomy when there is
+ * nothing to choose from. Writes nothing; the caller applies what it wants
+ * through the category and move endpoints.
+ */
+export const suggestCategoriesRoute = HttpRouter.add(
+  "POST",
+  "/api/skills/categories/suggest",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const body = yield* safeBody<{ slugs?: string[]; kind?: "skill" | "protocol" }>();
+    return yield* attempt(() =>
+      suggestCategories(user.email, {
+        ...(body?.slugs ? { slugs: body.slugs } : {}),
+        ...(body?.kind ? { kind: body.kind } : {}),
+      }),
+    );
+  }),
+);
+
 /** GET /api/skills/index/status — indexing progress, for the page's notice. */
 export const indexStatusRoute = HttpRouter.add(
   "GET",
@@ -524,6 +549,7 @@ export const indexRebuildRoute = HttpRouter.add(
 
 // Longer/static paths before parametric ones so exact matches win.
 export const skillsRoutes = [
+  suggestCategoriesRoute,
   indexStatusRoute,
   indexRebuildRoute,
   listCategoriesRoute,

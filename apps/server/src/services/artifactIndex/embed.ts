@@ -14,7 +14,7 @@ const OPENAI_API_BASE = process.env.OPENAI_API_BASE || "https://api.openai.com/v
 
 /** Vectors are keyed by model: change the model and every row goes stale. */
 export function embedModel(): string {
-  if (useFake()) return "fake-hash-64";
+  if (useFake()) return "fake-hash-256";
   return process.env.LABEE_EMBED_MODEL || "text-embedding-3-small";
 }
 
@@ -45,16 +45,22 @@ export async function resolveEmbedTarget(email?: string): Promise<EmbedTarget | 
   return null;
 }
 
-/** 64-dimension deterministic bag-of-words vector. Words hash to a dimension,
- *  so two texts sharing words land near each other and identical texts are
- *  identical. Only good enough to prove the plumbing; never used in prod. */
+/** Deterministic bag-of-words vector. Words hash to a dimension, so two texts
+ *  sharing words land near each other and identical texts are identical. Only
+ *  good enough to prove the plumbing; never used in production.
+ *
+ *  256 dimensions, not 64: at 64 the hash collides often enough that two
+ *  unrelated lab protocols score ~0.6 against each other, which is high enough
+ *  to hide a genuine mistake in anything that thresholds on similarity. */
+const FAKE_DIMS = 256;
+
 function fakeEmbed(text: string): Float32Array {
-  const v = new Float32Array(64);
+  const v = new Float32Array(FAKE_DIMS);
   for (const word of text.toLowerCase().split(/[^a-z0-9]+/)) {
     if (!word) continue;
     const h = createHash("sha1").update(word).digest();
-    const a = h[0]! % 64;
-    const b = h[1]! % 64;
+    const a = ((h[0]! << 8) | h[1]!) % FAKE_DIMS;
+    const b = ((h[2]! << 8) | h[3]!) % FAKE_DIMS;
     v[a] = (v[a] ?? 0) + 1;
     // A second, weaker dimension spreads related words so cosine is not
     // all-or-nothing on a single bucket.
