@@ -14,16 +14,13 @@
 import type { Skill } from "@labee/contracts";
 import { getAllSkills, listCategories } from "../skills";
 import { artifactVectors, ensureIndexed } from "./index";
-import { cosine, normalise, resolveEmbedTarget, useFake, type EmbedTarget } from "./embed";
+import { cosine, normalise, resolveEmbedTarget } from "./embed";
+import { chatJSON } from "./chat";
 
 /** Above this cosine to a category's centroid, that category is the answer and
  *  no model is consulted. Chosen so a clear match lands but a vague one falls
  *  through to step 2 rather than being filed wrongly with confidence. */
 const CENTROID_THRESHOLD = 0.55;
-
-function agentModel(): string {
-  return process.env.LABEE_AGENT_MODEL || "gpt-4o-mini";
-}
 
 export interface CategoryProposal {
   slug: string;
@@ -44,93 +41,6 @@ export interface SuggestResult {
   newCategories: string[];
   /** How far the agent had to escalate, for the UI to explain itself. */
   usedModel: boolean;
-}
-
-// ---------- model call -------------------------------------------------------
-
-/** One JSON-mode chat call. Returns parsed JSON, or null when the model
- *  produced something unusable — the caller then leaves those artifacts
- *  unproposed rather than guessing. */
-async function chatJSON(
-  target: EmbedTarget,
-  system: string,
-  user: string,
-): Promise<unknown | null> {
-  if (useFake()) return fakeChat(system, user);
-  const res = await fetch(`${target.baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${target.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: agentModel(),
-      temperature: 0,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    }),
-  });
-  if (!res.ok) return null;
-  const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  const text = json.choices?.[0]?.message?.content ?? "";
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
-/** Deterministic stand-in used when LABEE_EMBED_PROVIDER=fake, so the agent
- *  can be tested without a key. Assignment picks the existing category sharing
- *  the most words with the artifact's name; naming titles each cluster after
- *  the commonest significant word among its members. */
-function fakeChat(system: string, user: string): unknown {
-  const payload = JSON.parse(user) as {
-    categories?: string[];
-    artifacts?: Array<{ slug: string; name: string; text: string }>;
-    clusters?: Array<{ id: number; members: string[] }>;
-  };
-  if (system.includes("name each cluster")) {
-    return {
-      names: (payload.clusters ?? []).map((c) => ({
-        id: c.id,
-        name: commonestWord(c.members) ?? `Group ${c.id + 1}`,
-      })),
-    };
-  }
-  const cats = payload.categories ?? [];
-  return {
-    assignments: (payload.artifacts ?? []).map((a) => {
-      const words = new Set(tokens(a.name));
-      let best: { cat: string; n: number } | null = null;
-      for (const c of cats) {
-        const n = tokens(c).filter((w) => words.has(w)).length;
-        if (n > 0 && (!best || n > best.n)) best = { cat: c, n };
-      }
-      return best
-        ? { slug: a.slug, category: best.cat, confidence: 0.7, reason: `Shares wording with ${best.cat}.` }
-        : { slug: a.slug, category: null, confidence: 0, reason: "No existing category fits." };
-    }),
-  };
-}
-
-function tokens(s: string): string[] {
-  return s
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((w) => w.length > 3);
-}
-
-function commonestWord(names: readonly string[]): string | null {
-  const counts = new Map<string, number>();
-  for (const n of names) for (const w of tokens(n)) counts.set(w, (counts.get(w) ?? 0) + 1);
-  let best: [string, number] | null = null;
-  for (const e of counts) if (!best || e[1] > best[1]) best = e;
-  if (!best) return null;
-  return best[0].charAt(0).toUpperCase() + best[0].slice(1);
 }
 
 // ---------- clustering -------------------------------------------------------
