@@ -46,7 +46,7 @@ jobs:
       #   MAC_CSC_LINK          base64 of the Developer ID Application .p12
       #   MAC_CSC_KEY_PASSWORD  its password
       #   ASC_API_KEY_P8        contents of the App Store Connect API key (.p8)
-      #   ASC_API_KEY_ID        its key id       (e.g. 6Z9AWRQZAX)
+      #   ASC_API_KEY_ID        its key id       (YHLN5F2K6D — the only live team key)
       #   ASC_API_ISSUER        the issuer uuid from App Store Connect → Keys
       - name: Prepare notarization key
         if: ${{ env.HAS_NOTARY_KEY == 'true' }}
