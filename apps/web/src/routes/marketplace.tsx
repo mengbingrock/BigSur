@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import type { Agent, AgentInstallResult, PublicAgent } from "@labee/contracts";
-import { ArrowRight, Download, Globe, Loader2, LogIn, Store, Users } from "lucide-react";
+import type { Agent, AgentInstallResult, PublicAgent, Skill } from "@labee/contracts";
+import { ArrowRight, Boxes, Download, Globe, Loader2, LogIn, Store, Users } from "lucide-react";
 
 import { apiGet, apiSend } from "~/lib/api";
+import { SkillCard } from "~/components/SkillCard";
 import { useCurrentUser } from "~/lib/auth";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -223,7 +224,72 @@ function MarketplacePage() {
           </div>
         )}
       </div>
+
+      <SkillsSection />
     </div>
+  );
+}
+
+/** Skills, shown here rather than in the nav: an agent is what you run and a
+ *  skill is what it is made of, so this is where people look for them. Links
+ *  go to the unchanged /skills routes. */
+function SkillsSection() {
+  const { data: user } = useCurrentUser();
+  const skillsQ = useQuery({
+    queryKey: ["skills"],
+    queryFn: () => apiGet<{ skills: Skill[] }>("/api/skills"),
+  });
+  // Protocols have their own page; this section is skills only.
+  const skills = (skillsQ.data?.skills ?? []).filter((s) => s.artifactKind !== "protocol");
+
+  return (
+    <section className="mt-14 border-t border-border pt-10">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-2xl text-ink tracking-tight">
+            <Boxes className="size-5 text-ink-faint" />
+            Skills
+          </h2>
+          <p className="mt-1 max-w-2xl text-ink-light text-sm">
+            The capabilities an agent is assembled from. Attach them to an agent, or open one to
+            read what it does.
+          </p>
+        </div>
+        {user ? (
+          <div className="flex items-center gap-2">
+            <Button variant="outline" render={<Link to="/skills" />}>
+              Browse all
+            </Button>
+            <Button render={<Link to="/skills/new" />}>New skill</Button>
+          </div>
+        ) : null}
+      </div>
+
+      {skillsQ.isLoading ? (
+        <div className="mt-6 flex items-center gap-2 text-ink-light text-sm">
+          <Loader2 className="size-4 animate-spin" /> Loading skills…
+        </div>
+      ) : skills.length === 0 ? (
+        <p className="mt-6 rounded-lg border border-dashed border-border p-8 text-center text-ink-light text-sm">
+          No skills yet.
+        </p>
+      ) : (
+        <>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {skills.slice(0, 6).map((s) => (
+              <SkillCard key={s.slug} skill={s} />
+            ))}
+          </div>
+          {skills.length > 6 ? (
+            <p className="mt-4 text-sm">
+              <Link to="/skills" className="text-brand hover:underline">
+                See all {skills.length} skills →
+              </Link>
+            </p>
+          ) : null}
+        </>
+      )}
+    </section>
   );
 }
 

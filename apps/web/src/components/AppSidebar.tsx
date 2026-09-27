@@ -5,7 +5,6 @@ import type { Agent } from "@labee/contracts";
 import {
   BookOpen,
   Bot,
-  Boxes,
   FileText,
   FlaskConical,
   Loader2,
@@ -65,14 +64,9 @@ const WORKSPACE_ITEMS: NavItem[] = [
     icon: Bot,
     match: (p) => p.startsWith("/marketplace"),
   },
-  // Skills sit directly under Agents: an agent is what you run, skills are
-  // what it is made of. The route stays /skills.
-  {
-    label: "Skills",
-    to: "/skills",
-    icon: Boxes,
-    match: (p) => p === "/skills" || p.startsWith("/skills"),
-  },
+  // Skills have no nav entry of their own: an agent is what you run and skills
+  // are what it is made of, so they live as a section of the Agents page. The
+  // /skills routes are unchanged and still reachable from there.
   {
     label: "Protocols",
     to: "/protocols",
