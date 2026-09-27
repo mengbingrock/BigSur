@@ -25,7 +25,7 @@ import { Route as ResearchRunIdRouteImport } from './routes/research.$runId'
 import { Route as AgentsNewRouteImport } from './routes/agents.new'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as SkillsSlugEditRouteImport } from './routes/skills.$slug.edit'
-import { Route as MacsHostIdSessionIdRouteImport } from './routes/macs.$hostId.$sessionId'
+import { Route as MacsHostIdSessionIdRouteImport } from './routes/macs_.$hostId.$sessionId'
 import { Route as AgentsIdEditRouteImport } from './routes/agents.$id.edit'
 
 const SignupRoute = SignupRouteImport.update({
@@ -109,9 +109,9 @@ const SkillsSlugEditRoute = SkillsSlugEditRouteImport.update({
   getParentRoute: () => SkillsSlugRoute,
 } as any)
 const MacsHostIdSessionIdRoute = MacsHostIdSessionIdRouteImport.update({
-  id: '/$hostId/$sessionId',
-  path: '/$hostId/$sessionId',
-  getParentRoute: () => MacsRoute,
+  id: '/macs_/$hostId/$sessionId',
+  path: '/macs/$hostId/$sessionId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AgentsIdEditRoute = AgentsIdEditRouteImport.update({
   id: '/agents/$id/edit',
@@ -123,7 +123,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
   '/login': typeof LoginRoute
-  '/macs': typeof MacsRouteWithChildren
+  '/macs': typeof MacsRoute
   '/protocols': typeof ProtocolsRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
@@ -143,7 +143,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
   '/login': typeof LoginRoute
-  '/macs': typeof MacsRouteWithChildren
+  '/macs': typeof MacsRoute
   '/protocols': typeof ProtocolsRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
@@ -164,7 +164,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
   '/login': typeof LoginRoute
-  '/macs': typeof MacsRouteWithChildren
+  '/macs': typeof MacsRoute
   '/protocols': typeof ProtocolsRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
@@ -177,7 +177,7 @@ export interface FileRoutesById {
   '/research/': typeof ResearchIndexRoute
   '/skills/': typeof SkillsIndexRoute
   '/agents/$id/edit': typeof AgentsIdEditRoute
-  '/macs/$hostId/$sessionId': typeof MacsHostIdSessionIdRoute
+  '/macs_/$hostId/$sessionId': typeof MacsHostIdSessionIdRoute
   '/skills/$slug/edit': typeof SkillsSlugEditRoute
 }
 export interface FileRouteTypes {
@@ -239,7 +239,7 @@ export interface FileRouteTypes {
     | '/research/'
     | '/skills/'
     | '/agents/$id/edit'
-    | '/macs/$hostId/$sessionId'
+    | '/macs_/$hostId/$sessionId'
     | '/skills/$slug/edit'
   fileRoutesById: FileRoutesById
 }
@@ -247,7 +247,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatRoute: typeof ChatRoute
   LoginRoute: typeof LoginRoute
-  MacsRoute: typeof MacsRouteWithChildren
+  MacsRoute: typeof MacsRoute
   ProtocolsRoute: typeof ProtocolsRoute
   SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
@@ -260,6 +260,7 @@ export interface RootRouteChildren {
   ResearchIndexRoute: typeof ResearchIndexRoute
   SkillsIndexRoute: typeof SkillsIndexRoute
   AgentsIdEditRoute: typeof AgentsIdEditRoute
+  MacsHostIdSessionIdRoute: typeof MacsHostIdSessionIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -376,12 +377,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SkillsSlugEditRouteImport
       parentRoute: typeof SkillsSlugRoute
     }
-    '/macs/$hostId/$sessionId': {
-      id: '/macs/$hostId/$sessionId'
-      path: '/$hostId/$sessionId'
+    '/macs_/$hostId/$sessionId': {
+      id: '/macs_/$hostId/$sessionId'
+      path: '/macs/$hostId/$sessionId'
       fullPath: '/macs/$hostId/$sessionId'
       preLoaderRoute: typeof MacsHostIdSessionIdRouteImport
-      parentRoute: typeof MacsRoute
+      parentRoute: typeof rootRouteImport
     }
     '/agents/$id/edit': {
       id: '/agents/$id/edit'
@@ -392,16 +393,6 @@ declare module '@tanstack/react-router' {
     }
   }
 }
-
-interface MacsRouteChildren {
-  MacsHostIdSessionIdRoute: typeof MacsHostIdSessionIdRoute
-}
-
-const MacsRouteChildren: MacsRouteChildren = {
-  MacsHostIdSessionIdRoute: MacsHostIdSessionIdRoute,
-}
-
-const MacsRouteWithChildren = MacsRoute._addFileChildren(MacsRouteChildren)
 
 interface SkillsSlugRouteChildren {
   SkillsSlugEditRoute: typeof SkillsSlugEditRoute
@@ -419,7 +410,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRoute: ChatRoute,
   LoginRoute: LoginRoute,
-  MacsRoute: MacsRouteWithChildren,
+  MacsRoute: MacsRoute,
   ProtocolsRoute: ProtocolsRoute,
   SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
@@ -432,6 +423,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResearchIndexRoute: ResearchIndexRoute,
   SkillsIndexRoute: SkillsIndexRoute,
   AgentsIdEditRoute: AgentsIdEditRoute,
+  MacsHostIdSessionIdRoute: MacsHostIdSessionIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

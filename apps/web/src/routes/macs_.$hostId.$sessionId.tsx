@@ -14,7 +14,7 @@ import {
 } from "@labee/session-core";
 import { apiGet, apiSend } from "~/lib/api";
 
-export const Route = createFileRoute("/macs/$hostId/$sessionId")({ component: MacSessionPage });
+export const Route = createFileRoute("/macs_/$hostId/$sessionId")({ component: MacSessionPage });
 
 function MacSessionPage() {
   const { hostId, sessionId } = Route.useParams();
