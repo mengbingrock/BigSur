@@ -101,6 +101,16 @@ describe("Device Link", () => {
     }, 10000);
   }, 40000);
 
+  it("a desktop lists the machines the box knows about, not its own registry", async () => {
+    // Nothing ever dials a desktop, so its own host registry is empty — asking
+    // it locally answered "nothing linked yet" on the machine that was itself
+    // linked, directly below a panel saying "connected".
+    const r = await fetch(`${desktop.base}/api/link/hosts`, { headers: { cookie } });
+    expect(r.status).toBe(200);
+    const { hosts } = (await r.json()) as { hosts: { hostId: string; online: boolean }[] };
+    expect(hosts.some((h) => h.hostId === hostId)).toBe(true);
+  });
+
   it("a desktop lists and revokes the devices the box holds, not its own", async () => {
     // A phone pairs with the box, so the desktop's own link_devices table is
     // always empty. Reading it locally showed "no devices" on a machine that

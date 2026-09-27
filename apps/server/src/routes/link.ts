@@ -331,6 +331,14 @@ export const listHostsRoute = HttpRouter.add(
   Effect.gen(function* () {
     const user = yield* sessionUser;
     if (!user) return yield* error("Unauthorized.", 401);
+    // listHosts() reads the registry of machines that have dialled *this*
+    // server. Nothing dials a desktop, so asking one locally always answers
+    // "nothing linked" — on the very machine that is itself linked. The box
+    // keeps the registry, so ask it, as /devices and /pending do.
+    if (isDesktop()) {
+      const r = yield* Effect.promise(() => proxyToBox("GET", "/api/link/hosts"));
+      return yield* json(r.body, r.status);
+    }
     return yield* json({ hosts: listHosts(user.email) });
   }),
 );
