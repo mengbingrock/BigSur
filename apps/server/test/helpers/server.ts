@@ -32,7 +32,21 @@ export async function startServer(env: NodeJS.ProcessEnv, opts: { port?: number 
   const logs: string[] = [];
   const proc = spawn("bun", ["run", "src/bin.ts"], {
     cwd: SERVER_DIR,
-    env: { ...process.env, ...env, LABEE_PORT: String(port), LABEE_HOST: "127.0.0.1", NODE_ENV: "test" },
+    env: {
+      ...process.env,
+      // Neutralise real model credentials by default: the server loads
+      // apps/server/.env, and a developer's key there must never let a test
+      // make a billed call. A test that wants a provider passes one back in
+      // explicitly (or sets LABEE_EMBED_PROVIDER=fake).
+      OPENAI_API_KEY: "",
+      LABEE_OPENAI_API_KEY: "",
+      ANTHROPIC_API_KEY: "",
+      LABEE_ANTHROPIC_API_KEY: "",
+      ...env,
+      LABEE_PORT: String(port),
+      LABEE_HOST: "127.0.0.1",
+      NODE_ENV: "test",
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   const tap = (s: NodeJS.ReadableStream) => s.on("data", (d: Buffer) => logs.push(d.toString()));

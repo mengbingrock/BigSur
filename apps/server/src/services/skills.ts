@@ -504,6 +504,28 @@ function assertEditable(skill: Skill) {
  * Prevents PUT/DELETE from touching another user's directory even if a slug
  * collides.
  */
+/** Every directory that holds `email`'s own artifacts: their folder in each
+ *  user root, plus their deck workspace `.skill` folder — which is where
+ *  anything created in the app is written, so it is just as much theirs. */
+function ownBases(email: string): string[] {
+  const bases = getRoots()
+    .filter((r) => r.kind === "user")
+    .map((r) => scopedRootPath(r, email))
+    .filter(Boolean);
+  bases.push(userWorkspaceSkillDir(email));
+  return bases;
+}
+
+function containedIn(real: string, base: string): boolean {
+  try {
+    if (!fs.existsSync(base)) return false;
+    const realBase = fs.realpathSync(base);
+    return real === realBase || real.startsWith(realBase + path.sep);
+  } catch {
+    return false;
+  }
+}
+
 function isInsideOwnFolder(absPath: string, email: string): boolean {
   let real: string;
   try {
@@ -511,19 +533,21 @@ function isInsideOwnFolder(absPath: string, email: string): boolean {
   } catch {
     return false;
   }
-  return getRoots()
-    .filter((r) => r.kind === "user")
-    .some((r) => {
-      const owned = scopedRootPath(r, email);
-      if (!owned) return false;
-      try {
-        if (!fs.existsSync(owned)) return false;
-        const realOwned = fs.realpathSync(owned);
-        return real === realOwned || real.startsWith(realOwned + path.sep);
-      } catch {
-        return false;
-      }
-    });
+  return ownBases(email).some((b) => containedIn(real, b));
+}
+
+/** Which of `email`'s own bases holds `absPath`, or null when none does. */
+function baseHolding(absPath: string, email: string): string | null {
+  let real: string;
+  try {
+    real = fs.realpathSync(absPath);
+  } catch {
+    return null;
+  }
+  for (const b of ownBases(email)) {
+    if (containedIn(real, b)) return fs.realpathSync(b);
+  }
+  return null;
 }
 
 export function saveSkill(
@@ -924,21 +948,25 @@ function ownRootDir(email: string): string {
   return dir;
 }
 
-/** Categories the caller owns: every direct subfolder of their own folder that
- *  is not itself an artifact (i.e. holds no SKILL.md of its own). */
+/** Categories the caller owns: every direct subfolder of any of their own
+ *  bases that is not itself an artifact (i.e. holds no SKILL.md). The same
+ *  name in two bases is one category. */
 export function listCategories(email: string): string[] {
-  const dir = ownRootDir(email);
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return [];
+  const names = new Set<string>();
+  for (const dir of ownBases(email)) {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const e of entries) {
+      if (!e.isDirectory() || e.name.startsWith(".") || e.name === PUBLIC_FOLDER) continue;
+      if (fs.existsSync(path.join(dir, e.name, "SKILL.md"))) continue;
+      names.add(e.name);
+    }
   }
-  return entries
-    .filter((e) => e.isDirectory() && !e.name.startsWith(".") && e.name !== PUBLIC_FOLDER)
-    .filter((e) => !fs.existsSync(path.join(dir, e.name, "SKILL.md")))
-    .map((e) => e.name)
-    .sort((a, b) => a.localeCompare(b));
+  return [...names].sort((a, b) => a.localeCompare(b));
 }
 
 export function createCategory(name: string, email: string): string {
@@ -950,35 +978,47 @@ export function createCategory(name: string, email: string): string {
 }
 
 export function renameCategory(from: string, to: string, email: string): string {
-  const src = path.join(ownRootDir(email), assertCategoryName(from));
+  const fromClean = assertCategoryName(from);
   const clean = assertCategoryName(to);
-  const dst = path.join(ownRootDir(email), clean);
-  if (!fs.existsSync(src)) throw notFound(`No category named "${from}".`);
-  if (!isInsideOwnFolder(src, email)) {
-    throw invalidCategory("Refusing to rename outside your own folder.");
+  let renamed = 0;
+  for (const base of ownBases(email)) {
+    const src = path.join(base, fromClean);
+    const dst = path.join(base, clean);
+    if (!fs.existsSync(src)) continue;
+    if (!isInsideOwnFolder(src, email)) {
+      throw invalidCategory("Refusing to rename outside your own folder.");
+    }
+    if (fs.existsSync(dst) && path.resolve(src) !== path.resolve(dst)) {
+      throw invalidCategory(`"${clean}" already exists.`);
+    }
+    fs.renameSync(src, dst);
+    renamed += 1;
   }
-  if (fs.existsSync(dst) && path.resolve(src) !== path.resolve(dst)) {
-    throw invalidCategory(`"${clean}" already exists.`);
-  }
-  fs.renameSync(src, dst);
+  if (renamed === 0) throw notFound(`No category named "${from}".`);
   return clean;
 }
 
 /** Delete a category. Refuses while it still holds anything, so no artifact is
  *  ever removed as a side effect of tidying the rail. */
 export function deleteCategory(name: string, email: string): void {
-  const dir = path.join(ownRootDir(email), assertCategoryName(name));
-  if (!fs.existsSync(dir)) throw notFound(`No category named "${name}".`);
-  if (!isInsideOwnFolder(dir, email)) {
-    throw invalidCategory("Refusing to delete outside your own folder.");
+  const clean = assertCategoryName(name);
+  const dirs = ownBases(email)
+    .map((b) => path.join(b, clean))
+    .filter((d) => fs.existsSync(d));
+  if (dirs.length === 0) throw notFound(`No category named "${name}".`);
+  let held = 0;
+  for (const dir of dirs) {
+    if (!isInsideOwnFolder(dir, email)) {
+      throw invalidCategory("Refusing to delete outside your own folder.");
+    }
+    held += fs.readdirSync(dir).filter((n) => !n.startsWith(".")).length;
   }
-  const remaining = fs.readdirSync(dir).filter((n) => !n.startsWith("."));
-  if (remaining.length > 0) {
+  if (held > 0) {
     throw invalidCategory(
-      `"${name}" still holds ${remaining.length} item${remaining.length === 1 ? "" : "s"}. Move them out first.`,
+      `"${name}" still holds ${held} item${held === 1 ? "" : "s"}. Move them out first.`,
     );
   }
-  fs.rmdirSync(dir);
+  for (const dir of dirs) fs.rmdirSync(dir);
 }
 
 /** Move an artifact into a category, or to the top level when `category` is
@@ -995,7 +1035,10 @@ export function moveSkillToCategory(
   if (!isInsideOwnFolder(existing.sourcePath, email)) {
     throw invalidCategory("Refusing to move outside your own folder.");
   }
-  const root = ownRootDir(email);
+  // Categorise inside whichever of the caller's bases already holds this
+  // artifact, so an app-created one (deck workspace) is not relocated across
+  // roots just to be filed.
+  const root = baseHolding(existing.sourcePath, email) ?? ownRootDir(email);
   const clean = category == null || category === "" ? null : assertCategoryName(category);
   const targetDir = clean ? path.join(root, clean) : root;
   if (clean && !fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
