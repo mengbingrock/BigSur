@@ -200,4 +200,19 @@ describe("protocols are documents", () => {
       expect(fs.existsSync(path.join(ownDir, n)), `${n} still at top level`).toBe(false);
     }
   });
+
+  it("merges an old category folder into one that already exists under protocols/", async () => {
+    // The starter library creates category folders. If a person's own folder of
+    // the same name is migrated afterwards, its destination is taken — and the
+    // never-overwrite rule used to leave the whole folder behind, unread, with
+    // every protocol in it invisible. A folder is merged child by child instead.
+    fs.mkdirSync(path.join(pdir, "Cloning"), { recursive: true });
+    fs.mkdirSync(path.join(ownDir, "Cloning"), { recursive: true });
+    fs.writeFileSync(path.join(ownDir, "Cloning", "my-own-gibson.md"), "# My own Gibson\n\nMine.\n");
+
+    const arts = await all();
+    expect(arts.some((a) => a.name === "my-own-gibson")).toBe(true);
+    expect(fs.existsSync(path.join(pdir, "Cloning", "my-own-gibson.md"))).toBe(true);
+    expect(fs.existsSync(path.join(ownDir, "Cloning"))).toBe(false);
+  });
 });

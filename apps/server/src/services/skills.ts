@@ -255,9 +255,40 @@ function migrateLayout(base: string): void {
     } else {
       continue;
     }
-    if (fs.existsSync(to)) continue;
-    fs.mkdirSync(path.dirname(to), { recursive: true });
-    fs.renameSync(from, to);
+    if (!fs.existsSync(to)) {
+      fs.mkdirSync(path.dirname(to), { recursive: true });
+      fs.renameSync(from, to);
+      continue;
+    }
+    // Destination taken. A file stays where it is rather than clobber
+    // anything; a folder is merged child by child, so a category that
+    // exists on both sides ends up with everything and nothing is lost.
+    if (e.isDirectory() && fs.statSync(to).isDirectory()) {
+      mergeInto(from, to);
+      try {
+        fs.rmdirSync(from); // only succeeds once empty
+      } catch {
+        // something could not be moved; it stays visible at the top level
+      }
+    }
+  }
+}
+
+/** Move every entry of `from` into `to` that does not already exist there. */
+function mergeInto(from: string, to: string): void {
+  for (const e of fs.readdirSync(from, { withFileTypes: true })) {
+    const src = path.join(from, e.name);
+    const dst = path.join(to, e.name);
+    if (!fs.existsSync(dst)) {
+      fs.renameSync(src, dst);
+    } else if (e.isDirectory() && fs.statSync(dst).isDirectory()) {
+      mergeInto(src, dst);
+      try {
+        fs.rmdirSync(src);
+      } catch {
+        // not empty; leave it
+      }
+    }
   }
 }
 
@@ -474,8 +505,12 @@ export function getAllSkills(
     // (see seedProtocols), so there is nothing shared to scan.
     if (email) {
       const ownDir = path.join(root.path, userSlug(email));
-      // The starter library is delivered into this person's own protocols
-      // folder the first time it is read, so a new account is not empty.
+      // Migrate first, seed second. The seeder creates the category folders
+      // the starters live in; if it ran first, a person's own folder of the
+      // same name would find its destination taken and be left behind,
+      // unread. Migrated first, their files are in place and the seeder
+      // simply skips the ones they already have.
+      migrateLayout(ownDir);
       seedStarterProtocols(path.join(ownDir, PROTOCOLS_DIR));
       scanOwnBase(ownDir, "user", collected);
     }
