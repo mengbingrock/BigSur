@@ -19,7 +19,6 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="sign-in" options={{ title: "Sign in", headerShown: false }} />
           <Stack.Screen name="auth" options={{ headerShown: false }} />
-          <Stack.Screen name="hosts" options={{ title: "Your Macs" }} />
           <Stack.Screen name="devices" options={{ title: "Devices" }} />
           <Stack.Screen name="session/[id]" options={{ title: "Session" }} />
           <Stack.Screen name="run/[id]" options={{ title: "Run" }} />

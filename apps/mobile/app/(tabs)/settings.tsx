@@ -73,10 +73,11 @@ export default function SettingsScreen() {
           <Text style={{ color: t.muted, fontSize: 12 }}>
             {target.hostId ? `Talking to Mac ${target.hostId} through the relay.` : "Talking to this server directly."}
           </Text>
+          {/* Picking a Mac and managing paired devices are the same screen —
+              "" (not undefined) there records an explicit Direct choice, so
+              the first-sign-in auto-select in AppContext does not override it. */}
           <View style={{ flexDirection: "row", gap: 8 }}>
-            <Button kind="secondary" title="Choose Mac" onPress={() => router.push("/hosts")} />
-            {/* "" (not undefined) records an explicit Direct choice, so the
-                first-sign-in auto-select in AppContext does not override it. */}
+            <Button kind="secondary" title="Devices" onPress={() => router.push("/devices")} />
             {target.hostId ? <Button kind="ghost" title="Direct" onPress={() => void setHostId("")} /> : null}
           </View>
         </View>
@@ -94,9 +95,6 @@ export default function SettingsScreen() {
           <Text style={{ color: t.text }}>Notifications</Text>
           <Text style={{ color: t.muted, fontSize: 12 }}>{pushToken ? `Registered (${pushToken.slice(0, 18)}…)` : "Get a push when Labee asks a question or finishes."}</Text>
           <Button kind="secondary" title="Enable notifications" onPress={async () => setPushToken(await registerForPush(target))} />
-        </View>
-        <View style={row}>
-          <Button kind="secondary" title="Devices" onPress={() => router.push("/devices")} />
         </View>
         <View style={{ paddingTop: 24 }}>
           <Button kind="danger" title="Sign out" onPress={async () => { await signOut(); router.replace("/sign-in"); }} />

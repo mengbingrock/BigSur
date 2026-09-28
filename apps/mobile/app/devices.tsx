@@ -1,6 +1,16 @@
+// Every device in one place, matching the web's "My Device" page: the Macs
+// this account can run on (pick one, or run on the server directly), and the
+// phones and tablets paired to the account — including this one.
 import { useCallback, useEffect, useState } from "react";
-import { FlatList, Text, View } from "react-native";
-import { listDevices, requestPairing, revokeDevice, type DeviceInfo } from "~/api/link";
+import { ScrollView, Pressable, Text, View } from "react-native";
+import {
+  listDevices,
+  listHosts,
+  requestPairing,
+  revokeDevice,
+  type DeviceInfo,
+  type HostInfo,
+} from "~/api/link";
 import { deviceLabel, setDeviceToken } from "~/api/client";
 import { Stack, useRouter } from "expo-router";
 import { useApp } from "~/state/AppContext";
@@ -8,19 +18,23 @@ import { setSecret } from "~/storage";
 import { Button } from "~/ui/Button";
 import { Chip } from "~/ui/Chip";
 import { Screen } from "~/ui/Screen";
+import { StatusDot } from "~/ui/StatusDot";
 import { useTheme } from "~/ui/theme";
 
 export default function DevicesScreen() {
   const t = useTheme();
   const router = useRouter();
-  const { target, ready, user } = useApp();
+  const { target, ready, user, setHostId } = useApp();
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
+  const [hosts, setHosts] = useState<HostInfo[]>([]);
   const [code, setCode] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const root = { base: target.base };
   const load = useCallback(async () => {
     try {
-      setDevices((await listDevices(root)).devices);
+      const [d, h] = await Promise.all([listDevices(root), listHosts(root)]);
+      setDevices(d.devices);
+      setHosts(h.hosts);
       setErr(null);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -50,31 +64,67 @@ export default function DevicesScreen() {
       setErr(e instanceof Error ? e.message : String(e));
     }
   };
+
+  const heading = { color: t.muted, fontSize: 12, paddingHorizontal: 16, paddingTop: 20, paddingBottom: 6 } as const;
+  const rowStyle = {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: t.border,
+  } as const;
+  // "" (not undefined) records an explicit Direct choice: AppContext only
+  // auto-picks a Mac while the stored preference is absent.
+  const macs: HostInfo[] = [{ hostId: "", name: "This server (direct)", online: true, lastSeenAt: null }, ...hosts];
+
   return (
     <Screen>
       <ExitWhenStranded />
-      <View style={{ padding: 16, gap: 8 }}>
-        <Text style={{ color: t.muted, fontSize: 12 }}>
-          Pair this device with your Mac. Approve it on the Mac under Settings › Devices using the code shown here.
-        </Text>
-        <Button title="Pair this device" onPress={pair} />
-        {code ? <Text style={{ color: t.text, fontSize: 32, fontWeight: "700", letterSpacing: 6, textAlign: "center" }}>{code}</Text> : null}
-        {err ? <Text style={{ color: t.danger }}>{err}</Text> : null}
-      </View>
-      <FlatList
-        data={devices}
-        keyExtractor={(d) => d.id}
-        renderItem={({ item: d }) => (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
+      <ScrollView>
+        {err ? <Text style={{ color: t.danger, paddingHorizontal: 16, paddingTop: 12 }}>{err}</Text> : null}
+
+        <Text style={heading}>WHERE CHATS RUN</Text>
+        {macs.map((h) => (
+          <Pressable key={h.hostId || "direct"} onPress={() => void setHostId(h.hostId)} style={rowStyle}>
+            <StatusDot status={h.online ? "running" : "idle"} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: t.text, fontWeight: "600" }}>{h.name}</Text>
+              <Text style={{ color: t.muted, fontSize: 12 }}>
+                {h.online ? "online" : `offline${h.lastSeenAt ? ` · last seen ${new Date(h.lastSeenAt).toLocaleString()}` : ""}`}
+              </Text>
+            </View>
+            {(target.hostId ?? "") === h.hostId ? <Text style={{ color: t.accent }}>✓</Text> : null}
+          </Pressable>
+        ))}
+
+        <Text style={heading}>PHONES AND TABLETS</Text>
+        <View style={{ paddingHorizontal: 16, paddingBottom: 8, gap: 8 }}>
+          <Text style={{ color: t.muted, fontSize: 12 }}>
+            Pair this device with your Mac. Approve it on the Mac under Settings › Devices using the code shown here.
+          </Text>
+          <Button title="Pair this device" onPress={pair} />
+          {code ? (
+            <Text style={{ color: t.text, fontSize: 32, fontWeight: "700", letterSpacing: 6, textAlign: "center" }}>{code}</Text>
+          ) : null}
+        </View>
+        {devices.map((d) => (
+          <View key={d.id} style={rowStyle}>
             <View style={{ flex: 1 }}>
               <Text style={{ color: t.text, fontWeight: "600" }}>{d.name}</Text>
-              <Text style={{ color: t.muted, fontSize: 12 }}>{d.platform ?? ""} · {d.status}{d.code && d.status === "pending" ? ` · code ${d.code}` : ""}</Text>
+              <Text style={{ color: t.muted, fontSize: 12 }}>
+                {d.platform ?? ""} · {d.status}
+                {d.code && d.status === "pending" ? ` · code ${d.code}` : ""}
+              </Text>
             </View>
             <Chip label={d.status} tone={d.status === "approved" ? "accent" : d.status === "pending" ? "warn" : "danger"} />
-            {d.status !== "revoked" ? <Button kind="ghost" title="Revoke" onPress={async () => { await revokeDevice(root, d.id); await load(); }} /> : null}
+            {d.status !== "revoked" ? (
+              <Button kind="ghost" title="Revoke" onPress={async () => { await revokeDevice(root, d.id); await load(); }} />
+            ) : null}
           </View>
-        )}
-      />
+        ))}
+        <View style={{ height: 32 }} />
+      </ScrollView>
     </Screen>
   );
 }
