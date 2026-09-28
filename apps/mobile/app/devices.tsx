@@ -11,10 +11,10 @@ import {
   type DeviceInfo,
   type HostInfo,
 } from "~/api/link";
-import { deviceLabel, setDeviceToken } from "~/api/client";
+import { deviceDisplayName, deviceModel, setDeviceToken } from "~/api/client";
 import { Stack, useRouter } from "expo-router";
 import { useApp } from "~/state/AppContext";
-import { setSecret } from "~/storage";
+import { getPref, setPref, setSecret } from "~/storage";
 import { Button } from "~/ui/Button";
 import { Chip } from "~/ui/Chip";
 import { Screen } from "~/ui/Screen";
@@ -28,6 +28,7 @@ export default function DevicesScreen() {
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const [hosts, setHosts] = useState<HostInfo[]>([]);
   const [code, setCode] = useState<string | null>(null);
+  const [thisDeviceId, setThisDeviceId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const root = { base: target.base };
   const load = useCallback(async () => {
@@ -44,6 +45,9 @@ export default function DevicesScreen() {
   // "Unauthorized." on a cold start, before the app knew who was signed in.
   // And with no account at all, this screen has nothing to show.
   useEffect(() => {
+    void getPref("labee:deviceId").then(setThisDeviceId);
+  }, []);
+  useEffect(() => {
     if (!ready) return;
     if (!user) {
       router.replace("/sign-in");
@@ -55,9 +59,11 @@ export default function DevicesScreen() {
   }, [ready, user, load, router]);
   const pair = async () => {
     try {
-      const r = await requestPairing(root, { name: deviceLabel(), platform: deviceLabel() });
+      const r = await requestPairing(root, { name: deviceDisplayName(), platform: deviceModel() });
       setDeviceToken(r.token);
       await setSecret("labee:deviceToken", r.token);
+      await setPref("labee:deviceId", r.device.id);
+      setThisDeviceId(r.device.id);
       setCode(r.device.code);
       await load();
     } catch (e) {
@@ -75,8 +81,10 @@ export default function DevicesScreen() {
     borderBottomColor: t.border,
   } as const;
   // "" (not undefined) records an explicit Direct choice: AppContext only
-  // auto-picks a Mac while the stored preference is absent.
-  const macs: HostInfo[] = [{ hostId: "", name: "This server (direct)", online: true, lastSeenAt: null }, ...hosts];
+  // auto-picks a Mac while the stored preference is absent. The first row is
+  // the box itself — named for the server, because that is where those chats
+  // run; this phone is only the client.
+  const macs: HostInfo[] = [{ hostId: "", name: serverName(target.base), online: true, lastSeenAt: null }, ...hosts];
 
   return (
     <Screen>
@@ -91,7 +99,11 @@ export default function DevicesScreen() {
             <View style={{ flex: 1 }}>
               <Text style={{ color: t.text, fontWeight: "600" }}>{h.name}</Text>
               <Text style={{ color: t.muted, fontSize: 12 }}>
-                {h.online ? "online" : `offline${h.lastSeenAt ? ` · last seen ${new Date(h.lastSeenAt).toLocaleString()}` : ""}`}
+                {h.hostId === ""
+                  ? "Labee cloud · always on"
+                  : h.online
+                    ? "online"
+                    : `offline${h.lastSeenAt ? ` · last seen ${new Date(h.lastSeenAt).toLocaleString()}` : ""}`}
               </Text>
             </View>
             {(target.hostId ?? "") === h.hostId ? <Text style={{ color: t.accent }}>✓</Text> : null}
@@ -111,7 +123,10 @@ export default function DevicesScreen() {
         {devices.map((d) => (
           <View key={d.id} style={rowStyle}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: t.text, fontWeight: "600" }}>{d.name}</Text>
+              <Text style={{ color: t.text, fontWeight: "600" }}>
+                {d.name}
+                {d.id === thisDeviceId ? " · this device" : ""}
+              </Text>
               <Text style={{ color: t.muted, fontSize: 12 }}>
                 {d.platform ?? ""} · {d.status}
                 {d.code && d.status === "pending" ? ` · code ${d.code}` : ""}
@@ -127,6 +142,15 @@ export default function DevicesScreen() {
       </ScrollView>
     </Screen>
   );
+}
+
+/** The box, named by its address: "labee.online", not "This server". */
+function serverName(base: string): string {
+  try {
+    return new URL(base).host;
+  } catch {
+    return base.replace(/^https?:\/\//, "").replace(/\/+$/, "") || "Labee cloud";
+  }
 }
 
 /** A way out when there is nothing to go back to. The root stack now names

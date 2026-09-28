@@ -2,6 +2,7 @@
 // directly (dev / LAN) or a Mac reached through the labee.online Device Link
 // relay, in which case every path is prefixed with /api/hosts/:hostId.
 import { Platform } from "react-native";
+import * as Device from "expo-device";
 
 export interface Target {
   /** Origin of the server we talk to, e.g. https://labee.online or http://192.168.1.5:3000 */
@@ -36,10 +37,23 @@ export function getDeviceToken() {
   return deviceToken;
 }
 
+/** Coarse platform label. Stays ASCII: it rides in the `x-labee-device`
+ *  header, where a device name like "Martin\u2019s iPhone" would not. */
 export function deviceLabel(): string {
   if (Platform.OS === "ios") return Platform.isPad ? "iPad" : "iPhone";
   if (Platform.OS === "android") return "Android";
   return "web";
+}
+
+/** What this device calls itself — "Martin's iPhone". Falls back to the model,
+ *  then the platform, when the OS withholds the user-assigned name. */
+export function deviceDisplayName(): string {
+  return Device.deviceName?.trim() || Device.modelName?.trim() || deviceLabel();
+}
+
+/** The hardware model — "iPhone 18 Pro". */
+export function deviceModel(): string {
+  return Device.modelName?.trim() || deviceLabel();
 }
 
 export function urlFor(target: Target, path: string): string {
