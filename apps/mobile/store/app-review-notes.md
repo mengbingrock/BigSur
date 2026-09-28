@@ -41,9 +41,10 @@ chats and start new ones from the bench, away from the computer.
    (https://labee.online), enter the demo account's email and password under
    Sign-in required, and tap "Sign in".
 2. The app connects to the demo account's linked Mac automatically. The
-   Chats tab lists three existing conversations; the Protocols tab lists
-   twelve bench protocols.
-3. Open any chat and send a message — for example "Summarise the Gibson
+   Sessions tab lists three existing conversations; the Protocols tab lists
+   twelve bench protocols. (The Runs tab is for long-running multi-step
+   analyses and is empty on the demo account.)
+3. Open any conversation and send a message — for example "Summarise the Gibson
    assembly protocol in three steps" — to see the assistant reply using the
    protocols. Replies take about 20–40 seconds.
 4. Tap "New" to start a fresh conversation. Open any protocol to read it.
@@ -91,12 +92,12 @@ Start from the Home screen. Total ~3–4 minutes.
 
 1. Launch the app from the Home screen.
 2. Sign in with the demo account (email + password). Show the Chats list load.
-3. Open an existing chat; scroll a little to show prior messages.
+3. Open an existing conversation; scroll a little to show prior messages.
 4. Send a message ("Summarise the Gibson assembly protocol in three steps")
    and wait for the reply to stream in.
-5. Back to Chats; tap New; send one short message; show the reply.
+5. Back to Sessions; tap New; send one short message; show the reply.
 6. Protocols tab: scroll the list, open one, scroll its content.
-7. Settings: show the account section. Sign out.
+7. Settings: show the account section, and Devices (the linked Mac). Sign out.
 8. Deletion, on a THROWAWAY account, never the demo. Beforehand, create one
    at labee.online in Safari (or use a spare Google account). In the app:
    sign out, sign in as the throwaway, then Settings → Delete account →
