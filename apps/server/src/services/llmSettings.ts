@@ -138,6 +138,8 @@ export interface ResolvedCredential {
 // short-lived token from the box (auth via the persisted box session) and cache
 // it per provider.
 interface ProxyCred {
+  /** Which providers the box can serve on the provided tier. */
+  providers?: { anthropic?: boolean; openai?: boolean };
   token: string;
   anthropicBaseUrl: string;
   openaiBaseUrl: string;
@@ -195,6 +197,7 @@ async function getProxyCred(force = false): Promise<ProxyCred | null> {
       token: string;
       anthropicBaseUrl: string;
       openaiBaseUrl: string;
+      providers?: { anthropic?: boolean; openai?: boolean };
     };
     proxyCache = { ...data, fetchedAt: Date.now() };
     return proxyCache;
@@ -209,6 +212,15 @@ async function getProxyCred(force = false): Promise<ProxyCred | null> {
 async function providedViaProxy(provider: Provider): Promise<ResolvedCredential | null> {
   const cred = await getProxyCred();
   if (!cred) return null;
+  if (cred.providers && cred.providers[provider] === false) {
+    return {
+      provider,
+      mode: "provided",
+      apiKey: null,
+      unavailable: true,
+      reason: `Labee's provided ${provider === "anthropic" ? "Claude" : "OpenAI"} account isn't set up on ${proxyServerBase().replace(/^https?:\/\//, "")} yet. Use your own account under Settings → Connection, or ask the operator to configure it.`,
+    };
+  }
   const proxyBaseUrl = provider === "anthropic" ? cred.anthropicBaseUrl : cred.openaiBaseUrl;
   return { provider, mode: "provided", apiKey: cred.token, proxyBaseUrl, unavailable: false };
 }
@@ -221,11 +233,27 @@ export function providedKey(provider: Provider): string | null {
   return process.env.LABEE_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || null;
 }
 
-/** Is a Labee-provided credential available for this provider?
- *  Anthropic always is (the host's claude.ai OAuth via the claude CLI). */
+/**
+ * Is a Labee-provided credential available for this provider?
+ *
+ * On the box: only if Labee's own key for it is configured. This used to
+ * answer "always" for Anthropic on the theory that the host's claude.ai login
+ * would serve — but a hosted box has no such login and must not use one, so
+ * every provided-tier turn 503'd after the UI had offered it as available.
+ *
+ * On a desktop: whatever the box last said it could serve (learned with the
+ * proxy token). Unknown until the box has been asked, which the providers
+ * catalog route does before answering.
+ */
 export function providedAvailable(provider: Provider): boolean {
-  if (provider === "anthropic") return true;
+  if (isDesktop()) return Boolean(proxyCache?.providers?.[provider]);
   return Boolean(providedKey(provider));
+}
+
+/** Make sure a desktop has asked the box what it can serve. Cheap after the
+ *  first call (cached), harmless on the box (no-op). */
+export async function primeProvidedAvailability(): Promise<void> {
+  if (isDesktop()) await getProxyCred();
 }
 
 /** Resolve the credential to actually run a turn with for a user + provider. */

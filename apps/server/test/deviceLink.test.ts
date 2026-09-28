@@ -22,7 +22,15 @@ beforeAll(async () => {
     CLAUDE_BIN: process.env.CLAUDE_BIN!,
     COOKIE_SECURE: "false",
   };
-  box = await startServer({ ...shared, LABEE_LINK_PING_MS: "700", LABEE_DATA_DIR: process.env.LABEE_DATA_DIR!, DECK_ROOT: process.env.DECK_ROOT!, SKILLS_ROOTS: process.env.SKILLS_ROOTS! });
+  box = await startServer({
+    ...shared,
+    // The box must claim it can serve the provided tier, or the desktop now
+    // (rightly) refuses provided turns before spawning anything. This value is
+    // never sent to Anthropic: CLAUDE_BIN in tests is a fake that talks to no
+    // one. Real keys are blanked by the harness so a test can never bill.
+    LABEE_ANTHROPIC_API_KEY: "test-placeholder-never-sent",
+    LABEE_LINK_PING_MS: "700",
+    LABEE_DATA_DIR: process.env.LABEE_DATA_DIR!, DECK_ROOT: process.env.DECK_ROOT!, SKILLS_ROOTS: process.env.SKILLS_ROOTS! });
   const droot = fs.mkdtempSync(path.join(os.tmpdir(), "labee-link-desktop-"));
   const sessionFile = path.join(droot, "remote-session.txt");
   fs.writeFileSync(sessionFile, encodeURIComponent(sealed));

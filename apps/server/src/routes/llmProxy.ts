@@ -100,6 +100,10 @@ export const proxyTokenRoute = HttpRouter.add(
       expiresIn: PROXY_TOKEN_TTL,
       anthropicBaseUrl: `${origin}/api/llm/anthropic`,
       openaiBaseUrl: `${origin}/api/llm/openai/v1`,
+      // What this box can actually serve. A desktop shows "Labee provided" as
+      // unavailable for anything listed false, instead of offering it and
+      // failing the first turn with a 503.
+      providers: { anthropic: anthropicAuth() !== null, openai: openaiKey() !== null },
     });
   }),
 );

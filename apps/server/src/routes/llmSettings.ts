@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { HttpRouter } from "effect/unstable/http";
 import type { LlmSettingsUpdate } from "@labee/contracts";
 import { bodyJson, error, json, sessionUser } from "../httpKit";
-import { getSettings, updateSettings } from "../services/llmSettings";
+import { getSettings, primeProvidedAvailability, updateSettings } from "../services/llmSettings";
 import { buildCatalog } from "../services/llm";
 import { codexLogout, readCodexConnection, startCodexLogin } from "../services/codex";
 import { claudeLogout, readClaudeConnection, startClaudeLogin } from "../services/claudeAuth";
@@ -14,6 +14,7 @@ export const llmProvidersRoute = HttpRouter.add(
   Effect.gen(function* () {
     const user = yield* sessionUser;
     if (!user) return yield* error("Unauthorized.", 401);
+    yield* Effect.promise(() => primeProvidedAvailability());
     return yield* json({ providers: buildCatalog() });
   }),
 );

@@ -37,6 +37,11 @@ beforeAll(async () => {
   await new Promise<void>((r) => pushServer.listen(pushPort, "127.0.0.1", r));
   const shared = { SESSION_PASSWORD: process.env.SESSION_PASSWORD!, CLAUDE_BIN: process.env.CLAUDE_BIN!, COOKIE_SECURE: "false" };
   box = await startServer({
+    // The box must claim it can serve the provided tier, or the desktop now
+    // (rightly) refuses provided turns before spawning anything. This value is
+    // never sent to Anthropic: CLAUDE_BIN in tests is a fake that talks to no
+    // one. Real keys are blanked by the harness so a test can never bill.
+    LABEE_ANTHROPIC_API_KEY: "test-placeholder-never-sent",
     ...shared,
     EXPO_PUSH_URL: `http://127.0.0.1:${pushPort}/push`,
     LABEE_LINK_PING_MS: "700",
