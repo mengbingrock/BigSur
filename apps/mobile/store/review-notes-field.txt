@@ -1,25 +1,33 @@
-Labee is a lab notebook and assistant for bench scientists. A researcher keeps their protocols — step-by-step experimental procedures such as a PCR setup, a plasmid miniprep or a Gibson assembly — as documents in Labee, organised by category and searchable by meaning rather than exact words. They can then chat with an AI assistant that has those protocols in front of it: ask how to adapt a step, troubleshoot a failed reaction, or plan the next experiment, and get an answer grounded in their own written procedures.
+Labee is a research notebook and assistant, used mainly for bench science: a researcher keeps their protocols — experimental procedures such as a PCR setup, a plasmid miniprep or a Gibson assembly — as documents, organised by category and searchable by meaning. They can then chat with an assistant that has those protocols in front of it and get answers grounded in them. The assistant is general-purpose and built on Claude's agent tooling, so it can also answer ordinary technical questions and will sometimes mention its own tools or optional third-party integrations.
 
-The iPhone app is a companion to the Labee desktop app (macOS). The desktop app holds the protocols and runs the assistant on the scientist's own computer; the phone lets them read their protocols, continue their chats and start new ones from the bench, away from the computer. A Mac is already linked to the demo account and is kept online for review.
+The iPhone app is a companion to the Labee desktop app (macOS). The desktop app holds the protocols and runs the assistant on the user's own computer; the phone reads those protocols and continues the conversations away from the computer. The phone can also talk to our server directly, without a Mac, which is how the attached video was recorded.
+
+ABOUT THE ATTACHED VIDEO
+About 50 seconds, captured on a physical iPhone. It shows: the app launched from the Home screen; a new conversation started and a message sent, with the assistant's reply arriving; then Settings, and account deletion in full — confirmation, deletion, and the app returning to the sign-in screen.
+
+Two things to note so the recording is not confusing:
+- It uses a throwaway account, not the demo account, because the last step permanently deletes the account being used.
+- That account talks to our server directly, so no linked Mac appears, and the reply shown is a general technical answer rather than a protocol answer.
+The demo account above is set up for your own walkthrough and does have a Mac linked and kept online, with protocols and conversations.
 
 SETUP AND ACCESS
-1. Open the app. Leave the Server field at its default (https://labee.online). Sign in with the demo account email and password supplied in the fields above.
-2. The app connects to the demo account's linked Mac automatically. The Sessions tab lists three existing conversations; the Protocols tab lists twelve bench protocols. (The Runs tab is for long-running multi-step analyses and is empty on the demo account.)
-3. Open any conversation and send a message — for example "Summarise the Gibson assembly protocol in three steps" — to see the assistant reply using the protocols. Replies take about 20-40 seconds.
+1. Open the app. Leave the Server field at its default (https://labee.online). Sign in with the demo account email and password supplied above.
+2. That account connects to its linked Mac automatically. The Sessions tab lists three existing conversations; the Protocols tab lists twelve bench protocols. (The Runs tab is for long-running multi-step analyses and is empty.)
+3. Open any conversation and send a message — for example "Summarise the Gibson assembly protocol in three steps". Replies take about 20-40 seconds.
 4. Tap New to start a fresh conversation. Open any protocol to read it; the Protocols tab can also search them or answer a question from them.
-5. Accounts are created on our website (labee.online) or by "Sign in with Google", which creates an account on first use; the app has no separate registration form. Account deletion is in the app: Settings > Delete account, which permanently erases the account and its data. Please do not delete the demo account itself — the recording shows deletion on a throwaway account made for that purpose.
+5. Accounts are created on our website (labee.online) or by "Sign in with Google", which creates an account on first use; the app has no separate registration form. Account deletion is in the app: Settings > Delete account, as the video shows. Please do not delete the demo account itself.
 
 No sample files are needed; the demo account is pre-populated.
 
 EXTERNAL SERVICES
 - labee.online — our own hosted service (AWS). Accounts, sign-in, and the relay that connects the phone to the user's Mac.
 - Google Sign-In — optional alternative to email sign-in.
-- Anthropic Claude and OpenAI GPT — the AI models the assistant is built on. Inference runs on the user's own Mac using their own account with those providers, or through our service on a metered plan.
+- Anthropic Claude and OpenAI GPT — the models the assistant is built on. Inference runs on the user's own Mac using their own account with those providers, or through our service on a metered plan.
 - Stripe — payment processing for plans bought on our website. There are no in-app purchases; nothing is sold inside the iOS app.
-- Expo (EAS) — build tooling; Expo push notifications for "the assistant needs your input" alerts.
+- Expo (EAS) — build tooling and push notifications.
 
 REGIONAL DIFFERENCES
 None. The app functions identically in all regions. The interface is English only at this time.
 
 REGULATED INDUSTRY / THIRD-PARTY MATERIAL
-Labee is not in a regulated industry and handles no medical, financial or personal health data. The twelve starter protocols included with the app are original, written by us for general molecular-biology teaching use; they are not reproduced from any publisher. All other content is created by the user.
+Labee is not in a regulated industry and handles no medical, financial or health data. The twelve starter protocols are original, written by us for general molecular-biology teaching use, not reproduced from any publisher. All other content is created by the user.
