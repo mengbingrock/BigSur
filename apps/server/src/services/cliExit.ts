@@ -27,6 +27,7 @@ const ANSI = /\x1b\[[0-9;?]*[ -/]*[@-~]/g;
 /** stderr lines that never explain a failure. */
 const BENIGN = [
   /claude\.ai connectors are disabled/i,
+  /^Warning: no stdin data received/i,
   /^\s*[⚠!]\s*$/,
   /^\s*$/,
 ];
