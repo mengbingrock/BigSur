@@ -47,10 +47,12 @@ function intEnv(name: string, fallback: number): number {
   return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
 
-/** Starting balance (cents) granted once to every new account. $20 by default;
- *  override with LABEE_SIGNUP_CREDITS (0 disables the grant). */
+/** Starting balance (cents) granted once to every new account. $5 by default;
+ *  override with LABEE_SIGNUP_CREDITS (0 disables the grant). This is the whole
+ *  allowance for an account with no plan and no top-up: metered Provided
+ *  inference is refused once it runs out. */
 export function signupGrantCents(): number {
-  return intEnv("LABEE_SIGNUP_CREDITS", 2000);
+  return intEnv("LABEE_SIGNUP_CREDITS", 500);
 }
 
 /** Cost of one successful protocol-search call, in usage-credit cents. */
@@ -398,22 +400,29 @@ interface LedgerEntry {
   model?: string | null;
   inputTokens?: number;
   outputTokens?: number;
+  cacheWriteTokens?: number;
+  cacheReadTokens?: number;
+  /** Exact signed charge in micro-cents; defaults to amount × 1000. */
+  amountMicros?: number;
 }
 
 /** Append an itemised ledger row (the audit trail behind billing.credits). */
 async function ledger(email: string, e: LedgerEntry): Promise<void> {
   const db = await getDb();
   db.prepare(
-    "INSERT INTO usage_events (email, kind, amount_cents, provider, model, input_tokens, output_tokens, created_at) " +
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO usage_events (email, kind, amount_cents, amount_micros, provider, model, input_tokens, " +
+      "output_tokens, cache_write_tokens, cache_read_tokens, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   ).run(
     email,
     e.kind,
     Math.round(e.amount),
+    Math.round(e.amountMicros ?? e.amount * 1000),
     e.provider ?? null,
     e.model ?? null,
     Math.round(e.inputTokens ?? 0),
     Math.round(e.outputTokens ?? 0),
+    Math.round(e.cacheWriteTokens ?? 0),
+    Math.round(e.cacheReadTokens ?? 0),
     new Date().toISOString(),
   );
 }
@@ -487,31 +496,66 @@ export async function recordUsage(input: {
   model: string | null;
   inputTokens: number;
   outputTokens: number;
+  cacheWriteTokens?: number;
+  cacheReadTokens?: number;
 }): Promise<number> {
-  const cents = Math.round(priceUsage(input.model, input.inputTokens, input.outputTokens));
-  if (cents <= 0 && input.inputTokens + input.outputTokens === 0) return 0;
+  const tokens =
+    input.inputTokens + input.outputTokens + (input.cacheWriteTokens ?? 0) + (input.cacheReadTokens ?? 0);
+  if (tokens <= 0) return 0;
+  // Price in micro-cents so a call worth a fraction of a cent still costs
+  // something. The leftover is carried on the account and charged once the
+  // running total crosses a whole cent.
+  const micros = Math.round(
+    priceUsage(input.model, input.inputTokens, input.outputTokens, {
+      ...(input.cacheWriteTokens ? { write: input.cacheWriteTokens } : {}),
+      ...(input.cacheReadTokens ? { read: input.cacheReadTokens } : {}),
+    }) * 1000,
+  );
+  if (micros <= 0) return 0;
   try {
-    const current = await getCredits(input.email);
-    await upsert(input.email, { credits: Math.max(0, current - cents) });
+    const db = await getDb();
+    const now = new Date().toISOString();
+    // One statement so concurrent turns cannot both read the same balance and
+    // write back the same result. `credits` never goes below zero: an overspend
+    // on the last call is absorbed, not carried as debt.
+    // CAST because a bound JS number can arrive as a float, and `/` on floats
+    // is not integer division — without it the balance drifts into fractions
+    // of a cent.
+    db.prepare(
+      "UPDATE billing SET " +
+        "spend_remainder_micros = CAST(spend_remainder_micros + ? AS INTEGER) % 1000, " +
+        "credits = MAX(0, credits - CAST((spend_remainder_micros + ?) / 1000 AS INTEGER)), " +
+        "updated_at = ? WHERE email = ?",
+    ).run(micros, micros, now, input.email);
+    const cents = Math.floor(micros / 1000);
     await ledger(input.email, {
       kind: "spend",
       amount: -cents,
       provider: input.provider,
       model: input.model,
+      amountMicros: -micros,
       inputTokens: input.inputTokens,
       outputTokens: input.outputTokens,
+      ...(input.cacheWriteTokens ? { cacheWriteTokens: input.cacheWriteTokens } : {}),
+      ...(input.cacheReadTokens ? { cacheReadTokens: input.cacheReadTokens } : {}),
     });
+    return cents;
   } catch {
     // metering must never break inference — swallow and move on
+    return 0;
   }
-  return cents;
 }
 
 /** Lifetime spend (cents) — sum of the magnitudes of spend ledger rows. */
 async function getSpent(email: string): Promise<number> {
   const db = await getDb();
   const row = db
-    .prepare("SELECT COALESCE(-SUM(amount_cents), 0) AS spent FROM usage_events WHERE email = ? AND kind = 'spend'")
+    .prepare(
+      // Rows written before micro-cent accounting carry amount_micros = 0;
+      // fall back to their cent figure so history still adds up.
+      "SELECT COALESCE(-SUM(CASE WHEN amount_micros != 0 THEN amount_micros ELSE amount_cents * 1000 END), 0) / 1000.0 " +
+        "AS spent FROM usage_events WHERE email = ? AND kind = 'spend'",
+    )
     .get(email) as { spent: number } | undefined;
   return Math.max(0, Number(row?.spent ?? 0));
 }

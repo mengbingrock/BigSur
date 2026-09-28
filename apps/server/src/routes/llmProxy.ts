@@ -238,7 +238,9 @@ function meterFromText(
   text: string,
 ): void {
   const usage = extractUsage(text);
-  if (usage.inputTokens + usage.outputTokens <= 0) return;
+  const total =
+    usage.inputTokens + usage.outputTokens + usage.cacheWriteTokens + usage.cacheReadTokens;
+  if (total <= 0) return;
   void recordUsage({ email, provider, model, ...usage });
 }
 
@@ -246,16 +248,32 @@ function meterFromText(
  *  Anthropic (`input_tokens`/`output_tokens`, split across message_start /
  *  message_delta SSE events) and OpenAI (`prompt_tokens`/`completion_tokens` or
  *  Responses-API `input_tokens`/`output_tokens`), streamed or not. */
-function extractUsage(text: string): { inputTokens: number; outputTokens: number } {
+interface ExtractedUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheWriteTokens: number;
+  cacheReadTokens: number;
+}
+
+function extractUsage(text: string): ExtractedUsage {
   let inputTokens = 0;
   let outputTokens = 0;
+  let cacheWriteTokens = 0;
+  let cacheReadTokens = 0;
   const consider = (u: unknown): void => {
     if (!u || typeof u !== "object") return;
     const o = u as Record<string, unknown>;
     const inp = Number(o.input_tokens ?? o.prompt_tokens ?? 0);
     const out = Number(o.output_tokens ?? o.completion_tokens ?? 0);
+    // Anthropic reports cache tokens beside input_tokens; OpenAI nests the
+    // cached count under prompt_tokens_details.
+    const details = o.prompt_tokens_details as Record<string, unknown> | undefined;
+    const write = Number(o.cache_creation_input_tokens ?? 0);
+    const read = Number(o.cache_read_input_tokens ?? details?.cached_tokens ?? 0);
     if (Number.isFinite(inp) && inp > inputTokens) inputTokens = inp;
     if (Number.isFinite(out) && out > outputTokens) outputTokens = out;
+    if (Number.isFinite(write) && write > cacheWriteTokens) cacheWriteTokens = write;
+    if (Number.isFinite(read) && read > cacheReadTokens) cacheReadTokens = read;
   };
   const scan = (obj: unknown): void => {
     if (!obj || typeof obj !== "object") return;
@@ -284,7 +302,13 @@ function extractUsage(text: string): { inputTokens: number; outputTokens: number
       // partial/non-JSON line — ignore
     }
   }
-  return { inputTokens, outputTokens };
+  // OpenAI's prompt_tokens already includes the cached portion; Anthropic's
+  // input_tokens does not. Subtracting keeps a cached OpenAI call from being
+  // billed twice — once at full input price and once at the cache rate.
+  if (cacheReadTokens > 0 && inputTokens >= cacheReadTokens && text.includes("prompt_tokens")) {
+    inputTokens -= cacheReadTokens;
+  }
+  return { inputTokens, outputTokens, cacheWriteTokens, cacheReadTokens };
 }
 
 /** Preserve the request's query string for the upstream call. */

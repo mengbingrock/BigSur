@@ -44,15 +44,35 @@ function rateFor(model: string | undefined | null): Rate {
   return DEFAULT_RATE;
 }
 
+/** Prompt-cache multipliers on the input rate, as both vendors price them:
+ *  writing a cache entry costs more than plain input, reading one costs far
+ *  less. Counting a cache read as full input overcharges by 10x; ignoring it
+ *  altogether — which is what we did before — undercharges to nothing. */
+const CACHE_WRITE_MULTIPLIER = 1.25;
+const CACHE_READ_MULTIPLIER = 0.1;
+
+export interface UsageTokens {
+  inputTokens: number;
+  outputTokens: number;
+  /** Tokens written into the prompt cache. */
+  cacheWriteTokens?: number;
+  /** Tokens served from the prompt cache. */
+  cacheReadTokens?: number;
+}
+
 /** Cost in cents (may be fractional) for a metered call. */
 export function priceUsage(
   model: string | undefined | null,
   inputTokens: number,
   outputTokens: number,
+  cache: { write?: number; read?: number } = {},
 ): number {
   const rate = rateFor(model);
+  const per = (tokens: number, centsPerM: number) => (Math.max(0, tokens) / 1_000_000) * centsPerM;
   const cents =
-    (Math.max(0, inputTokens) / 1_000_000) * rate.input +
-    (Math.max(0, outputTokens) / 1_000_000) * rate.output;
+    per(inputTokens, rate.input) +
+    per(outputTokens, rate.output) +
+    per(cache.write ?? 0, rate.input * CACHE_WRITE_MULTIPLIER) +
+    per(cache.read ?? 0, rate.input * CACHE_READ_MULTIPLIER);
   return cents * margin();
 }

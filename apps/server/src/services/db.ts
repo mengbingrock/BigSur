@@ -104,6 +104,10 @@ async function openDb(): Promise<SqlDb> {
   );
   ensureColumn(db, "billing", "credited_period", "TEXT");
   ensureColumn(db, "billing", "subscription_price_id", "TEXT");
+  // Metered spend below one cent, carried between calls. Without it every call
+  // cheaper than half a cent rounds to zero and is served free forever — which
+  // at a $5 allowance is the difference between a cap and no cap.
+  ensureColumn(db, "billing", "spend_remainder_micros", "INTEGER NOT NULL DEFAULT 0");
   // Processed Stripe webhook events — gives webhook handling idempotency.
   db.exec(
     "CREATE TABLE IF NOT EXISTS billing_events (" +
@@ -127,6 +131,14 @@ async function openDb(): Promise<SqlDb> {
       "output_tokens INTEGER NOT NULL DEFAULT 0, " +
       "created_at TEXT NOT NULL);",
   );
+  // Prompt-cache tokens are priced differently from plain input, so they are
+  // recorded separately rather than folded into input_tokens.
+  // Exact charge in micro-cents. amount_cents is the rounded figure shown in
+  // the UI; this is what the balance actually moved by, so a sum of the ledger
+  // reconciles with the balance instead of drifting a cent at a time.
+  ensureColumn(db, "usage_events", "amount_micros", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn(db, "usage_events", "cache_write_tokens", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn(db, "usage_events", "cache_read_tokens", "INTEGER NOT NULL DEFAULT 0");
   db.exec(
     "CREATE INDEX IF NOT EXISTS idx_usage_events_email ON usage_events (email, id);",
   );
