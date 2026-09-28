@@ -22,7 +22,9 @@ import { VoiceOverlay } from "~/ui/VoiceOverlay";
 export default function SessionScreen() {
   const t = useTheme();
   const wide = useWide();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `skill` arrives when the session was opened from a protocol: attach it to
+  // every turn here, so the answers are drawn from those steps.
+  const { id, skill } = useLocalSearchParams<{ id: string; skill?: string }>();
   const { target } = useApp();
   const stream = useSessionStream(target, id);
   const ptt = usePushToTalk(target);
@@ -64,9 +66,11 @@ export default function SessionScreen() {
     async (text: string, voice = false) => {
       readAloud.stop();
       setSaying("");
-      await stream.send({ text, voice }).catch((e) => setHeard(`Error: ${e instanceof Error ? e.message : String(e)}`));
+      await stream
+        .send({ text, voice, ...(skill ? { skillSlugs: [skill] } : {}) })
+        .catch((e) => setHeard(`Error: ${e instanceof Error ? e.message : String(e)}`));
     },
-    [stream.send, readAloud.stop],
+    [stream.send, readAloud.stop, skill],
   );
 
   const handleTranscript = useCallback(

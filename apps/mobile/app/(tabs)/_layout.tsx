@@ -15,7 +15,7 @@ export default function TabsLayout() {
     <Tabs screenOptions={{ tabBarActiveTintColor: t.accent, headerStyle: { backgroundColor: t.bg }, headerTintColor: t.text }}>
       <Tabs.Screen name="index" options={{ title: "Sessions", tabBarIcon: ({ color }) => <Icon glyph="💬" color={color} /> }} />
       <Tabs.Screen name="runs" options={{ title: "Runs", tabBarIcon: ({ color }) => <Icon glyph="🧪" color={color} /> }} />
-      <Tabs.Screen name="inbox" options={{ title: "Inbox", tabBarIcon: ({ color }) => <Icon glyph="⏳" color={color} /> }} />
+      <Tabs.Screen name="protocols" options={{ title: "Protocols", tabBarIcon: ({ color }) => <Icon glyph="📋" color={color} /> }} />
       <Tabs.Screen name="settings" options={{ title: "Settings", tabBarIcon: ({ color }) => <Icon glyph="⚙️" color={color} /> }} />
     </Tabs>
   );

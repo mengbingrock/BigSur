@@ -49,7 +49,9 @@ export default function SessionsScreen() {
 
   const running = sessions.filter((s) => s.status === "running" || s.status === "awaiting_input");
   const rest = sessions.filter((s) => !running.includes(s));
-  const waiting = sessions.filter((s) => s.status === "awaiting_input").length;
+  const awaiting = sessions.filter((s) => s.status === "awaiting_input");
+  const waiting = awaiting.length;
+  const firstWaiting = awaiting[0];
 
   const newSession = async () => {
     const r = await createSession(target);
@@ -75,9 +77,12 @@ export default function SessionsScreen() {
 
   return (
     <Screen>
-      {waiting > 0 ? (
-        <Pressable onPress={() => router.push("/(tabs)/inbox")} style={{ margin: 12, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: t.warn }}>
+      {/* Sessions with a question sort to the top of this list, so the banner
+          opens the oldest one waiting rather than a separate inbox. */}
+      {firstWaiting ? (
+        <Pressable onPress={() => router.push(`/session/${firstWaiting.id}`)} style={{ margin: 12, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: t.warn }}>
           <Text style={{ color: t.warn, fontWeight: "600" }}>⏳ Waiting on you ({waiting})</Text>
+          <Text numberOfLines={1} style={{ color: t.muted, fontSize: 12 }}>{firstWaiting.title}</Text>
         </Pressable>
       ) : null}
       {err ? <Text style={{ color: t.danger, padding: 12 }}>{err}</Text> : null}
