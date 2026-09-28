@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { FlatList, Text, View } from "react-native";
 import { listDevices, requestPairing, revokeDevice, type DeviceInfo } from "~/api/link";
 import { deviceLabel, setDeviceToken } from "~/api/client";
+import { Stack, useRouter } from "expo-router";
 import { useApp } from "~/state/AppContext";
 import { setSecret } from "~/storage";
 import { Button } from "~/ui/Button";
@@ -11,7 +12,8 @@ import { useTheme } from "~/ui/theme";
 
 export default function DevicesScreen() {
   const t = useTheme();
-  const { target } = useApp();
+  const router = useRouter();
+  const { target, ready, user } = useApp();
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const [code, setCode] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -24,11 +26,19 @@ export default function DevicesScreen() {
       setErr(e instanceof Error ? e.message : String(e));
     }
   }, [target.base]);
+  // Not before the stored session is back: fetching on first paint answered
+  // "Unauthorized." on a cold start, before the app knew who was signed in.
+  // And with no account at all, this screen has nothing to show.
   useEffect(() => {
+    if (!ready) return;
+    if (!user) {
+      router.replace("/sign-in");
+      return;
+    }
     void load();
     const id = setInterval(load, 5000);
     return () => clearInterval(id);
-  }, [load]);
+  }, [ready, user, load, router]);
   const pair = async () => {
     try {
       const r = await requestPairing(root, { name: deviceLabel(), platform: deviceLabel() });
@@ -42,6 +52,7 @@ export default function DevicesScreen() {
   };
   return (
     <Screen>
+      <ExitWhenStranded />
       <View style={{ padding: 16, gap: 8 }}>
         <Text style={{ color: t.muted, fontSize: 12 }}>
           Pair this device with your Mac. Approve it on the Mac under Settings › Devices using the code shown here.
@@ -65,5 +76,28 @@ export default function DevicesScreen() {
         )}
       />
     </Screen>
+  );
+}
+
+/** A way out when there is nothing to go back to. The root stack now names
+ *  the tabs as its initial route, so Back is normally there; this covers any
+ *  path that still lands here with an empty history. */
+function ExitWhenStranded() {
+  const router = useRouter();
+  const t = useTheme();
+  if (router.canGoBack()) return null;
+  return (
+    <Stack.Screen
+      options={{
+        headerLeft: () => (
+          <Text
+            onPress={() => router.replace("/(tabs)/settings")}
+            style={{ color: t.accent, fontSize: 17, paddingHorizontal: 4 }}
+          >
+            Done
+          </Text>
+        ),
+      }}
+    />
   );
 }

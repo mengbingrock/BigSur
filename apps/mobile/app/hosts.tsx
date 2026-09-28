@@ -1,7 +1,7 @@
 // Pick which linked Mac to talk to (relay mode). Lists /api/link/hosts on the
 // box; "Direct" means the server itself runs the sessions.
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { FlatList, Pressable, Text, View } from "react-native";
 import { listHosts, type HostInfo } from "~/api/link";
 import { useApp } from "~/state/AppContext";
@@ -12,7 +12,7 @@ import { useTheme } from "~/ui/theme";
 export default function HostsScreen() {
   const t = useTheme();
   const router = useRouter();
-  const { target, setHostId } = useApp();
+  const { target, setHostId, ready, user } = useApp();
   const [hosts, setHosts] = useState<HostInfo[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const load = useCallback(async () => {
@@ -24,14 +24,33 @@ export default function HostsScreen() {
     }
   }, [target.base]);
   useEffect(() => {
+    if (!ready) return;
+    if (!user) {
+      router.replace("/sign-in");
+      return;
+    }
     void load();
-  }, [load]);
+  }, [ready, user, load, router]);
   const pick = async (hostId: string | undefined) => {
     await setHostId(hostId);
     router.back();
   };
   return (
     <Screen>
+      {router.canGoBack() ? null : (
+        <Stack.Screen
+          options={{
+            headerLeft: () => (
+              <Text
+                onPress={() => router.replace("/(tabs)/settings")}
+                style={{ color: t.accent, fontSize: 17, paddingHorizontal: 4 }}
+              >
+                Done
+              </Text>
+            ),
+          }}
+        />
+      )}
       {err ? <Text style={{ color: t.danger, padding: 12 }}>{err}</Text> : null}
       <FlatList
         data={[{ hostId: "", name: "This server (direct)", online: true, lastSeenAt: null }, ...hosts]}
