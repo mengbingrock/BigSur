@@ -9,13 +9,14 @@ import matter from "gray-matter";
 import type { Skill } from "@labee/contracts";
 import { getAllSkills } from "./skills";
 import { readDeckFile, userDeckDir } from "./deck";
-import { getSettings, resolveCredential } from "./llmSettings";
+import { getSettings, resolveCredential, type ResolvedCredential } from "./llmSettings";
 import { getAgent } from "./agents";
 import { claudeEnvForCredential, validModel } from "./llm";
 import { openAIChatStream, type OpenAIChatMessage } from "./openai";
 import { codexExecStream } from "./codex";
 import { ensureProtocolsMcpToken, protocolsMcpArgs } from "./protocolsMcp";
 import { handleEvent } from "./claudeStream";
+import { cliExitMessage, resultErrorOf, type CliRoute } from "./cliExit";
 import {
   CLAUDE_NOT_FOUND,
   buildClaudeArgs,
@@ -377,15 +378,35 @@ async function linkSelectedProtocols(
   return linked;
 }
 
+/** Where a claude turn's inference goes, so a failure can say so. */
+function cliRouteOf(cred: ResolvedCredential): CliRoute {
+  if (cred.proxyBaseUrl) {
+    let host = cred.proxyBaseUrl;
+    try {
+      host = new URL(cred.proxyBaseUrl).host;
+    } catch {
+      // keep the raw value
+    }
+    return { kind: "proxy", host };
+  }
+  if (cred.mode === "provided") return { kind: "provided" };
+  if (cred.mode === "own_api_key") return { kind: "own_api_key" };
+  return { kind: "own_subscription" };
+}
+
 /** Build the SSE ReadableStream that spawns the claude CLI and forwards events. */
 function buildChatStream(
   cwd: string,
   args: string[],
   linkedSkillNames: string[],
   extraEnv: NodeJS.ProcessEnv = {},
+  route?: CliRoute,
 ): ReadableStream<Uint8Array> {
   let child: ClaudeChild | undefined;
   const encoder = new TextEncoder();
+  // The CLI's last `result` event carries the real failure text ("API Error:
+  // 503 …"); stderr on its own is mostly warnings. Kept for onClose.
+  let resultError: string | null = null;
   // Hoisted so cancel() (client abort) can stop further enqueues; otherwise
   // buffered stdout keeps calling send() after the controller is closed.
   let closed = false;
@@ -430,17 +451,18 @@ function buildChatStream(
         child = spawnClaudeStream(
           { cwd, args, extraEnv },
           {
-            onEvent: (evt) =>
-              handleEvent(evt, send, blockType, blockId, blockName, blockInputJson, stopForQuestion),
+            onEvent: (evt) => {
+              resultError = resultErrorOf(evt) ?? resultError;
+              handleEvent(evt, send, blockType, blockId, blockName, blockInputJson, stopForQuestion);
+            },
             onError: (message) => {
               send("error", { message });
               close();
             },
-            onClose: (code, stderrBuf) => {
+            onClose: (code, stderrBuf, timedOut) => {
               if (code !== 0) {
-                const tail = stderrBuf.trim().split("\n").slice(-5).join(" | ");
                 send("error", {
-                  message: `claude CLI exited with code ${code}${tail ? `: ${tail}` : ""}`,
+                  message: cliExitMessage({ code, stderr: stderrBuf, resultError, route, timedOut }),
                 });
               } else {
                 send("end", {});
@@ -718,11 +740,12 @@ export async function prepareTurn(email: string, body: ChatRequest): Promise<Pre
     effort: body.effort ?? (mode === "edit" ? "low" : "high"),
   });
   const extraEnv = claudeEnvForCredential(cred);
+  const route = cliRouteOf(cred);
   return {
     ok: true,
     ...base,
     engine: "claude",
-    makeStream: () => buildChatStream(cwd, args, linkedSkillNames, extraEnv),
+    makeStream: () => buildChatStream(cwd, args, linkedSkillNames, extraEnv, route),
   };
 }
 
