@@ -285,6 +285,10 @@ function ProtocolsPage() {
     return uncat ? [...named, [UNCATEGORISED, uncat] as const] : named;
   }, [protocols, owner, ownCategories]);
 
+  /** What "All" in the rail shows: the sum of the category counts, so it
+   *  stays put when a category or a search narrows the list. */
+  const railTotal = useMemo(() => categories.reduce((n, [, count]) => n + count, 0), [categories]);
+
   const ownerCounts = useMemo(() => {
     let mine = 0;
     let imported = 0;
@@ -444,7 +448,7 @@ function ProtocolsPage() {
               Categories
             </p>
             <div className="flex flex-wrap gap-1 lg:flex-col">
-              <RailItem active={category === null} onClick={() => setCategory(null)} count={visible.length}>
+              <RailItem active={category === null} onClick={() => setCategory(null)} count={railTotal}>
                 All
               </RailItem>
               {categories.map(([name, count]) => (
