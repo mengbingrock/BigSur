@@ -19,7 +19,8 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "appleTeamId": "W3X4ZUG72V",
-      "icon": "./assets/icon.png"
+      "icon": "./assets/icon.png",
+      "usesAppleSignIn": true
     },
     "web": {
       "bundler": "metro",
@@ -27,6 +28,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-apple-authentication",
       [
         "expo-audio",
         {

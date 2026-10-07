@@ -189,7 +189,7 @@ export const authProvidersRoute = HttpRouter.add(
   "GET",
   "/api/auth/providers",
   Effect.gen(function* () {
-    return yield* json({ google: isGoogleEnabled() });
+    return yield* json({ google: isGoogleEnabled(), apple: true });
   }),
 );
 

@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Platform } from "react-native";
 import {
+  appleSignIn as apiAppleSignIn,
   deleteAccount as apiDeleteAccount,
   me as fetchMe,
   login as apiLogin,
@@ -26,6 +27,8 @@ export interface AppState {
   signIn: (email: string, password: string) => Promise<void>;
   /** Native: open the hosted Google flow and capture the sealed session it hands back. */
   signInWithGoogle: () => Promise<void>;
+  /** iOS: Apple's own sign-in sheet. Resolves false if the person cancelled. */
+  signInWithApple: () => Promise<boolean>;
   signOut: () => Promise<void>;
   /** Erase the account server-side and forget it locally. Throws on failure. */
   deleteAccount: () => Promise<void>;
@@ -173,6 +176,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await refresh();
   }, [base, refresh]);
 
+  const signInWithApple = useCallback(async () => {
+    const Apple = await import("expo-apple-authentication");
+    let credential: Awaited<ReturnType<typeof Apple.signInAsync>>;
+    try {
+      // Email only: Labee never stores a name, so it does not ask for one.
+      credential = await Apple.signInAsync({ requestedScopes: [Apple.AppleAuthenticationScope.EMAIL] });
+    } catch (e) {
+      if ((e as { code?: string }).code === "ERR_REQUEST_CANCELED") return false;
+      throw e;
+    }
+    if (!credential.identityToken) throw new Error("Apple did not return an identity token.");
+    const r = await apiAppleSignIn(rootTarget, credential.identityToken, credential.authorizationCode);
+    setSessionToken(r.session);
+    await setSecret("labee:session", r.session);
+    await refresh();
+    return true;
+  }, [rootTarget, refresh]);
+
   const forgetLocalSession = useCallback(async () => {
     setDeviceToken(null);
     setSessionToken(null);
@@ -200,8 +221,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [rootTarget, forgetLocalSession]);
 
   const value = useMemo<AppState>(
-    () => ({ ready, target, user, error, setBase, setHostId, signIn, signInWithGoogle, signOut, deleteAccount, refresh }),
-    [ready, target, user, error, setBase, setHostId, signIn, signInWithGoogle, signOut, deleteAccount, refresh],
+    () => ({ ready, target, user, error, setBase, setHostId, signIn, signInWithGoogle, signInWithApple, signOut, deleteAccount, refresh }),
+    [ready, target, user, error, setBase, setHostId, signIn, signInWithGoogle, signInWithApple, signOut, deleteAccount, refresh],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -13,4 +13,10 @@ export const logout = (t: Target) => apiSend<{ ok: true }>(t, "POST", "/api/auth
 export const deleteAccount = (t: Target) =>
   apiSend<{ ok: true; deleted: Record<string, number> }>(t, "DELETE", "/api/account");
 
-export const providers = (t: Target) => apiGet<{ google: boolean }>(t, "/api/auth/providers");
+export const providers = (t: Target) => apiGet<{ google: boolean; apple?: boolean }>(t, "/api/auth/providers");
+/** Trade an Apple identity token for a sealed Labee session. */
+export const appleSignIn = (t: Target, identityToken: string, authorizationCode: string | null) =>
+  apiSend<{ ok: true; email: string; isAdmin: boolean; session: string }>(t, "POST", "/api/auth/apple", {
+    identityToken,
+    ...(authorizationCode ? { authorizationCode } : {}),
+  });

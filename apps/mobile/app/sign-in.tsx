@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
-import { KeyboardAvoidingView, Platform, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Text, TextInput, useColorScheme, View } from "react-native";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { Button } from "~/ui/Button";
 import { Screen } from "~/ui/Screen";
 import { useTheme } from "~/ui/theme";
@@ -9,8 +10,16 @@ import { useApp } from "~/state/AppContext";
 export default function SignIn() {
   const t = useTheme();
   const router = useRouter();
-  const { target, setBase, signIn, signInWithGoogle } = useApp();
+  const scheme = useColorScheme();
+  const { target, setBase, signIn, signInWithGoogle, signInWithApple } = useApp();
   const [googleBusy, setGoogleBusy] = useState(false);
+  const [appleBusy, setAppleBusy] = useState(false);
+  // Sign in with Apple exists on iOS 13+ only; elsewhere the button is hidden.
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    void AppleAuthentication.isAvailableAsync().then(setAppleAvailable).catch(() => setAppleAvailable(false));
+  }, []);
   const [base, setBaseInput] = useState(target.base);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -46,6 +55,32 @@ export default function SignIn() {
         {err ? <Text style={{ color: t.danger }}>{err}</Text> : null}
         <Button testID="sign-in" title="Sign in" onPress={submit} loading={busy} disabled={busy || !email || !password} />
         <Text style={{ color: t.muted, fontSize: 12, textAlign: "center", marginTop: 8 }}>or</Text>
+        {appleAvailable ? (
+          <AppleAuthentication.AppleAuthenticationButton
+            testID="sign-in-apple"
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+            buttonStyle={
+              scheme === "dark"
+                ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+            }
+            cornerRadius={10}
+            style={{ height: 44, opacity: appleBusy ? 0.5 : 1 }}
+            onPress={async () => {
+              if (appleBusy) return;
+              setAppleBusy(true);
+              setErr(null);
+              try {
+                await setBase(base);
+                if (await signInWithApple()) router.replace("/(tabs)");
+              } catch (e) {
+                setErr(e instanceof Error ? e.message : String(e));
+              } finally {
+                setAppleBusy(false);
+              }
+            }}
+          />
+        ) : null}
         <Button
           testID="sign-in-google"
           kind="secondary"

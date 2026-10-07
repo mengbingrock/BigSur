@@ -46,6 +46,10 @@ async function openDb(): Promise<SqlDb> {
       "google_id TEXT);",
   );
   ensureColumn(db, "users", "google_id", "TEXT");
+  // Sign in with Apple: the stable per-app user id (`sub`), and the encrypted
+  // refresh token that account deletion revokes (App Store guideline 5.1.1(v)).
+  ensureColumn(db, "users", "apple_id", "TEXT");
+  ensureColumn(db, "users", "apple_refresh_token_enc", "TEXT");
   // Per-user LLM provider/model selection and (encrypted) own credentials.
   db.exec(
     "CREATE TABLE IF NOT EXISTS user_llm_settings (" +

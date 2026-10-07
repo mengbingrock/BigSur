@@ -48,9 +48,9 @@ chats and start new ones from the bench, away from the computer.
    assembly protocol in three steps" — to see the assistant reply using the
    protocols. Replies take about 20–40 seconds.
 4. Tap "New" to start a fresh conversation. Open any protocol to read it.
-5. Accounts are created on our website (labee.online) or by "Sign in with
-   Google", which creates an account on first use; the app has no separate
-   registration form. Account deletion is in the app: Settings → Delete
+5. Accounts are created on our website (labee.online), or in the app by
+   "Sign in with Apple" or "Sign in with Google", either of which creates an
+   account on first use; the app has no separate registration form. Account deletion is in the app: Settings → Delete
    account, which permanently erases the account and its data. Please do not
    delete the demo account itself — the recording shows deletion on a
    throwaway account made for the purpose.
@@ -61,7 +61,9 @@ No sample files are needed; the demo account is pre-populated.
 
 - labee.online — our own hosted service (AWS). Accounts, sign-in, and the
   relay that connects the phone to the user's Mac.
-- Google Sign-In — optional alternative to email sign-in.
+- Sign in with Apple and Google Sign-In — optional alternatives to email
+  sign-in. Sign in with Apple asks only for an email address, which the
+  person may hide with Apple's private relay.
 - Anthropic Claude and OpenAI GPT — the AI models the assistant is built
   on. Inference runs on the user's own Mac using their own account with
   those providers, or through our service on a metered plan.
@@ -108,3 +110,19 @@ Start from the Home screen. Total ~3–4 minutes.
 
 Then: upload the video with the reply in App Store Connect (the reply form
 accepts attachments), and paste items 2–6 into both the reply and the Notes.
+
+---
+
+## Reply to Guideline 4.8 — Login Services (rejection of 2026-10-06)
+
+Paste into the reply in App Store Connect when submitting the new build:
+
+> Thank you for the review. This build adds Sign in with Apple to the
+> sign-in screen, as an equivalent option to Sign in with Google. It uses
+> Apple's own button and sheet, requests only the email address (no name),
+> and works with Hide My Email, so the person can keep their address private.
+> Labee does not collect app interactions for advertising.
+>
+> An account created with Sign in with Apple can be deleted in the app under
+> Settings → Delete account, which erases the account and its data and
+> revokes the Sign in with Apple token.
