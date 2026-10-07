@@ -153,7 +153,7 @@ export const mcpProxyRoute = HttpRouter.add(
         };
     if (toolCalls > 0 && !quota.allowed) {
       const hint = tier.email
-        ? "Add credits in Settings → Billing to lift this limit."
+        ? "Try again later."
         : "Sign in at labee.online for a higher limit.";
       const needsAuth = !tier.email;
       return HttpServerResponse.text(
@@ -177,7 +177,7 @@ export const mcpProxyRoute = HttpRouter.add(
       const credit = yield* Effect.promise(() => reserveProtocolSearch(email, searches));
       if (!credit.allowed) {
         return HttpServerResponse.text(
-          rpcErrorBody(-32030, "Search credit exhausted. Add credits in Labee Settings → Billing."),
+          rpcErrorBody(-32030, "This account has no protocol-search credit left."),
           { status: 402, contentType: "application/json" },
         );
       }
