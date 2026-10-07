@@ -11,7 +11,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { getDb } from "./db";
+import { revokeAppleToken } from "./apple";
 import { stripe } from "./billing";
+import { decryptSecret } from "./secrets";
 import { userDeckDir } from "./deck";
 import { normalizeEmail } from "./users";
 
@@ -31,6 +33,8 @@ export interface DeleteAccountResult {
   dirs: string[];
   /** Stripe customer id that was deleted, if any. */
   stripeCustomer: string | null;
+  /** True when Apple accepted the revocation of a Sign in with Apple token. */
+  appleRevoked: boolean;
 }
 
 /** Tables with an `email` column, deleted directly. Order does not matter for
@@ -96,6 +100,21 @@ export async function deleteAccount(rawEmail: string): Promise<DeleteAccountResu
     }
   }
 
+  // 1b. Sign in with Apple: revoke the person's tokens, which Apple requires
+  //     on account deletion (guideline 5.1.1(v)). Best effort, like Stripe.
+  let appleRevoked = false;
+  const appleRow = db.prepare("SELECT apple_refresh_token_enc FROM users WHERE email = ?").get(email) as
+    | { apple_refresh_token_enc: string | null }
+    | undefined;
+  const appleToken = decryptSecret(appleRow?.apple_refresh_token_enc);
+  if (appleToken) {
+    try {
+      appleRevoked = await revokeAppleToken(appleToken);
+    } catch (e) {
+      console.warn(`[account] could not revoke the Apple token for ${email}:`, e);
+    }
+  }
+
   // 2. Collect on-disk research workspaces before their rows disappear.
   const workspaces = (
     db.prepare("SELECT workspace_dir FROM research_runs WHERE email = ?").all(email) as Array<{
@@ -130,6 +149,6 @@ export async function deleteAccount(rawEmail: string): Promise<DeleteAccountResu
   for (const w of workspaces) rmDir(w, dirs);
 
   deleted.add(email);
-  console.info(`[account] deleted ${email}:`, { rows, dirs: dirs.length, stripeCustomer });
-  return { rows, dirs, stripeCustomer };
+  console.info(`[account] deleted ${email}:`, { rows, dirs: dirs.length, stripeCustomer, appleRevoked });
+  return { rows, dirs, stripeCustomer, appleRevoked };
 }

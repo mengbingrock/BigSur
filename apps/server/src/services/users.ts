@@ -7,6 +7,7 @@ export interface User {
   isAdmin: boolean;
   createdAt: string;
   googleId: string | null;
+  appleId: string | null;
 }
 
 export interface PublicUser {
@@ -22,6 +23,7 @@ function rowToUser(r: Record<string, unknown>): User {
     isAdmin: Number(r.is_admin) === 1,
     createdAt: String(r.created_at),
     googleId: r.google_id == null ? null : String(r.google_id),
+    appleId: r.apple_id == null ? null : String(r.apple_id),
   };
 }
 
@@ -92,7 +94,7 @@ export async function createUser(
   (await stmt(
     "INSERT INTO users (email, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?)",
   )).run(e, passwordHash, isAdmin ? 1 : 0, createdAt);
-  return { email: e, passwordHash, isAdmin, createdAt, googleId: null };
+  return { email: e, passwordHash, isAdmin, createdAt, googleId: null, appleId: null };
 }
 
 export async function findUserByGoogleId(googleId: string): Promise<User | null> {
@@ -128,7 +130,46 @@ export async function upsertGoogleUser(profile: {
   (await stmt(
     "INSERT INTO users (email, password_hash, is_admin, created_at, google_id) VALUES (?, ?, ?, ?, ?)",
   )).run(e, "", isAdmin ? 1 : 0, createdAt, googleId);
-  return { email: e, passwordHash: "", isAdmin, createdAt, googleId };
+  return { email: e, passwordHash: "", isAdmin, createdAt, googleId, appleId: null };
+}
+
+/** Sign in (or register) a user via a verified Apple identity. The Apple id
+ *  (`sub`) is the key: it is stable, while the email may be a private-relay
+ *  address. A first sign-in links to an existing account with the same email,
+ *  as Google does; otherwise a new password-less account is created. */
+export async function upsertAppleUser(
+  profile: { appleId: string; email: string | null },
+  opts: { autoPromoteFirst?: boolean } = {},
+): Promise<User> {
+  const appleId = profile.appleId.trim();
+  if (!appleId) throw new Error("Missing Apple account id.");
+
+  const known = (await stmt("SELECT * FROM users WHERE apple_id = ?")).get(appleId);
+  if (known) return rowToUser(known);
+
+  // Apple always includes the email in the token once the person has shared
+  // it. Without one there is nothing to name the account by.
+  if (!profile.email) {
+    throw new Error("Apple did not share an email address. Remove Labee under Settings › Apple Account › Sign in with Apple and try again.");
+  }
+  const e = validateEmailOrThrow(profile.email);
+  const existing = await findUser(e);
+  if (existing) {
+    (await stmt("UPDATE users SET apple_id = ? WHERE email = ?")).run(appleId, e);
+    return { ...existing, appleId };
+  }
+
+  const isAdmin = opts.autoPromoteFirst !== false && (await userCount()) === 0;
+  const createdAt = new Date().toISOString();
+  (await stmt(
+    "INSERT INTO users (email, password_hash, is_admin, created_at, apple_id) VALUES (?, ?, ?, ?, ?)",
+  )).run(e, "", isAdmin ? 1 : 0, createdAt, appleId);
+  return { email: e, passwordHash: "", isAdmin, createdAt, googleId: null, appleId };
+}
+
+/** Keep the latest Apple refresh token (encrypted) for revocation on delete. */
+export async function setAppleRefreshToken(email: string, encrypted: string | null): Promise<void> {
+  (await stmt("UPDATE users SET apple_refresh_token_enc = ? WHERE email = ?")).run(encrypted, normalizeEmail(email));
 }
 
 export async function deleteUser(email: string): Promise<boolean> {
