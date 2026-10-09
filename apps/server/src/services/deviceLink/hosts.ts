@@ -2,7 +2,7 @@
 // Each host has a writer for frames and a table of in-flight tunneled
 // requests waiting on response frames.
 import crypto from "node:crypto";
-import type { BoxToHost, ChunkFrame, EndFrame, HostToBox, ResFrame } from "./protocol";
+import type { BoxToHost, ChunkFrame, EndFrame, HostToBox, ParsedFrame, ResFrame } from "./protocol";
 
 export interface PendingResponse {
   onHead: (frame: ResFrame) => void;
@@ -19,6 +19,8 @@ export interface HostConn {
   send: (frame: BoxToHost) => void;
   close: () => void;
   pending: Map<string, PendingResponse>;
+  /** In-flight `parse` requests waiting on a `parsed` frame. */
+  parses: Map<string, (frame: ParsedFrame) => void>;
 }
 
 const hosts = new Map<string, Map<string, HostConn>>();
@@ -55,6 +57,34 @@ export function unregisterHost(conn: HostConn): void {
   seen.set(conn.hostId, { name: conn.name, at: new Date().toISOString() });
   for (const p of conn.pending.values()) p.onEnd({ t: "end", id: "", error: "Host disconnected." });
   conn.pending.clear();
+  for (const [reqId, resolve] of conn.parses) resolve({ t: "parsed", reqId, error: "This Mac went offline." });
+  conn.parses.clear();
+}
+
+/** Ask a host to parse a protocol (and create the run's session). */
+export function requestParse(
+  conn: HostConn,
+  req: { protocolSlug: string; sessionId?: string; user: string },
+  timeoutMs = 15_000,
+): Promise<ParsedFrame> {
+  const reqId = newRequestId();
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      conn.parses.delete(reqId);
+      resolve({ t: "parsed", reqId, error: "The Mac did not answer in time." });
+    }, timeoutMs);
+    conn.parses.set(reqId, (frame) => {
+      clearTimeout(timer);
+      conn.parses.delete(reqId);
+      resolve(frame);
+    });
+    conn.send({ t: "parse", reqId, protocolSlug: req.protocolSlug, ...(req.sessionId ? { sessionId: req.sessionId } : {}), user: req.user });
+  });
+}
+
+/** The first connected host for an account, for callers that did not name one. */
+export function anyHost(email: string): HostConn | undefined {
+  return hosts.get(email)?.values().next().value;
 }
 
 export function getHost(email: string, hostId: string): HostConn | undefined {
@@ -78,6 +108,10 @@ export function newRequestId(): string {
 
 /** Route a host→box frame to the pending request it belongs to. */
 export function dispatchHostFrame(conn: HostConn, frame: HostToBox): void {
+  if (frame.t === "parsed") {
+    conn.parses.get(frame.reqId)?.(frame);
+    return;
+  }
   if (frame.t === "res" || frame.t === "chunk" || frame.t === "end") {
     const p = conn.pending.get(frame.id);
     if (!p) return;

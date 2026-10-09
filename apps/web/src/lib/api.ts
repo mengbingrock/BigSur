@@ -26,6 +26,8 @@ const BOX_ONLY = [
   /^\/api\/billing\//,
   /^\/api\/admin\//,
   /^\/api\/llm\/proxy-token\b/,
+  // Protocol runs are owned by the box (docs/protocol-run-design.md §2.2).
+  /^\/api\/runs\b/,
 ];
 
 function readStoredHost(): string | null {

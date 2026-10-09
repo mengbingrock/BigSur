@@ -45,7 +45,13 @@ export interface AskResult {
 export async function askLibrary(
   question: string,
   email: string,
-  opts?: { kind?: "skill" | "protocol" },
+  opts?: {
+    kind?: "skill" | "protocol";
+    /** Replace the answering instructions (the quick, spoken variant). */
+    system?: string;
+    /** Passages to put in front of the retrieved ones (a run's state, a chat's tail). */
+    extraPassages?: Array<{ name: string; heading: string; text: string }>;
+  },
 ): Promise<AskResult> {
   const q = question.trim();
   if (!q) return { answer: "", citations: [], available: true };
@@ -54,11 +60,13 @@ export async function askLibrary(
   const target = await resolveEmbedTarget(email);
   if (!target) return { answer: "", citations: [], available: false };
 
-  const passages = await retrievePassages(q, email, {
+  const retrieved = await retrievePassages(q, email, {
     kind: opts?.kind ?? "protocol",
     limit: PASSAGE_COUNT,
   });
-  if (!passages) return { answer: "", citations: [], available: false };
+  if (!retrieved) return { answer: "", citations: [], available: false };
+  const extra = (opts?.extraPassages ?? []).map((p) => ({ slug: "", name: p.name, heading: p.heading, text: p.text, score: 1 }));
+  const passages = [...extra, ...retrieved];
   if (passages.length === 0) {
     return {
       answer: "There are no protocols to answer from yet.",
@@ -75,7 +83,7 @@ export async function askLibrary(
   }));
   const answer = await chatComplete(
     target,
-    SYSTEM,
+    opts?.system ?? SYSTEM,
     JSON.stringify({ question: q, passages: numbered }),
   );
   if (answer == null) {

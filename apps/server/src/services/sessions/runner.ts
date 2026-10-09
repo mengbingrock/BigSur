@@ -6,6 +6,8 @@ import { SseParser, frameJson, formatAnswers, type AskUserAnswer, type TurnReque
 import { prepareTurn, type ChatRequest } from "../turnBuilder";
 import * as db from "./db";
 import type { SessionRow } from "./db";
+import * as rdb from "../runs/db";
+import { runContextText, viewOf } from "../runs/service";
 
 export interface SessionEventEnvelope {
   seq: number;
@@ -106,6 +108,31 @@ async function emit(
  *  user message so the model never sees a tool error. */
 export { formatAnswers };
 
+/** Append a quiet transcript line (a run event, a routing note) and tell
+ *  every attached client about it. Never a turn. */
+export async function emitSystemMessage(
+  sessionId: string,
+  content: string,
+  meta: Record<string, unknown> | null = null,
+): Promise<SessionEventEnvelope> {
+  const row = await db.appendSystemMessage(sessionId, content, meta);
+  const session = await db.getSessionById(sessionId);
+  return emitWith(session, sessionId, null, "system_message", { idx: row.idx, content, ...(meta ? { meta } : {}), createdAt: row.createdAt });
+}
+
+async function emitWith(
+  session: SessionRow | null,
+  sessionId: string,
+  turnId: string | null,
+  type: string,
+  data: Record<string, unknown>,
+): Promise<SessionEventEnvelope> {
+  const r = await db.appendEvent(sessionId, turnId, type, data);
+  const envelope = { seq: r.seq, sessionId, turnId, type, ts: r.ts, data };
+  publish(envelope, session);
+  return envelope;
+}
+
 export type StartResult =
   | { ok: true; turnId: string; queued: false }
   | { ok: true; queueId: string; queued: true }
@@ -145,7 +172,15 @@ async function runTurn(
   const sessionId = session.id;
   const text = req.text.trim();
   const history = await db.listMessages(sessionId);
-  const messages = [...history.map((m) => ({ role: m.role, content: m.content })), { role: "user" as const, content: text }];
+  // System lines (run events, routing notes) read as the person's own
+  // record of what happened, so the model sees them as user context.
+  const messages = [
+    ...history.map((m) => ({ role: m.role === "system" ? ("user" as const) : m.role, content: m.role === "system" ? `(record) ${m.content}` : m.content })),
+    { role: "user" as const, content: text },
+  ];
+  // A run session carries the run's state into every turn (run-design §4.1).
+  const run = await rdb.getRunBySession(sessionId).catch(() => null);
+  const runContext = run ? runContextText(await viewOf(run)) : undefined;
 
   // Persist the user message first so a crash still leaves the transcript coherent.
   await db.appendMessage(sessionId, turnId, "user", text, req.device ? { device: req.device } : null);
@@ -195,6 +230,7 @@ async function runTurn(
     ...(req.model ? { model: req.model } : {}),
     ...(req.effort ? { effort: req.effort } : {}),
     ...(req.voice ? { voice: true } : {}),
+    ...(runContext ? { runContext } : {}),
   };
 
   // Turn-local accumulation for the durable assistant message.

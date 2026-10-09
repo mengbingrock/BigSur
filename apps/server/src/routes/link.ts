@@ -14,7 +14,9 @@ import type { BoxToHost, HostToBox } from "../services/deviceLink/protocol";
 import { boxSessionCookie, isDesktop, proxyServerBase } from "../services/llmSettings";
 import { linkState, stableHostId } from "../services/deviceLink/client";
 import { sendPush } from "../services/push";
+import { ackRunEvents, replayRunsTo } from "../services/runs/linkBridge";
 import { readLinkToken, sealLinkToken } from "../services/session";
+import { runBadge } from "./sessions";
 
 const params = HttpRouter.params;
 
@@ -83,9 +85,12 @@ export const hostSocketRoute = HttpRouter.add(
                 Effect.runPromise(write(new SocketCloseEvent(4000, "replaced"))).catch(() => {});
               },
               pending: new Map(),
+              parses: new Map(),
             };
             registerHost(conn);
             send({ t: "welcome", email, hostId: conn.hostId });
+            // Run events this Mac slept through (design §2.2), oldest first.
+            void replayRunsTo(conn).catch(() => {});
             lastSeenMs = Date.now();
             heartbeat = setInterval(() => {
               if (Date.now() - lastSeenMs > PING_MS * 2.5) {
@@ -111,6 +116,10 @@ export const hostSocketRoute = HttpRouter.add(
           if (frame.t === "pong") return;
           if (frame.t === "mirror") {
             void handleMirror(conn, frame);
+            return;
+          }
+          if (frame.t === "runack") {
+            void ackRunEvents(conn, frame.runId, frame.seqs).catch(() => {});
             return;
           }
           dispatchHostFrame(conn, frame);
@@ -310,7 +319,7 @@ export const tunnelRoute = HttpRouter.add(
  *  and stream the answer back. Unlike proxyToBox this carries the method,
  *  body and the headers the tunnel cares about, and never buffers the
  *  response — an SSE tail has no end to wait for. */
-function forwardToBox(request: HttpServerRequest.HttpServerRequest, path: string) {
+export function forwardToBox(request: HttpServerRequest.HttpServerRequest, path: string) {
   return Effect.gen(function* () {
     const cookie = boxSessionCookie();
     if (!cookie) return yield* error("Connect to Labee first (Settings → Connection).", 409);
@@ -431,12 +440,18 @@ export const listSessionsEverywhereRoute = HttpRouter.add(
     }
     const online = new Map(listHosts(user.email).map((h) => [h.hostId, h]));
     const rows = yield* Effect.promise(() => mirror.listMirrorSessionsForAccount(user.email));
-    const sessions = rows.map(({ hostId, session }) => ({
-      ...session,
-      hostId,
-      hostName: online.get(hostId)?.name ?? null,
-      hostOnline: online.get(hostId)?.online ?? false,
-    }));
+    // The box owns run state, so it can badge a Mac's sessions itself.
+    const sessions = yield* Effect.promise(() =>
+      Promise.all(
+        rows.map(async ({ hostId, session }) => ({
+          ...session,
+          hostId,
+          hostName: online.get(hostId)?.name ?? null,
+          hostOnline: online.get(hostId)?.online ?? false,
+          run: await runBadge(String((session as { id?: unknown }).id ?? "")),
+        })),
+      ),
+    );
     return yield* json({ sessions });
   }),
 );

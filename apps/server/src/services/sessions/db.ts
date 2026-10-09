@@ -30,6 +30,7 @@ export interface SessionRow {
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;
+  kind: SessionKind;
 }
 
 export interface PendingQuestion {
@@ -47,10 +48,14 @@ export interface SessionEventRow {
   ts: string;
 }
 
+export type SessionKind = "siri" | null;
+
 export interface SessionMessageRow {
   idx: number;
   turnId: string | null;
-  role: "user" | "assistant";
+  /** `system` lines are the run's and the router's own entries: shown quietly,
+   *  read by the agent as history, never a turn. */
+  role: "user" | "assistant" | "system";
   content: string;
   meta: Record<string, unknown> | null;
   createdAt: string;
@@ -84,6 +89,7 @@ function rowToSession(r: Record<string, unknown>): SessionRow {
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
     archivedAt: (r.archived_at as string | null) ?? null,
+    kind: r.kind === "siri" ? "siri" : null,
   };
 }
 
@@ -95,13 +101,16 @@ export async function createSession(opts: {
   engine?: string;
   provider?: string;
   model?: string | null;
+  kind?: SessionKind;
+  /** Remembered turn defaults (skills to attach, …) before the first turn. */
+  lastBody?: Record<string, unknown> | null;
 }): Promise<SessionRow> {
   const db = await getDb();
   const id = newId("ses");
   const ts = now();
   db.prepare(
-    "INSERT INTO chat_sessions (id, email, agent_id, title, cwd, engine, provider, model, status, last_seq, cost_usd, created_at, updated_at) " +
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'idle', 0, 0, ?, ?)",
+    "INSERT INTO chat_sessions (id, email, agent_id, title, cwd, engine, provider, model, status, last_seq, cost_usd, created_at, updated_at, kind, last_body) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'idle', 0, 0, ?, ?, ?, ?)",
   ).run(
     id,
     opts.email,
@@ -113,8 +122,28 @@ export async function createSession(opts: {
     opts.model ?? null,
     ts,
     ts,
+    opts.kind ?? null,
+    opts.lastBody ? JSON.stringify(opts.lastBody) : null,
   );
   return (await getSessionById(id))!;
+}
+
+/** The one session of a kind an account has, created on first use. */
+export async function getOrCreateSessionOfKind(email: string, kind: "siri", title: string): Promise<SessionRow> {
+  const db = await getDb();
+  const row = db.prepare("SELECT * FROM chat_sessions WHERE email = ? AND kind = ? ORDER BY created_at ASC LIMIT 1").get(email, kind);
+  if (row) return rowToSession(row);
+  return createSession({ email, title, kind });
+}
+
+/** Append a quiet line to the transcript and return it; the runner publishes
+ *  the matching `system_message` event so open clients show it live. */
+export async function appendSystemMessage(
+  sessionId: string,
+  content: string,
+  meta: Record<string, unknown> | null = null,
+): Promise<SessionMessageRow> {
+  return appendMessage(sessionId, null, "system", content, meta);
 }
 
 export async function getSessionById(id: string): Promise<SessionRow | null> {
@@ -130,7 +159,7 @@ export async function getSession(email: string, id: string): Promise<SessionRow 
 
 export async function listSessions(
   email: string,
-  opts: { status?: SessionStatus; includeArchived?: boolean; limit?: number } = {},
+  opts: { status?: SessionStatus; includeArchived?: boolean; limit?: number; kind?: SessionKind } = {},
 ): Promise<SessionRow[]> {
   const db = await getDb();
   const where: string[] = ["email = ?"];
@@ -140,6 +169,13 @@ export async function listSessions(
     vals.push(opts.status);
   }
   if (!opts.includeArchived) where.push("archived_at IS NULL");
+  if (opts.kind !== undefined) {
+    if (opts.kind === null) where.push("kind IS NULL");
+    else {
+      where.push("kind = ?");
+      vals.push(opts.kind);
+    }
+  }
   vals.push(opts.limit ?? 200);
   const rows = db
     .prepare(
@@ -271,6 +307,7 @@ export async function listEventsAfter(
 /** Event types kept after a turn ends. Everything else (deltas, block
  *  start/stop, status pings) is transient and dropped by compactTurn. */
 export const DURABLE_EVENT_TYPES = new Set([
+  "system_message",
   "turn_started",
   "turn_ended",
   "turn_cancelled",
@@ -303,7 +340,7 @@ export async function compactTurn(sessionId: string, turnId: string): Promise<nu
 export async function appendMessage(
   sessionId: string,
   turnId: string | null,
-  role: "user" | "assistant",
+  role: "user" | "assistant" | "system",
   content: string,
   meta: Record<string, unknown> | null = null,
 ): Promise<SessionMessageRow> {
@@ -327,7 +364,7 @@ export async function listMessages(sessionId: string): Promise<SessionMessageRow
   return rows.map((r) => ({
     idx: Number(r.idx),
     turnId: (r.turn_id as string | null) ?? null,
-    role: String(r.role) as "user" | "assistant",
+    role: String(r.role) as "user" | "assistant" | "system",
     content: String(r.content),
     meta: parseJson<Record<string, unknown> | null>(r.meta, null),
     createdAt: String(r.created_at),

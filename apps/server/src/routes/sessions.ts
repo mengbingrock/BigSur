@@ -4,19 +4,44 @@ import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import { Effect, Stream } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
-import type { AskUserAnswer, TurnRequest } from "@labee/session-core";
+import type { AskUserAnswer, AskUserQuestionItem, TurnRequest } from "@labee/session-core";
 import { bodyJson, error, json, requestUrl, sessionUser } from "../httpKit";
 import * as sdb from "../services/sessions/db";
 import * as runner from "../services/sessions/runner";
+import * as rdb from "../services/runs/db";
+import { timersOf } from "../services/runs/service";
+import { mapSpokenAnswer } from "../services/sessions/answerMap";
 
 const params = HttpRouter.params;
 
 const safeBody = <T>() =>
   bodyJson<T>().pipe(Effect.catch(() => Effect.succeed(null as T | null)));
 
+/** The run a session tracks, as a list badge (session-core `SessionRunBadge`). */
+export async function runBadge(sessionId: string): Promise<Record<string, unknown> | null> {
+  const run = await rdb.getRunBySession(sessionId).catch(() => null);
+  if (!run) return null;
+  const timers = await timersOf(run).catch(() => []);
+  return {
+    id: run.id,
+    protocolName: run.protocolName,
+    current: run.current,
+    total: run.snapshot.steps.length,
+    status: run.status,
+    startedAt: run.startedAt,
+    timerEndsAt: timers.find((t) => t.state === "running")?.endsAt ?? null,
+  };
+}
+
+/** `toSummary` plus the run badge, for the list and get routes. */
+export async function toSummaryWithRun(s: sdb.SessionRow, queued = 0) {
+  return { ...toSummary(s, queued), run: await runBadge(s.id) };
+}
+
 export function toSummary(s: sdb.SessionRow, queued = 0) {
   return {
     id: s.id,
+    kind: s.kind,
     title: s.title,
     agentId: s.agentId,
     cwd: s.cwd,
@@ -67,7 +92,7 @@ export const listSessionsRoute = HttpRouter.add(
         ...(status ? { status } : {}),
         includeArchived,
       });
-      return Promise.all(rows.map(async (r) => toSummary(r, (await sdb.listQueue(r.id)).length)));
+      return Promise.all(rows.map(async (r) => toSummaryWithRun(r, (await sdb.listQueue(r.id)).length)));
     });
     return yield* json({ sessions });
   }),
@@ -84,7 +109,7 @@ export const getSessionRoute = HttpRouter.add(
       const s = await sdb.getSession(user.email, id ?? "");
       if (!s) return null;
       const [messages, queue] = await Promise.all([sdb.listMessages(s.id), sdb.listQueue(s.id)]);
-      return { session: toSummary(s, queue.length), messages, queue: queue.map((q) => ({ id: q.id, text: String(q.body.text ?? ""), createdAt: q.createdAt })) };
+      return { session: await toSummaryWithRun(s, queue.length), messages, queue: queue.map((q) => ({ id: q.id, text: String(q.body.text ?? ""), createdAt: q.createdAt })) };
     });
     if (!result) return yield* error("Session not found.", 404);
     return yield* json(result);
@@ -179,20 +204,34 @@ export const answerRoute = HttpRouter.add(
     const user = yield* sessionUser;
     if (!user) return yield* error("Unauthorized.", 401);
     const { id } = yield* params;
-    const body = yield* safeBody<{ answers?: AskUserAnswer[]; device?: string; voice?: boolean }>();
-    if (!body || !Array.isArray(body.answers) || body.answers.length === 0) {
-      return yield* error("Body must include non-empty `answers`.", 400);
+    const body = yield* safeBody<{ answers?: AskUserAnswer[]; spoken?: string; device?: string; voice?: boolean }>();
+    // `spoken`: what the person said (Siri, a notification reply, in-app
+    // voice), mapped onto the pending question's options server-side.
+    let answers = Array.isArray(body?.answers) ? body!.answers : [];
+    let matched: boolean | undefined;
+    if (answers.length === 0 && typeof body?.spoken === "string" && body.spoken.trim()) {
+      const s = yield* Effect.promise(() => sdb.getSession(user.email, id ?? ""));
+      const input = (s?.pendingQuestion?.input ?? {}) as { questions?: AskUserQuestionItem[] };
+      if (!s?.pendingQuestion || !Array.isArray(input.questions) || input.questions.length === 0) {
+        return yield* error("No question is pending.", 409);
+      }
+      const mapped = mapSpokenAnswer(input.questions, body.spoken);
+      answers = mapped.answers;
+      matched = mapped.matched;
+    }
+    if (answers.length === 0) {
+      return yield* error("Body must include non-empty `answers` or `spoken`.", 400);
     }
     const req = yield* HttpServerRequest.HttpServerRequest;
-    const device = body.device ?? req.headers["x-labee-device"];
+    const device = body?.device ?? req.headers["x-labee-device"];
     const r = yield* Effect.promise(() =>
-      runner.answerQuestion(user.email, id ?? "", body.answers!, {
+      runner.answerQuestion(user.email, id ?? "", answers, {
         ...(device ? { device } : {}),
-        ...(body.voice !== undefined ? { voice: body.voice } : {}),
+        ...(body?.voice !== undefined ? { voice: body.voice } : {}),
       }),
     );
     if (!r.ok) return yield* error(r.message, r.status);
-    return yield* json(r, 202);
+    return yield* json({ ...r, answers, ...(matched !== undefined ? { matched } : {}) }, 202);
   }),
 );
 

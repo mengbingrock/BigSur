@@ -443,6 +443,40 @@ async function openDb(): Promise<SqlDb> {
       "data TEXT NOT NULL, " +
       "PRIMARY KEY (email, host_id, session_id, idx));",
   );
+  // Protocol runs (docs/protocol-run-design.md §2): a chat session bound to
+  // one protocol, with the frozen step snapshot and an event log. Owned by
+  // the box; a host keeps a copy fed by `run` frames over the Device Link.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS protocol_runs (" +
+      "id TEXT PRIMARY KEY, " +
+      "email TEXT NOT NULL, " +
+      "session_id TEXT NOT NULL, " +
+      "host_id TEXT, " +
+      "protocol_slug TEXT NOT NULL, " +
+      "protocol_name TEXT NOT NULL, " +
+      "snapshot TEXT NOT NULL, " +
+      "current INTEGER NOT NULL DEFAULT 1, " +
+      "status TEXT NOT NULL DEFAULT 'running', " +
+      "scale TEXT, " +
+      "last_seq INTEGER NOT NULL DEFAULT 0, " +
+      "started_at TEXT NOT NULL, " +
+      "updated_at TEXT NOT NULL, " +
+      "finished_at TEXT);",
+  );
+  db.exec("CREATE INDEX IF NOT EXISTS idx_protocol_runs_email ON protocol_runs (email, updated_at);");
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS protocol_run_events (" +
+      "run_id TEXT NOT NULL, " +
+      "seq INTEGER NOT NULL, " +
+      "ts TEXT NOT NULL, " +
+      "type TEXT NOT NULL, " +
+      "data TEXT NOT NULL, " +
+      "applied INTEGER NOT NULL DEFAULT 0, " +
+      "PRIMARY KEY (run_id, seq));",
+  );
+  // The Siri session (docs/siri-design.md §3.3) is a chat session of a kind
+  // the agent never runs a turn in; everything else is kind NULL.
+  ensureColumn(db, "chat_sessions", "kind", "TEXT");
   importLegacyUsersJson(db);
   return db;
 }

@@ -72,7 +72,43 @@ export interface WelcomeFrame {
   hostId: string;
 }
 
-export type HostToBox = HelloFrame | ResFrame | ChunkFrame | EndFrame | MirrorFrame | PingFrame | PongFrame;
-export type BoxToHost = WelcomeFrame | ReqFrame | AbortFrame | PingFrame | PongFrame;
+// --- protocol runs (docs/protocol-run-design.md §2.2) ----------------------
+// The box owns run state; the host holds the session. Events flow down, the
+// host reflects them into the transcript and acknowledges; the box asks the
+// host to parse a protocol it does not have.
+
+/** Box → host: one run event, with the run's current row. */
+export interface RunFrame {
+  t: "run";
+  run: Record<string, unknown>;
+  event: { runId: string; seq: number; ts: string; type: string; data: Record<string, unknown> };
+}
+/** Host → box: these events are reflected in the transcript. */
+export interface RunAckFrame {
+  t: "runack";
+  runId: string;
+  seqs: number[];
+}
+/** Box → host: parse this protocol (and create the session for a run). */
+export interface ParseFrame {
+  t: "parse";
+  reqId: string;
+  protocolSlug: string;
+  /** An existing session to bind, else the host creates one. */
+  sessionId?: string;
+  user: string;
+}
+/** Host → box: the frozen snapshot, or why not. */
+export interface ParsedFrame {
+  t: "parsed";
+  reqId: string;
+  snapshot?: Record<string, unknown>;
+  sessionId?: string;
+  protocolName?: string;
+  error?: string;
+}
+
+export type HostToBox = HelloFrame | ResFrame | ChunkFrame | EndFrame | MirrorFrame | PingFrame | PongFrame | RunAckFrame | ParsedFrame;
+export type BoxToHost = WelcomeFrame | ReqFrame | AbortFrame | PingFrame | PongFrame | RunFrame | ParseFrame;
 
 export const LINK_VERSION = "1";

@@ -53,6 +53,8 @@ export interface ChatRequest {
   voice?: boolean;
   /** Per-turn reasoning effort override (claude engine). */
   effort?: "low" | "medium" | "high";
+  /** The run this session is tracking, rendered by the runner (run-design §4.1). */
+  runContext?: string;
 }
 
 const CONTEXT_FILE_MAX_BYTES = 200 * 1024;
@@ -646,10 +648,12 @@ export async function prepareTurn(email: string, body: ChatRequest): Promise<Pre
         "The user is speaking and listening by voice on a phone. Begin with a one- or two-sentence " +
         "spoken summary of your answer, then give details. Keep sentences short.\n"
       : "";
+    const runAddendum = body.runContext ? `\n\n${body.runContext}\n` : "";
     systemPrompt =
       (provider === "openai" && !codexEngine && !cred.useCodex
         ? OPENAI_SYSTEM_PROMPT + contextAddendum + referenceAddendum + agentMemoryHint
         : SYSTEM_PROMPT + protocolAddendum + contextAddendum + referenceAddendum + agentMemoryHint) +
+      runAddendum +
       modeAddendum +
       voiceAddendum;
   }

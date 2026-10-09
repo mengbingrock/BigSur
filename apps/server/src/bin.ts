@@ -1,6 +1,8 @@
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import { runServer } from "./server";
 import { startLinkClient } from "./services/deviceLink/client";
+import { startLinkBridge } from "./services/runs/linkBridge";
+import { startSessionBridge } from "./services/runs/sessionBridge";
 import { primeFolderCache } from "./services/userFolders";
 
 // Keep the embedded server alive: a single request's stream error (e.g. an
@@ -23,5 +25,9 @@ void primeFolderCache();
 // Desktop: dial the labee.online Device Link so phones can attach (no-op on
 // the box or when no account is connected yet).
 startLinkClient();
+// Protocol runs: reflect run events into sessions held here, and push those
+// for sessions held on a Mac down the Device Link.
+startSessionBridge();
+startLinkBridge();
 
 runServer.pipe(NodeRuntime.runMain);

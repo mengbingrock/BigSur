@@ -41,6 +41,7 @@ export interface DeleteAccountResult {
  *  SQLite (no foreign keys), but users goes last so a crash mid-way leaves an
  *  account that can still sign in and retry rather than a ghost. */
 const EMAIL_TABLES = [
+  "protocol_runs",
   "mirror_sessions",
   "mirror_events",
   "mirror_messages",
@@ -58,6 +59,7 @@ const EMAIL_TABLES = [
 
 /** Child tables keyed by a parent id, deleted via a subquery on the parent. */
 const CHILD_TABLES: ReadonlyArray<{ table: string; key: string; parent: string }> = [
+  { table: "protocol_run_events", key: "run_id", parent: "protocol_runs" },
   { table: "chat_session_events", key: "session_id", parent: "chat_sessions" },
   { table: "chat_session_messages", key: "session_id", parent: "chat_sessions" },
   { table: "chat_session_queue", key: "session_id", parent: "chat_sessions" },
