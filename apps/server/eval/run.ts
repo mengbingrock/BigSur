@@ -49,6 +49,10 @@ export interface EvalReport {
   byType: Record<EvalQuestion["type"], { n: number; hitAt3: number }>;
   misses: EvalMiss[];
   mode: string;
+  /** Mean |confidence − correct| over Ask answers that carried a confidence;
+   *  0 is perfectly calibrated, 1 is confidently wrong. Null when Ask was
+   *  not exercised or gave no confidence. */
+  calibration: number | null;
 }
 
 export function loadQuestions(file = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "fixtures/questions.json")): EvalQuestion[] {
@@ -81,7 +85,9 @@ export async function runEval(
     },
     misses: [],
     mode: "",
+    calibration: null,
   };
+  const calibration: number[] = [];
 
   for (const question of questions) {
     const want = slugByName.get(question.name);
@@ -107,13 +113,16 @@ export async function runEval(
 
       if (opts.ask) {
         const asked = await askLibrary(question.q, email, { kind: "protocol" });
-        if (asked.available && norm(asked.answer).includes(norm(question.answer))) report.askAnswered += 1;
+        const correct = asked.available && norm(asked.answer).includes(norm(question.answer));
+        if (correct) report.askAnswered += 1;
         else failed.push("askAnswered");
+        if (asked.confidence !== null) calibration.push(Math.abs(asked.confidence - (correct ? 1 : 0)));
       }
     }
 
     if (failed.length) report.misses.push({ id: question.id, type: question.type, q: question.q, want, top: top.slice(0, 3), failed });
   }
+  if (calibration.length) report.calibration = calibration.reduce((a, b) => a + b, 0) / calibration.length;
   return report;
 }
 
@@ -125,6 +134,7 @@ export function formatReport(r: EvalReport): string {
     `  hit@3          ${pct(r.hitAt3, r.total)}  (${r.hitAt3}/${r.total})`,
     `  answer in top3 ${pct(r.answerInTop3, r.withAnswer)}  (${r.answerInTop3}/${r.withAnswer})`,
     `  ask answered   ${pct(r.askAnswered, r.withAnswer)}  (${r.askAnswered}/${r.withAnswer})`,
+    `  calibration    ${r.calibration === null ? "n/a" : r.calibration.toFixed(2)}  (mean |confidence − correct|, lower is better)`,
     `  by type        ` +
       (Object.entries(r.byType) as Array<[string, { n: number; hitAt3: number }]>)
         .map(([t, v]) => `${t} ${pct(v.hitAt3, v.n)}`)

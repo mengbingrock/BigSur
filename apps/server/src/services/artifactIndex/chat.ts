@@ -87,9 +87,54 @@ function fakeComplete(system: string, user: string): string {
     const hit = payload.passages.find((p) =>
       words.some((w) => p.text.toLowerCase().includes(w)),
     );
-    if (!hit) return "The protocols provided do not cover that.";
+    if (!hit) return "The protocols provided do not cover that. [CONFIDENCE: 0.05]";
     const sentence = hit.text.split(/(?<=\.)\s/)[0] ?? hit.text;
-    return `${sentence.trim()} [${hit.n}]`;
+    return `${sentence.trim()} [${hit.n}] [CONFIDENCE: 0.85]`;
+  }
+
+  // Review: one deterministic check that still exercises the context the
+  // reviewer is given — a CO2 percentage that disagrees with the evidence is
+  // a parameter finding, and a centrifuge speed no bench rotor reaches is one
+  // too. Enough to see findings land with the right path and class.
+  if (system.includes("exactly three kinds of error")) {
+    const payload = JSON.parse(user) as {
+      steps: Array<{ path: string; text: string; evidence: string[] }>;
+    };
+    const findings: Array<{ path: string; class: string; message: string; suggestion: string; confidence: number }> = [];
+    for (const s of payload.steps) {
+      const co2 = /(\d+(?:\.\d+)?)\s*%\s*co2/i.exec(s.text);
+      if (co2) {
+        const usual = s.evidence.map((e) => /(\d+(?:\.\d+)?)\s*%\s*co2/i.exec(e)?.[1]).find(Boolean);
+        if (usual && usual !== co2[1]) {
+          findings.push({
+            path: s.path,
+            class: "parameter",
+            message: `${co2[1]}% CO2 disagrees with the ${usual}% CO2 this lab's other protocols use.`,
+            suggestion: `${usual}% CO2`,
+            confidence: 0.8,
+          });
+        }
+      }
+      const rpm = /(\d[\d,]*)\s*rpm/i.exec(s.text);
+      if (rpm && Number(rpm[1]!.replace(/,/g, "")) > 20000) {
+        findings.push({ path: s.path, class: "parameter", message: `${rpm[0]} is beyond a bench centrifuge.`, suggestion: "", confidence: 0.7 });
+      }
+      if (/\bwithout (?:the )?(?:ligase|polymerase|enzyme)\b/i.test(s.text)) {
+        findings.push({ path: s.path, class: "reagent", message: "The enzyme the step depends on is left out.", suggestion: "", confidence: 0.75 });
+      }
+    }
+    return JSON.stringify({ findings });
+  }
+
+  // Ordering: a step that carries a leading number was numbered by its
+  // author; sort on that. Otherwise leave the order alone.
+  if (system.includes("restore the order")) {
+    const payload = JSON.parse(user) as { steps: Array<{ index: number; text: string }> };
+    const keyed = payload.steps.map((s) => ({ index: s.index, n: Number(/^\s*\(?(\d+)[.)]/.exec(s.text)?.[1] ?? NaN) }));
+    if (keyed.every((k) => Number.isFinite(k.n))) {
+      return JSON.stringify({ order: keyed.sort((a, b) => a.n - b.n).map((k) => k.index) });
+    }
+    return JSON.stringify({ order: payload.steps.map((s) => s.index) });
   }
 
   // Purpose layer: a deterministic sentence from each artifact's own words,

@@ -23,7 +23,19 @@ const SYSTEM = [
   "  sentence and stop. Do not guess and do not fall back on general knowledge.",
   "- Be brief. A few sentences, or a short list of steps when the question asks",
   "  how to do something.",
+  "- End with one line exactly like `[CONFIDENCE: 0.8]` — your probability, 0 to 1,",
+  "  that the answer is correct and complete given the passages. Low when the",
+  "  passages only partly cover the question; near zero when you declined.",
 ].join("\n");
+
+const CONFIDENCE = /\s*\[CONFIDENCE:\s*([01](?:\.\d+)?)\]\s*$/i;
+
+/** Split a trailing confidence marker off an answer. Null when absent. */
+export function splitConfidence(text: string): { answer: string; confidence: number | null } {
+  const m = CONFIDENCE.exec(text);
+  if (!m) return { answer: text.trim(), confidence: null };
+  return { answer: text.slice(0, m.index).trim(), confidence: Math.min(1, Math.max(0, Number(m[1]))) };
+}
 
 export interface Citation {
   /** Passage number as it appears in the answer's [n] markers. */
@@ -44,6 +56,10 @@ export interface AskResult {
   citations: Citation[];
   /** False when no model credential resolved; `answer` is then empty. */
   available: boolean;
+  /** The model's own 0–1 estimate that the answer is right and complete, or
+   *  null when it gave none. The UI can say "low confidence — check the
+   *  source"; the harness measures calibration. */
+  confidence: number | null;
 }
 
 export async function askLibrary(
@@ -52,22 +68,23 @@ export async function askLibrary(
   opts?: { kind?: "skill" | "protocol" },
 ): Promise<AskResult> {
   const q = question.trim();
-  if (!q) return { answer: "", citations: [], available: true };
+  if (!q) return { answer: "", citations: [], available: true, confidence: null };
 
   await ensureIndexed(email);
   const target = await resolveEmbedTarget(email);
-  if (!target) return { answer: "", citations: [], available: false };
+  if (!target) return { answer: "", citations: [], available: false, confidence: null };
 
   const passages = await retrievePassages(q, email, {
     kind: opts?.kind ?? "protocol",
     limit: PASSAGE_COUNT,
   });
-  if (!passages) return { answer: "", citations: [], available: false };
+  if (!passages) return { answer: "", citations: [], available: false, confidence: null };
   if (passages.length === 0) {
     return {
       answer: "There are no protocols to answer from yet.",
       citations: [],
       available: true,
+      confidence: null,
     };
   }
 
@@ -83,17 +100,19 @@ export async function askLibrary(
     JSON.stringify({ question: q, passages: numbered }),
   );
   if (answer == null) {
-    return { answer: "", citations: [], available: false };
+    return { answer: "", citations: [], available: false, confidence: null };
   }
+
+  const { answer: text, confidence } = splitConfidence(answer);
 
   // Only return citations the answer actually used, in the order it used them,
   // so the list under the answer matches the markers in it.
   const used: Citation[] = [];
-  for (const m of answer.matchAll(/\[(\d+)\]/g)) {
+  for (const m of text.matchAll(/\[(\d+)\]/g)) {
     const n = Number(m[1]);
     const p = passages[n - 1];
     if (!p || used.some((c) => c.n === n)) continue;
     used.push({ n, slug: p.slug, name: p.name, heading: p.heading, quote: p.text, path: p.path, grain: p.grain });
   }
-  return { answer: answer.trim(), citations: used, available: true };
+  return { answer: text, citations: used, available: true, confidence };
 }

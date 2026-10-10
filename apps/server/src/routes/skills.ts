@@ -33,6 +33,9 @@ import { importSkillFromRegistry } from "../services/registryImport";
 import { checkForUpdate, updateSkill } from "../services/updateSkill";
 import { suggestCategories, suggestPurpose } from "../services/artifactIndex/agent";
 import { askLibrary } from "../services/artifactIndex/ask";
+import { lintProtocol } from "../services/artifactIndex/lint";
+import { reviewProtocol } from "../services/artifactIndex/review";
+import { orderSteps } from "../services/artifactIndex/order";
 import {
   drain,
   enqueueArtifacts,
@@ -569,6 +572,105 @@ export const askRoute = HttpRouter.add(
 );
 
 /**
+ * POST /api/skills/lint — the mechanical checks, on markdown in the body.
+ * For a draft that is not saved yet (the agent's, say).
+ */
+export const lintBodyRoute = HttpRouter.add(
+  "POST",
+  "/api/skills/lint",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const body = yield* safeBody<{ markdown?: string }>();
+    if (typeof body?.markdown !== "string") return yield* error("markdown is required.", 400);
+    return yield* attempt(() => lintProtocol(body.markdown!));
+  }),
+);
+
+/** POST /api/skills/:slug/lint — the mechanical checks, on a saved protocol. */
+export const lintSkillRoute = HttpRouter.add(
+  "POST",
+  "/api/skills/:slug/lint",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const { slug } = yield* params;
+    return yield* attempt(() => {
+      const skill = getSkillBySlug(slug ?? "", user.email);
+      if (!skill) {
+        const e = new Error("Artifact not found.") as Error & { code: string };
+        e.code = "NOT_FOUND";
+        throw e;
+      }
+      return lintProtocol(skill.body);
+    });
+  }),
+);
+
+/**
+ * POST /api/skills/review — the scientific review, on markdown in the body:
+ * each step judged with its purpose and neighbours against this lab's other
+ * protocols, for operation, reagent and parameter errors.
+ */
+export const reviewBodyRoute = HttpRouter.add(
+  "POST",
+  "/api/skills/review",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const body = yield* safeBody<{ markdown?: string; name?: string; description?: string }>();
+    if (typeof body?.markdown !== "string") return yield* error("markdown is required.", 400);
+    return yield* attempt(() =>
+      reviewProtocol(body.markdown!, {
+        name: body.name?.trim() || "Draft protocol",
+        ...(body.description ? { description: body.description } : {}),
+        email: user.email,
+      }),
+    );
+  }),
+);
+
+/** POST /api/skills/:slug/review — the scientific review, on a saved protocol. */
+export const reviewSkillRoute = HttpRouter.add(
+  "POST",
+  "/api/skills/:slug/review",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const { slug } = yield* params;
+    const skill = getSkillBySlug(slug ?? "", user.email);
+    if (!skill) return yield* error("Artifact not found.", 404);
+    return yield* attempt(() =>
+      reviewProtocol(skill.body, {
+        name: skill.name,
+        description: skill.description,
+        email: user.email,
+        excludeSlug: skill.slug,
+      }),
+    );
+  }),
+);
+
+/** POST /api/skills/order — put pasted steps in the order they should run. */
+export const orderStepsRoute = HttpRouter.add(
+  "POST",
+  "/api/skills/order",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const body = yield* safeBody<{ steps?: string[]; title?: string }>();
+    if (!Array.isArray(body?.steps)) return yield* error("steps is required.", 400);
+    return yield* attempt(() =>
+      orderSteps(
+        body.steps!.filter((s): s is string => typeof s === "string"),
+        user.email,
+        body.title ? { title: body.title } : {},
+      ),
+    );
+  }),
+);
+
+/**
  * POST /api/skills/purpose/suggest — propose the purpose layer.
  *
  * For the protocols that lack it (or the `slugs` given): one sentence each
@@ -618,6 +720,11 @@ export const skillsRoutes = [
   askRoute,
   suggestCategoriesRoute,
   suggestPurposeRoute,
+  lintBodyRoute,
+  reviewBodyRoute,
+  orderStepsRoute,
+  lintSkillRoute,
+  reviewSkillRoute,
   indexStatusRoute,
   indexRebuildRoute,
   listCategoriesRoute,
