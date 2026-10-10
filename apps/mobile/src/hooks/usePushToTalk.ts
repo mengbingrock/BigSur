@@ -18,6 +18,7 @@ import {
 } from "expo-audio";
 import type { Target } from "~/api/client";
 import { transcribe } from "~/api/sessions";
+import { SpeechEndDetector } from "./speechEnd";
 
 export type PttState = "idle" | "recording" | "transcribing" | "denied" | "unsupported";
 
@@ -35,13 +36,6 @@ export interface PushToTalk {
   cancel: () => Promise<void>;
 }
 
-/** Metering is in dBFS (about -160 silent to 0 loud). Speech at arm's length
- *  sits well above -40; a quiet bench is below -45. */
-const SPEECH_DB = -38;
-const QUIET_DB = -44;
-const QUIET_MS = 1200;
-const NO_SPEECH_MS = 6000;
-const MAX_LISTEN_MS = 20000;
 const RECORDING_OPTIONS = { ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true };
 
 export async function blobUriToBase64(uri: string): Promise<{ base64: string; mimeType: string }> {
@@ -220,9 +214,7 @@ export function usePushToTalk(target: Target): PushToTalk {
     await start();
     if (phase.current !== "recording") return "";
     return new Promise<string>((resolve) => {
-      const began = Date.now();
-      let spoke = false;
-      let quietSince = 0;
+      const detector = new SpeechEndDetector(Date.now());
       const iv = setInterval(() => {
         if (phase.current !== "recording") {
           // Ended by stop() (a second tap) or cancel(): that caller has the text.
@@ -230,28 +222,20 @@ export function usePushToTalk(target: Target): PushToTalk {
           resolve("");
           return;
         }
-        const now = Date.now();
-        let level = -160;
+        let level: number | null = null;
         try {
-          level = recorder.getStatus().metering ?? -160;
+          const m = recorder.getStatus().metering;
+          if (typeof m === "number") level = m;
         } catch {
-          // No metering: the time caps below still end the recording.
+          // No metering: the time caps still end the recording.
         }
-        if (level > SPEECH_DB) {
-          spoke = true;
-          quietSince = 0;
-        } else if (spoke && level < QUIET_DB && !quietSince) {
-          quietSince = now;
-        }
-        const pausedAfterSpeech = spoke && quietSince > 0 && now - quietSince >= QUIET_MS;
-        const nothingSaid = !spoke && now - began >= NO_SPEECH_MS;
-        if (pausedAfterSpeech || nothingSaid || now - began >= MAX_LISTEN_MS) {
-          clearInterval(iv);
-          log("listen: auto-stop", { spoke, ms: now - began });
-          // Silence the whole time: drop the clip rather than upload it.
-          if (spoke) void finish().then(resolve);
-          else void cancel().then(() => resolve(""));
-        }
+        const verdict = detector.push(level, Date.now());
+        if (verdict === "listening") return;
+        clearInterval(iv);
+        log("listen: auto-stop", verdict);
+        // Nothing but background the whole time: drop the clip, don't upload it.
+        if (verdict === "ended") void finish().then(resolve);
+        else void cancel().then(() => resolve(""));
       }, 150);
     });
   }, [start, finish, cancel, recorder]);

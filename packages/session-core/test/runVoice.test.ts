@@ -6,6 +6,8 @@ describe("parseRunCommand", () => {
     expect(parseRunCommand("Done.")).toEqual({ kind: "advance" });
     expect(parseRunCommand("okay, next step please")).toEqual({ kind: "advance" });
     expect(parseRunCommand("Labee, done")).toEqual({ kind: "advance" });
+    // What the transcriber actually returned for "okay, done" in testing.
+    expect(parseRunCommand("OK, done.")).toEqual({ kind: "advance" });
     expect(parseRunCommand("Mark this step as done")).toEqual({ kind: "advance" });
     expect(parseRunCommand("go back")).toEqual({ kind: "back" });
     expect(parseRunCommand("Skip this step.")).toEqual({ kind: "skip" });
