@@ -547,13 +547,20 @@ export const pushTokenRoute = HttpRouter.add(
     const user = yield* sessionUser;
     if (!user) return yield* error("Unauthorized.", 401);
     const request = yield* HttpServerRequest.HttpServerRequest;
+    const body = yield* safeBody<{ pushToken?: string; name?: string }>();
+    if (!body || typeof body.pushToken !== "string" || !body.pushToken) return yield* error("`pushToken` is required.", 400);
     const auth = request.headers["authorization"] ?? "";
-    const device = auth.startsWith("Bearer ") ? yield* Effect.promise(() => devices.authenticateDevice(auth.slice(7))) : null;
-    if (!device) return yield* error("Pair this device first (Settings → Devices).", 400);
-    const body = yield* safeBody<{ pushToken?: string }>();
-    if (!body || typeof body.pushToken !== "string") return yield* error("`pushToken` is required.", 400);
-    yield* Effect.promise(() => devices.setPushToken(user.email, device.id, body.pushToken!));
-    return yield* json({ ok: true });
+    const paired = auth.startsWith("Bearer ") ? yield* Effect.promise(() => devices.authenticateDevice(auth.slice(7))) : null;
+    if (paired) {
+      yield* Effect.promise(() => devices.setPushToken(user.email, paired.id, body.pushToken!));
+      return yield* json({ ok: true, deviceId: paired.id });
+    }
+    // Signed in with Apple or Google: no pairing token, so the phone registers
+    // itself by its push token. (Before this, such phones were refused here
+    // and never received a single push.)
+    const name = String(body.name ?? request.headers["x-labee-device"] ?? "iPhone").trim() || "iPhone";
+    const device = yield* Effect.promise(() => devices.upsertPushDevice({ email: user.email, name, platform: name, pushToken: body.pushToken! }));
+    return yield* json({ ok: true, deviceId: device.id });
   }),
 );
 

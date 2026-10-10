@@ -9,7 +9,12 @@ import { runAction } from "~/api/runs";
 import { answerSpoken, startTurn } from "~/api/sessions";
 import { categoryActions, decide, type PushData } from "~/notifications/categories";
 
-export async function registerForPush(target: Target): Promise<string | null> {
+/** Re-send the push token on every launch, without prompting: the token can
+ *  change, and the server's record of it can be lost (it was, for every
+ *  phone signed in with Apple or Google, until the server accepted them). */
+export const syncPushRegistration = (target: Target) => registerForPush(target, { prompt: false });
+
+export async function registerForPush(target: Target, opts: { prompt?: boolean } = {}): Promise<string | null> {
   if (Platform.OS === "web") return null;
   try {
     const Notifications = await import("expo-notifications");
@@ -17,7 +22,7 @@ export async function registerForPush(target: Target): Promise<string | null> {
     if (!Device.isDevice) return null;
     const perm = await Notifications.getPermissionsAsync();
     let status = perm.status;
-    if (status !== "granted") status = (await Notifications.requestPermissionsAsync()).status;
+    if (status !== "granted" && opts.prompt !== false) status = (await Notifications.requestPermissionsAsync()).status;
     if (status !== "granted") return null;
     await registerCategories();
     const token = (await Notifications.getExpoPushTokenAsync()).data;

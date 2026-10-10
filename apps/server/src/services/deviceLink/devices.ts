@@ -71,6 +71,28 @@ export async function setDeviceStatus(email: string, id: string, status: DeviceR
   return Number(res?.changes ?? 0) > 0;
 }
 
+/** A phone that signed in with Apple or Google has no pairing token, only
+ *  its account session. It still needs a device row to hold its push token,
+ *  so one is keyed by the push token itself: the same phone re-registering
+ *  updates its row, a new phone gets its own. Pushes go to approved rows
+ *  with a token, which this is. */
+export async function upsertPushDevice(opts: { email: string; name: string; platform?: string; pushToken: string }): Promise<DeviceRow> {
+  const db = await getDb();
+  const key = hashToken(`push:${opts.pushToken}`);
+  const existing = db.prepare("SELECT * FROM link_devices WHERE token_hash = ? AND email = ?").get(key, opts.email);
+  const ts = now();
+  if (existing) {
+    const id = String(existing.id);
+    db.prepare("UPDATE link_devices SET push_token = ?, name = ?, status = 'approved', last_seen_at = ? WHERE id = ?").run(opts.pushToken, opts.name.slice(0, 64), ts, id);
+    return (await getDevice(id))!;
+  }
+  const id = `dev_${crypto.randomBytes(9).toString("hex")}`;
+  db.prepare(
+    "INSERT INTO link_devices (id, email, name, platform, token_hash, push_token, status, created_at, approved_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?)",
+  ).run(id, opts.email, opts.name.slice(0, 64), opts.platform ?? null, key, opts.pushToken, ts, ts, ts);
+  return (await getDevice(id))!;
+}
+
 export async function setPushToken(email: string, id: string, pushToken: string | null): Promise<void> {
   const db = await getDb();
   db.prepare("UPDATE link_devices SET push_token = ? WHERE id = ? AND email = ?").run(pushToken, id, email);
