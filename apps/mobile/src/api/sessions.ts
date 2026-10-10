@@ -25,6 +25,9 @@ export const removeQueued = (t: Target, id: string, queueId: string) =>
   apiSend<{ ok: true }>(t, "DELETE", `/api/sessions/${id}/queue/${queueId}`);
 export const answerQuestion = (t: Target, id: string, answers: AskUserAnswer[], extra: { voice?: boolean } = {}) =>
   apiSend<{ ok: true; turnId: string }>(t, "POST", `/api/sessions/${id}/answer`, { answers, ...extra });
+/** Answer with what the person said; the server maps it onto the options. */
+export const answerSpoken = (t: Target, id: string, spoken: string, extra: { voice?: boolean } = {}) =>
+  apiSend<{ ok: true; turnId: string; matched: boolean; answers: AskUserAnswer[] }>(t, "POST", `/api/sessions/${id}/answer`, { spoken, ...extra });
 export const getDiff = (t: Target, id: string) =>
   apiGet<{ isRepo: boolean; clean?: boolean; files: { path: string; status: string }[]; diff: string }>(t, `/api/sessions/${id}/diff`);
 

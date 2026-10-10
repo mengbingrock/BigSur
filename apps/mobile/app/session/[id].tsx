@@ -1,10 +1,16 @@
 // The session screen: transcript + composer, hold-to-talk, read-aloud, voice
-// overlay, and a side pane (activity/diff) on wide screens.
+// overlay, a side pane (activity/diff) on wide screens, and — when the
+// session tracks a protocol run — the step bar above the transcript with a
+// Note button that files on the current step (run-design §5.2).
+//
+// Reached by deep link too: labee://session/<id>?voice=1 opens Voice mode;
+// labee://session/new?voice=1 makes a session first.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { parseVoiceCommand, type AskUserAnswer, type TranscriptMessage } from "@labee/session-core";
-import { getDiff } from "~/api/sessions";
+import { createSession, getDiff } from "~/api/sessions";
+import { useRun } from "~/hooks/useRun";
 import { useSessionStream } from "~/hooks/useSessionStream";
 import { usePushToTalk } from "~/hooks/usePushToTalk";
 import { useReadAloud } from "~/hooks/useReadAloud";
@@ -16,30 +22,54 @@ import { Composer } from "~/ui/Composer";
 import { MessageBubble } from "~/ui/MessageBubble";
 import { Screen } from "~/ui/Screen";
 import { StatusDot } from "~/ui/StatusDot";
+import { StepBar } from "~/ui/StepBar";
 import { useTheme } from "~/ui/theme";
 import { VoiceOverlay } from "~/ui/VoiceOverlay";
 
 export default function SessionScreen() {
   const t = useTheme();
   const wide = useWide();
+  const router = useRouter();
   // `skill` arrives when the session was opened from a protocol: attach it to
-  // every turn here, so the answers are drawn from those steps.
-  const { id, skill } = useLocalSearchParams<{ id: string; skill?: string }>();
+  // every turn here, so the answers are drawn from those steps. `voice=1`
+  // opens Voice mode at once (Siri's "Talk to Labee", a notification's
+  // "Read in Labee").
+  const { id: rawId, skill, voice } = useLocalSearchParams<{ id: string; skill?: string; voice?: string }>();
   const { target } = useApp();
+  const [id, setId] = useState<string | undefined>(rawId === "new" ? undefined : rawId);
+  useEffect(() => {
+    if (rawId !== "new") {
+      setId(rawId);
+      return;
+    }
+    let cancelled = false;
+    void createSession(target).then((r) => {
+      if (cancelled) return;
+      router.replace(`/session/${r.session.id}${voice ? "?voice=1" : ""}`);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [rawId, target, router, voice]);
+
   const stream = useSessionStream(target, id);
   const ptt = usePushToTalk(target);
   const readAloud = useReadAloud(false);
-  const [voiceOpen, setVoiceOpen] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(voice === "1");
   const [heard, setHeard] = useState<string | null>(null);
   const [saying, setSaying] = useState("");
   const [answering, setAnswering] = useState(false);
+  const [noteMode, setNoteMode] = useState(false);
   const [diff, setDiff] = useState<{ files: { path: string; status: string }[]; diff: string; isRepo: boolean } | null>(null);
   const [pane, setPane] = useState<"activity" | "diff">("activity");
   const listRef = useRef<FlatList<TranscriptMessage>>(null);
 
+  const { state, summary } = stream;
+  const run = useRun(target, summary?.run?.id ?? null);
+
   useEffect(() => {
     void getPref("labee:readAloud").then((v) => {
-      if (v === "1") readAloud.setEnabled(true);
+      if (v === "1" || voice === "1") readAloud.setEnabled(true);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -58,16 +88,23 @@ export default function SessionScreen() {
     };
   }, [stream.onDelta, stream.onTurnEnd, readAloud.feed, readAloud.flush]);
 
-  const { state, summary } = stream;
+  // A run line in the transcript means the run changed somewhere (Siri, the
+  // Mac): pull the fresh state so the step bar agrees with the chat.
+  const lastSystem = useMemo(() => [...state.messages].reverse().find((m) => m.role === "system")?.id, [state.messages]);
+  useEffect(() => {
+    if (lastSystem) void run.refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastSystem]);
+
   const live = state.streaming;
   const pendingQuestion = useMemo(() => [...state.messages].reverse().find((m) => m.question && !m.question.answers), [state.messages]);
 
   const sendText = useCallback(
-    async (text: string, voice = false) => {
+    async (text: string, voiceTurn = false) => {
       readAloud.stop();
       setSaying("");
       await stream
-        .send({ text, voice, ...(skill ? { skillSlugs: [skill] } : {}) })
+        .send({ text, voice: voiceTurn, device: "iPhone", ...(skill ? { skillSlugs: [skill] } : {}) })
         .catch((e) => setHeard(`Error: ${e instanceof Error ? e.message : String(e)}`));
     },
     [stream.send, readAloud.stop, skill],
@@ -77,6 +114,11 @@ export default function SessionScreen() {
     async (text: string) => {
       if (!text) return;
       setHeard(text);
+      if (noteMode && run.data) {
+        setNoteMode(false);
+        await run.note(text);
+        return;
+      }
       const cmd = parseVoiceCommand(text);
       switch (cmd.kind) {
         case "stop":
@@ -107,7 +149,7 @@ export default function SessionScreen() {
           await sendText(cmd.text, true);
       }
     },
-    [pendingQuestion, readAloud, sendText, state.messages, stream],
+    [noteMode, run, pendingQuestion, readAloud, sendText, state.messages, stream],
   );
 
   const onPttStart = useCallback(() => {
@@ -151,6 +193,7 @@ export default function SessionScreen() {
       <Text numberOfLines={1} style={{ color: t.muted, fontSize: 12, flex: 1 }} testID="session-status">
         {summary?.status ?? ""}{summary?.costUsd ? ` · $${summary.costUsd.toFixed(2)}` : ""}{stream.connected ? "" : " · reconnecting"}
       </Text>
+      {summary?.kind === "siri" ? <Chip label="Siri log" tone="accent" /> : null}
       {summary?.hostOnline === false ? <Chip label="Mac asleep" tone="warn" /> : null}
     </View>
   );
@@ -215,14 +258,33 @@ export default function SessionScreen() {
     <Screen>
       <Stack.Screen options={{ title: summary?.title ?? "Session" }} />
       {header}
+      {summary?.run ? <StepBar run={run} /> : null}
       {stream.error ? <Text style={{ color: t.danger, padding: 12 }}>{stream.error}</Text> : null}
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }} keyboardVerticalOffset={88}>
         <View style={{ flex: 1, flexDirection: "row" }}>
           <View style={{ flex: 1 }}>{transcript}</View>
           {sidePane}
         </View>
+        {summary?.run && run.data?.run.status === "running" ? (
+          <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 12, paddingTop: 6, alignItems: "center" }}>
+            <Pressable
+              testID="note-toggle"
+              onPress={() => setNoteMode((v) => !v)}
+              style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: noteMode ? t.accent : t.border, backgroundColor: noteMode ? t.card : "transparent" }}
+            >
+              <Text style={{ color: noteMode ? t.accent : t.muted, fontSize: 12, fontWeight: "600" }}>📝 Note{noteMode ? ` on step ${run.data.run.current} — hold the mic or type` : ""}</Text>
+            </Pressable>
+          </View>
+        ) : null}
         <Composer
-          onSend={(text) => void sendText(text, false)}
+          onSend={(text) => {
+            if (noteMode && run.data) {
+              setNoteMode(false);
+              void run.note(text);
+              return;
+            }
+            void sendText(text, false);
+          }}
           onStop={() => {
             readAloud.stop();
             void stream.cancel();

@@ -40,6 +40,14 @@ export function MessageBubble({
 }) {
   const t = useTheme();
   const isUser = m.role === "user";
+  // A run event or a routing note: one quiet line, no bubble, no author.
+  if (m.role === "system") {
+    return (
+      <View testID="system-line" style={{ paddingHorizontal: 16, paddingVertical: 4 }}>
+        <Text style={{ color: t.muted, fontSize: 12 }}>{m.content}</Text>
+      </View>
+    );
+  }
   return (
     <View style={{ paddingHorizontal: 12, paddingVertical: 6, alignItems: isUser ? "flex-end" : "stretch" }}>
       <View

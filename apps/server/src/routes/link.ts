@@ -146,14 +146,34 @@ async function handleMirror(conn: HostConn, frame: Extract<HostToBox, { t: "mirr
       const sessionId = String(evt.sessionId ?? "");
       const title = String((frame.session as { title?: string } | undefined)?.title ?? "Labee");
       if (evt.type === "question_asked") {
-        await sendPush(email, { title, body: "Labee is asking you a question.", data: { sessionId, hostId, kind: "question" } });
+        // The buttons are generic slots; the body lists the options and the
+        // data carries their labels so a press maps back to an answer.
+        const input = (evt.data?.input ?? {}) as { questions?: Array<{ question?: string; options?: Array<{ label?: string }> }> };
+        const first = input.questions?.[0];
+        const options = (first?.options ?? []).map((o) => String(o.label ?? "")).filter(Boolean).slice(0, 4);
+        const question = String(first?.question ?? "Labee is asking you a question.");
+        const listed = options.slice(0, 3).map((o, i) => `${i + 1}. ${o}`).join("  ");
+        await sendPush(email, {
+          title,
+          body: listed ? `${question}\n${listed}` : question,
+          data: { sessionId, hostId, kind: "question", options },
+          categoryId: "labee.question",
+          interruptionLevel: "time-sensitive",
+        });
       } else if (evt.type === "turn_ended") {
         const err = typeof evt.data?.error === "string" ? evt.data.error : null;
         const beingWatched = (watching.get(watchKey(email, hostId, sessionId)) ?? 0) > 0;
-        if (err) await sendPush(email, { title, body: `Turn failed: ${err.slice(0, 120)}`, data: { sessionId, hostId, kind: "error" } });
-        else if (!beingWatched && !evt.data?.question) {
+        if (err) {
+          await sendPush(email, { title, body: `Turn failed: ${err.slice(0, 120)}`, data: { sessionId, hostId, kind: "error" }, categoryId: "labee.attention" });
+        } else if (!beingWatched && !evt.data?.question) {
           const content = typeof evt.data?.content === "string" ? evt.data.content : "";
-          await sendPush(email, { title, body: content ? content.slice(0, 140) : "Turn finished.", data: { sessionId, hostId, kind: "done" } });
+          await sendPush(email, {
+            title,
+            body: content ? content.slice(0, 140) : "Turn finished.",
+            data: { sessionId, hostId, kind: "done" },
+            categoryId: "labee.reply",
+            interruptionLevel: "time-sensitive",
+          });
         }
       }
     }
