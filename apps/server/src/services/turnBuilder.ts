@@ -14,7 +14,8 @@ import { getAgent } from "./agents";
 import { claudeEnvForCredential, validModel } from "./llm";
 import { openAIChatStream, type OpenAIChatMessage } from "./openai";
 import { codexExecStream } from "./codex";
-import { ensureProtocolsMcpToken, protocolsMcpArgs } from "./protocolsMcp";
+import { ensureProtocolsMcpToken, protocolsMcpServer } from "./protocolsMcp";
+import { libraryMcpServer, mcpConfigArgs } from "./libraryMcp";
 import { handleEvent } from "./claudeStream";
 import { cliExitMessage, resultErrorOf, type CliRoute } from "./cliExit";
 import {
@@ -146,6 +147,7 @@ const SYSTEM_PROMPT =
   "(STAR Protocols, Nature Protocols, JoVE, Bio-protocol, Current Protocols, protocols.io, Thermo Fisher, QIAGEN, NEB, Bio-Rad, Sigma-Aldrich, EMD Millipore, Takara Bio, Promega, IDT) plus the REBASE restriction-enzyme database, and returns ranked results each with a stable `id` and a `fetchable` flag. " +
   "Use it for any protocol/reagent/enzyme lookup — prefer it over WebFetch/WebSearch for those sources, which bot-block direct fetches. " +
   "Then call `mcp__protocols__fetch` with a result's `id` to read its content: `rebase:<enzyme>` returns restriction-enzyme facts (recognition site, cut, methylation, isoschizomers, whether NEB supplies it) from REBASE — use it for NEB enzyme questions rather than fetching neb.com; `doi:`/`pmid:`/`pmcid:` returns the open-access full text of a protocol/methods article; a `url:` vendor page is bot-blocked, so open its link instead. `mcp__protocols__list_sources` lists everything searchable. " +
+  "The `mcp__library__*` tools are the user's OWN protocol library on this machine: `library_search` and `library_get` to find and read their protocols (their lab's conventions come first), `library_ask` for an answer drawn only from them with citations, `library_lint` and `library_review` to check a protocol draft, `library_order` to sequence pasted steps, and `library_save` to save a confirmed draft as a new protocol. " +
   "Your current working directory IS the user's persistent file deck. Anything you write here (and in subdirectories) is saved across sessions and shows up in their Working Directory panel. " +
   "Files the user has uploaded for you live alongside your outputs in this directory — read them by name, no need to navigate into a subfolder. " +
   "Prefer top-level filenames for outputs the user will care about (the panel only surfaces top-level files); use subdirectories only for transient working state. " +
@@ -725,6 +727,17 @@ export async function prepareTurn(email: string, body: ChatRequest): Promise<Pre
         }),
     };
   }
+  // The agent's tools, in one --mcp-config: the protocol-search server on the
+  // box (when configured) and the library server — this person's own
+  // protocols to search, lint, review, order and save — spawned beside the
+  // CLI for the turn. Neither in edit mode, which is a pure rewrite.
+  const mcpArgs =
+    mode === "edit"
+      ? []
+      : mcpConfigArgs({
+          protocols: protocolsMcpOn ? protocolsMcpServer() : null,
+          library: await libraryMcpServer(email, { readOnly }),
+        });
   const args = buildClaudeArgs({
     prompt: userPrompt,
     systemPrompt,
@@ -735,7 +748,7 @@ export async function prepareTurn(email: string, body: ChatRequest): Promise<Pre
     settingSources: mode === "edit" ? "project" : "project,user",
     excludeDynamicSystemPromptSections: true,
     ...(readOnly ? { disallowedTools: ["Write", "Edit", "MultiEdit", "NotebookEdit", "Bash"] } : {}),
-    ...(mode === "edit" || !protocolsMcpOn ? {} : { mcpArgs: protocolsMcpArgs() }),
+    ...(mcpArgs.length > 0 ? { mcpArgs } : {}),
     chrome: mode !== "edit" && chromeMcpOn,
     effort: body.effort ?? (mode === "edit" ? "low" : "high"),
   });

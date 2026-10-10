@@ -12,7 +12,58 @@ const promptIdx = args.indexOf("-p");
 const prompt = promptIdx >= 0 ? args[promptIdx + 1] ?? "" : "";
 // The prompt can pick the behaviour too (one long-lived server, many cases):
 // "[[question]]", "[[slow]]", "[[fail]]", "[[echo]]" anywhere in the text.
-const markers = [...prompt.matchAll(/\[\[(question|slow|fail|echo|default)\]\]/g)].map((m) => m[1]);
+const markers = [...prompt.matchAll(/\[\[(question|slow|fail|echo|default|mcp)\]\]/g)].map((m) => m[1]);
+
+// "mcp": read the --mcp-config the server passed, start each stdio server in
+// it the way the real CLI would, and list its tools — then call
+// library_search — so a test can see the whole spawn path work end to end.
+async function probeMcp() {
+  const cfgIdx = args.indexOf("--mcp-config");
+  if (cfgIdx < 0) return "no mcp config";
+  const cfg = JSON.parse(args[cfgIdx + 1] ?? "{}");
+  const names = Object.keys(cfg.mcpServers ?? {});
+  const lines = [`servers: ${names.join(", ") || "none"}`];
+  const { spawn } = await import("node:child_process");
+  for (const [name, s] of Object.entries(cfg.mcpServers ?? {})) {
+    if (s.type !== "stdio") continue;
+    const child = spawn(s.command, s.args ?? [], { env: { ...process.env, ...(s.env ?? {}) }, stdio: ["pipe", "pipe", "inherit"] });
+    const replies = new Map();
+    let buf = "";
+    child.stdout.on("data", (d) => {
+      buf += d.toString();
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line) continue;
+        try {
+          const m = JSON.parse(line);
+          if (m.id !== undefined) replies.set(m.id, m);
+        } catch {}
+      }
+    });
+    const send = (m) => child.stdin.write(JSON.stringify(m) + "\n");
+    const wait = async (id) => {
+      const start = Date.now();
+      while (!replies.has(id) && Date.now() - start < 8000) await sleep(20);
+      return replies.get(id);
+    };
+    send({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "fake-claude", version: "0" } } });
+    await wait(1);
+    send({ jsonrpc: "2.0", method: "notifications/initialized" });
+    send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+    const list = await wait(2);
+    const tools = (list?.result?.tools ?? []).map((t) => t.name);
+    send({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "library_search", arguments: { q: "warm" } } });
+    const call = await wait(3);
+    const text = call?.result?.content?.[0]?.text ?? "";
+    lines.push(`${name} tools: ${tools.length}`);
+    lines.push(`${name} search: ${text.includes('"hits"') ? "ok" : "failed"}`);
+    child.stdin.end();
+    child.kill();
+  }
+  return lines.join("; ");
+}
 const marker = markers[markers.length - 1];
 const script = marker || process.env.FAKE_CLAUDE_SCRIPT || "default";
 const delay = Number(process.env.FAKE_CLAUDE_DELAY_MS || (marker === "slow" ? 150 : 0));
@@ -49,7 +100,12 @@ async function main() {
   out({ type: "stream_event", event: { type: "content_block_stop", index: 1 } });
   out({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "toolu_1", content: "# README" }] } });
   out({ type: "stream_event", event: { type: "content_block_start", index: 2, content_block: { type: "text" } } });
-  const text = script === "echo" ? `You said: ${prompt.slice(-200)}` : "Hello from fake claude. The README is short.";
+  const text =
+    script === "echo"
+      ? `You said: ${prompt.slice(-200)}`
+      : script === "mcp"
+        ? await probeMcp()
+        : "Hello from fake claude. The README is short.";
   const words = text.split(" ");
   for (let i = 0; i < words.length; i++) {
     out({ type: "stream_event", event: { type: "content_block_delta", index: 2, delta: { type: "text_delta", text: (i ? " " : "") + words[i] } } });
