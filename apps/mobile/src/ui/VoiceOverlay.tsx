@@ -4,10 +4,32 @@
 // commands it understands. Interrupt and Close are explicit controls (a
 // full-screen Pressable used to wrap everything and swallowed taps on the X;
 // it also merged every child into one accessibility element).
+import { useEffect } from "react";
 import { Modal, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { PttState } from "~/hooks/usePushToTalk";
 import { useTheme } from "./theme";
+
+/** The phone must not lock while Lab mode is open: iOS will not reopen the
+ *  app from the Lock Screen without Face ID, which is no use with gloves on.
+ *  Held only while the overlay is visible, so the phone locks as usual after. */
+function useScreenAwake(on: boolean): void {
+  useEffect(() => {
+    if (!on) return;
+    let active = false;
+    void import("expo-keep-awake")
+      .then((m) => m.activateKeepAwakeAsync("labee-voice"))
+      .then(() => {
+        active = true;
+      })
+      .catch(() => {});
+    return () => {
+      void import("expo-keep-awake")
+        .then((m) => (active ? m.deactivateKeepAwake("labee-voice") : undefined))
+        .catch(() => {});
+    };
+  }, [on]);
+}
 
 export function VoiceOverlay({
   visible,
@@ -45,6 +67,7 @@ export function VoiceOverlay({
 }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
+  useScreenAwake(visible);
   const phase = ptt === "recording" ? "Listening" : ptt === "transcribing" ? "Transcribing" : speaking ? "Speaking" : streaming ? "Thinking" : step ? "Lab mode" : "Tap to talk";
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} presentationStyle="fullScreen">

@@ -29,6 +29,9 @@ struct RunActivityAttributes: ActivityAttributes {
 struct DoneStepIntent: LiveActivityIntent {
   static let title: LocalizedStringResource = "Done with step"
   static let description = IntentDescription("Mark the current step of the run done.")
+  // Pressed on the Lock Screen with gloves on: it must not ask for Face ID.
+  // Marking a step done is the only thing it can do, so no unlock is needed.
+  static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
   @Parameter(title: "Run")
   var runId: String
