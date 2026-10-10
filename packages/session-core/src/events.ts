@@ -102,6 +102,19 @@ export interface TurnRequest {
   voice?: boolean;
   /** Free-form label of the sending device ("iPhone", "Mac"). */
   device?: string;
+  /** Who asked for this turn, when it was not the person in the chat: the
+   *  Siri agent delegating. The result is returned to them (siri-agent
+   *  design §5): a line in the Siri session, an announced summary, unread
+   *  until heard. */
+  origin?: TurnOrigin;
+}
+
+export interface TurnOrigin {
+  kind: "siri";
+  /** The Siri exchange that delegated, so the return can name it. */
+  siriTurnId: string;
+  /** What the person said, for the return line. */
+  said?: string;
 }
 
 /** Format AskUserQuestion answers as the follow-up user message the model

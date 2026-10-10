@@ -150,7 +150,12 @@ async function handleMirror(conn: HostConn, frame: Extract<HostToBox, { t: "mirr
       const evt = frame.event as { type?: string; sessionId?: string; data?: Record<string, unknown> };
       const sessionId = String(evt.sessionId ?? "");
       const title = String((frame.session as { title?: string } | undefined)?.title ?? "Labee");
-      if (evt.type === "question_asked") {
+      // A turn the Siri agent delegated is returned by the host that ran it
+      // (a spoken summary, through `notify`); the generic pushes would double it.
+      const siriOrigin = (evt.data?.origin as { kind?: string } | undefined)?.kind === "siri";
+      if (siriOrigin) {
+        // nothing: the host's `notify` frame carries the return
+      } else if (evt.type === "question_asked") {
         // The buttons are generic slots; the body lists the options and the
         // data carries their labels so a press maps back to an answer.
         const input = (evt.data?.input ?? {}) as { questions?: Array<{ question?: string; options?: Array<{ label?: string }> }> };
@@ -182,7 +187,16 @@ async function handleMirror(conn: HostConn, frame: Extract<HostToBox, { t: "mirr
         }
       }
     }
-    if (frame.notify) await sendPush(email, frame.notify);
+    if (frame.notify) {
+      const n = frame.notify;
+      await sendPush(email, {
+        title: n.title,
+        body: n.body,
+        data: { ...(n.data ?? {}), hostId },
+        ...(n.categoryId ? { categoryId: n.categoryId } : {}),
+        ...(n.interruptionLevel ? { interruptionLevel: n.interruptionLevel } : {}),
+      });
+    }
   } catch (e) {
     console.warn("[link] mirror write failed:", e instanceof Error ? e.message : e);
   }

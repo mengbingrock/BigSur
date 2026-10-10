@@ -8,6 +8,7 @@ import { bodyJson, error, json, sessionUser } from "../httpKit";
 import * as sdb from "../services/sessions/db";
 import * as runner from "../services/sessions/runner";
 import { ensureSiriSession, route, type RouteKind } from "../services/siri/router";
+import { markReturnsRead, unreadReturns } from "../services/siri/delivery";
 
 const safeBody = <T>() => bodyJson<T>().pipe(Effect.catch(() => Effect.succeed(null as T | null)));
 
@@ -64,6 +65,8 @@ export const siriSendRoute = HttpRouter.add(
 
     const result = yield* Effect.tryPromise({ try: async () => {
       const siri = await ensureSiriSession(user.email);
+      // The exchange's id ties the delegated turn's return back to this phrase.
+      const siriTurnId = sdb.newId("siri");
       let sessionId: string | null = null;
       let title: string | null = null;
       let created = false;
@@ -72,7 +75,7 @@ export const siriSendRoute = HttpRouter.add(
         sessionId = s.id;
         title = s.title;
         created = true;
-        await runner.emitSystemMessage(siri.id, `→ new chat "${title}" · said: "${text.slice(0, 120)}"`, { kind, via: "new", sessionId, device });
+        await runner.emitSystemMessage(siri.id, `→ new chat "${title}" · said: "${text.slice(0, 120)}"`, { kind, via: "new", sessionId, device, siriTurnId });
       } else {
         const r = await route(user.email, { text, kind, ...(body?.sessionId ? { sessionId: body.sessionId } : {}), device });
         if (r.action === "choose") return { needsChoice: true as const, candidates: r.candidates, siriSessionId: r.siriSessionId };
@@ -86,10 +89,10 @@ export const siriSendRoute = HttpRouter.add(
           title = r.title;
         }
       }
-      const turn: TurnRequest = { text, device, voice: body?.voice !== false };
+      const turn: TurnRequest = { text, device, voice: body?.voice !== false, origin: { kind: "siri", siriTurnId, said: text } };
       const started = await runner.startTurn(user.email, sessionId!, turn);
       if (!started.ok) throw Object.assign(new Error(started.message), { status: started.status });
-      return { needsChoice: false as const, sessionId, title, created, queued: started.queued, siriSessionId: siri.id };
+      return { needsChoice: false as const, sessionId, title, created, queued: started.queued, siriSessionId: siri.id, siriTurnId };
     }, catch: (e) => e }).pipe(
       Effect.map((v) => ({ ok: true as const, v })),
       Effect.catch((e) => Effect.succeed({ ok: false as const, e })),
@@ -102,4 +105,29 @@ export const siriSendRoute = HttpRouter.add(
   }),
 );
 
-export const siriRoutes = [siriRouteRoute, siriSendRoute] as const;
+/** "Any news from Labee?": the returns not yet heard, newest first. */
+export const siriNewsRoute = HttpRouter.add(
+  "GET",
+  "/api/siri/news",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Unauthorized.", 401);
+    const items = yield* Effect.promise(() => unreadReturns(user.email));
+    return yield* json({ items });
+  }),
+);
+
+export const siriNewsReadRoute = HttpRouter.add(
+  "POST",
+  "/api/siri/news/read",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Unauthorized.", 401);
+    const body = yield* safeBody<{ idx?: number[] }>();
+    const idxs = Array.isArray(body?.idx) ? body!.idx.filter((n): n is number => Number.isInteger(n)) : [];
+    const read = yield* Effect.promise(() => markReturnsRead(user.email, idxs));
+    return yield* json({ ok: true, read });
+  }),
+);
+
+export const siriRoutes = [siriRouteRoute, siriSendRoute, siriNewsRoute, siriNewsReadRoute] as const;

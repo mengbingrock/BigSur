@@ -54,8 +54,16 @@ export interface MirrorFrame {
    *  drops any mirror for this host that is not in it — sessions deleted
    *  before deletions were announced, or never this account's to begin with. */
   sessionIds?: string[];
-  /** Ask the box to push a notification to this account's devices. */
-  notify?: { title: string; body: string; data?: Record<string, unknown> };
+  /** Ask the box to push a notification to this account's devices. The
+   *  category and interruption level ride along so a host can send a
+   *  time-sensitive reply with buttons, as the box does for its own. */
+  notify?: {
+    title: string;
+    body: string;
+    data?: Record<string, unknown>;
+    categoryId?: string;
+    interruptionLevel?: "passive" | "active" | "time-sensitive" | "critical";
+  };
 }
 export interface PingFrame {
   t: "ping";

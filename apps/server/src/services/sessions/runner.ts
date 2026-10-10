@@ -213,6 +213,7 @@ async function runTurn(
     text,
     fromAnswer: opts.fromAnswer,
     ...(req.device ? { device: req.device } : {}),
+    ...(req.origin ? { origin: req.origin } : {}),
     ...(req.voice ? { voice: true } : {}),
   });
 
@@ -277,6 +278,9 @@ async function runTurn(
       ...(error ? { error } : {}),
       ...(cancelled ? { cancelled: true } : {}),
       ...(question ? { question: true } : {}),
+      // So the box can tell a Siri-delegated turn from one typed in the chat
+      // (siri-agent design §5): the host returns it itself, the box stays quiet.
+      ...(req.origin ? { origin: req.origin } : {}),
     });
     await db.compactTurn(sessionId, turnId);
 

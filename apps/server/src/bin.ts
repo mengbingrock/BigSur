@@ -3,6 +3,7 @@ import { runServer } from "./server";
 import { startLinkClient } from "./services/deviceLink/client";
 import { startLinkBridge } from "./services/runs/linkBridge";
 import { startSessionBridge } from "./services/runs/sessionBridge";
+import { startSiriDelivery } from "./services/siri/delivery";
 import { primeFolderCache } from "./services/userFolders";
 
 // Keep the embedded server alive: a single request's stream error (e.g. an
@@ -29,5 +30,8 @@ startLinkClient();
 // for sessions held on a Mac down the Device Link.
 startSessionBridge();
 startLinkBridge();
+// Siri: a turn the Siri agent delegated is returned to the person's ear
+// when it ends (docs/siri-agent-design.md §5).
+startSiriDelivery();
 
 runServer.pipe(NodeRuntime.runMain);

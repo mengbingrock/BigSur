@@ -356,6 +356,15 @@ export async function appendMessage(
   return { idx, turnId, role, content, meta, createdAt: ts };
 }
 
+/** Merge fields into a message's meta (the Siri session's unread flag). */
+export async function patchMessageMeta(sessionId: string, idx: number, patch: Record<string, unknown>): Promise<void> {
+  const db = await getDb();
+  const row = db.prepare("SELECT meta FROM chat_session_messages WHERE session_id = ? AND idx = ?").get(sessionId, idx);
+  if (!row) return;
+  const meta = { ...parseJson<Record<string, unknown>>(row.meta, {}), ...patch };
+  db.prepare("UPDATE chat_session_messages SET meta = ? WHERE session_id = ? AND idx = ?").run(JSON.stringify(meta), sessionId, idx);
+}
+
 export async function listMessages(sessionId: string): Promise<SessionMessageRow[]> {
   const db = await getDb();
   const rows = db

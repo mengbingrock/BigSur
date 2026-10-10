@@ -43,6 +43,15 @@ export function linkState(): LinkState {
   return currentState;
 }
 
+/** Send a frame to the box on the live connection. False when offline; the
+ *  caller decides whether that matters (a push can be retried, a mirror
+ *  write is caught up by the next summary). */
+export function sendToBox(frame: HostToBox): boolean {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+  ws.send(JSON.stringify(frame));
+  return true;
+}
+
 function hostIdFile(): string {
   const dir = process.env.LABEE_DATA_DIR || path.join(process.cwd(), "data");
   return path.join(dir, "link-host-id.txt");

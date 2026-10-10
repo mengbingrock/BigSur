@@ -12,6 +12,8 @@ struct StartRunIntent: AppIntent {
   static let title: LocalizedStringResource = "Start a run"
   static let description = IntentDescription("Start a protocol run and read its first step.")
   static let supportedModes: IntentModes = .background
+  // Spoken from a locked phone: no Face ID, the phone is on the person.
+  static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
   @Parameter(title: "Protocol", requestValueDialog: "Which protocol?")
   var protocolEntity: ProtocolEntity
@@ -68,6 +70,8 @@ struct RunStepIntent: AppIntent {
   static let title: LocalizedStringResource = "Run step"
   static let description = IntentDescription("Mark a step done, go back, skip, or hear where you are in the run.")
   static let supportedModes: IntentModes = .background
+  // Spoken from a locked phone: no Face ID, the phone is on the person.
+  static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
   @Parameter(title: "Action")
   var action: RunStepAction
@@ -182,6 +186,8 @@ struct StartTimerIntent: AppIntent {
   static let title: LocalizedStringResource = "Start a timer"
   static let description = IntentDescription("Start the current step's timer, or one of a given length.")
   static let supportedModes: IntentModes = .background
+  // Spoken from a locked phone: no Face ID, the phone is on the person.
+  static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
   @Parameter(title: "Length")
   var length: TimerLength?
@@ -231,6 +237,8 @@ struct NoteIntent: AppIntent {
   static let title: LocalizedStringResource = "Note"
   static let description = IntentDescription("File a note on the current step of the run.")
   static let supportedModes: IntentModes = .background
+  // Spoken from a locked phone: no Face ID, the phone is on the person.
+  static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
   @Parameter(title: "Note", requestValueDialog: "What's the note?")
   var text: String?
@@ -262,6 +270,8 @@ struct HowMuchIntent: AppIntent {
   static let title: LocalizedStringResource = "How much"
   static let description = IntentDescription("The amount of a material for the current step, in the protocol's own words.")
   static let supportedModes: IntentModes = .background
+  // Spoken from a locked phone: no Face ID, the phone is on the person.
+  static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
   @Parameter(title: "Material")
   var material: MaterialEntity?

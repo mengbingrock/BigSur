@@ -10,6 +10,8 @@ struct TellLabeeIntent: AppIntent {
   static let title: LocalizedStringResource = "Tell Labee"
   static let description = IntentDescription("Send a message to the agent; the right chat is picked for you.")
   static let supportedModes: IntentModes = .background
+  // Spoken from a locked phone: no Face ID, the phone is on the person.
+  static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
   @Parameter(title: "Message", requestValueDialog: "What's the message?")
   var message: String?
@@ -55,6 +57,8 @@ struct AskLabeeIntent: AppIntent {
   static let title: LocalizedStringResource = "Ask Labee"
   static let description = IntentDescription("A quick answer from your protocols and chats, or send it to your session.")
   static let supportedModes: IntentModes = .background
+  // Spoken from a locked phone: no Face ID, the phone is on the person.
+  static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
   @Parameter(title: "Question", requestValueDialog: "What's your question?")
   var question: String?
@@ -91,6 +95,8 @@ struct AnswerLabeeIntent: AppIntent {
   static let title: LocalizedStringResource = "Answer Labee"
   static let description = IntentDescription("Answer the question the agent is waiting on.")
   static let supportedModes: IntentModes = .background
+  // Spoken from a locked phone: no Face ID, the phone is on the person.
+  static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
   @Parameter(title: "Answer", requestValueDialog: "What's your answer?")
   var answer: String?
@@ -131,6 +137,8 @@ struct ChatActionIntent: AppIntent {
   static let title: LocalizedStringResource = "Agent status"
   static let description = IntentDescription("Hear what the agent is doing, or stop it.")
   static let supportedModes: IntentModes = .background
+  // Spoken from a locked phone: no Face ID, the phone is on the person.
+  static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
   @Parameter(title: "Action")
   var action: ChatAction
@@ -175,6 +183,8 @@ struct NewChatIntent: AppIntent {
   static let title: LocalizedStringResource = "New Labee chat"
   static let description = IntentDescription("Start a new chat with a first message.")
   static let supportedModes: IntentModes = .background
+  // Spoken from a locked phone: no Face ID, the phone is on the person.
+  static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
   @Parameter(title: "Message", requestValueDialog: "What should I send?")
   var message: String?
