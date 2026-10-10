@@ -459,3 +459,43 @@ notice (the Siri session appears in Chats; the answer mapping). Phases
   Tell. Steps 1–3 avoid it for the common cases (named session, pending
   question, active run), and the 12-second intent deadline covers it when
   it runs.
+
+## 9. Lab mode: when Siri can't hear "Labee" (added 2026-10-10)
+
+On the first device test (iOS 27) Siri did not recognize "Labee" in the
+user's voice. Every App Shortcut phrase must contain the app's name, so a
+misheard name breaks every phrase. Two changes, one small and one large:
+
+**Easier names for Siri.** `INAlternativeAppNames` in `app.json` adds
+"Lab Bee" (with a "lab bee" pronunciation hint), "Lab Helper" and "Lab
+Assistant". Apple caps it at three per language. Every existing phrase now
+also works with those names, for example "Lab Helper, done".
+
+**Lab mode, which needs no Siri at all during a run.**
+
+- *One press in.* `labee://voice` opens the run in progress, or a new chat
+  when nothing is running, in Voice mode and already listening. The Control
+  Center control ("Labee Lab Mode") opens it, so it can sit on the Action
+  Button or the Lock Screen.
+- *Tap to talk, no holding.* One tap listens; it stops by itself after
+  speech and a 1.2 s pause, measured against the room's own background level
+  so a fume hood doesn't keep it open (`src/hooks/speechEnd.ts`). Nothing said
+  for 6 s drops the clip; 20 s is the cap.
+- *The app's own speech recognition.* The clip goes to `/api/transcribe`
+  like any voice message, which has no trouble with lab words or the app name.
+- *Commands handled on the phone.* `parseRunCommand` in session-core matches
+  short whole utterances: done, back, skip, where am I, what's next, how much
+  <material>, timer <length>, cancel timer, time left, note <text>, pause,
+  resume, finish run. They act on the run and the phone answers aloud
+  (`src/runs/voice.ts`). Anything longer goes to the agent as before.
+- *Big type.* The voice screen shows the current step and the commands it
+  understands.
+
+Starting a run now also asks for notification permission, since timer alerts
+and the notification buttons depend on it.
+
+Not verified yet: real microphone input on a device. The simulator's
+microphone did not pick up audio played on the Mac, so the end-to-end voice
+path was checked in pieces: opening and auto-listening in the simulator,
+transcription of a recorded "okay, done" on the server ("OK, done."), and the
+parser, replies and end-of-speech detector in unit tests.
