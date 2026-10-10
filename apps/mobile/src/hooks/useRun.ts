@@ -10,17 +10,20 @@ export interface RunHandle {
   data: RunPayload | null;
   error: string | null;
   busy: boolean;
-  refresh: () => Promise<void>;
-  advance: () => Promise<void>;
-  back: () => Promise<void>;
-  skip: (reason?: string) => Promise<void>;
-  jump: (step: number) => Promise<void>;
-  note: (text: string, step?: number) => Promise<void>;
+  /** Re-fetch, resolving with the fresh run (null if none or on failure). */
+  refresh: () => Promise<RunPayload | null>;
+  /** Each action resolves with the run as it stands afterwards (null on
+   *  failure, with `error` set), so a caller can say what changed. */
+  advance: () => Promise<RunPayload | null>;
+  back: () => Promise<RunPayload | null>;
+  skip: (reason?: string) => Promise<RunPayload | null>;
+  jump: (step: number) => Promise<RunPayload | null>;
+  note: (text: string, step?: number) => Promise<RunPayload | null>;
   startTimer: (opts?: { seconds?: number; label?: string }) => Promise<RunTimer | null>;
-  cancelTimer: (timerId: string) => Promise<void>;
-  pause: () => Promise<void>;
-  resume: () => Promise<void>;
-  finish: () => Promise<void>;
+  cancelTimer: (timerId: string) => Promise<RunPayload | null>;
+  pause: () => Promise<RunPayload | null>;
+  resume: () => Promise<RunPayload | null>;
+  finish: () => Promise<RunPayload | null>;
   howMuch: (material: string) => Promise<AmountAnswer>;
 }
 
@@ -31,18 +34,21 @@ export function useRun(target: Target, runId: string | null | undefined, device 
   const idRef = useRef(runId);
   idRef.current = runId;
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<RunPayload | null> => {
     const id = idRef.current;
     if (!id) {
       setData(null);
-      return;
+      return null;
     }
     try {
       const r = await getRun(target, id);
-      setData({ run: r.run, view: r.view });
+      const payload = { run: r.run, view: r.view };
+      setData(payload);
       setError(null);
+      return payload;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      return null;
     }
   }, [target]);
 
@@ -76,14 +82,14 @@ export function useRun(target: Target, runId: string | null | undefined, device 
     [],
   );
 
-  const advance = useCallback(async () => void (await act((id) => runAction(target, id, "advance", { device }))), [act, target, device]);
-  const back = useCallback(async () => void (await act((id) => runAction(target, id, "back", { device }))), [act, target, device]);
-  const skip = useCallback(async (reason?: string) => void (await act((id) => runAction(target, id, "skip", { device, ...(reason ? { reason } : {}) }))), [act, target, device]);
-  const jump = useCallback(async (step: number) => void (await act((id) => runAction(target, id, "jump", { device, step }))), [act, target, device]);
-  const note = useCallback(async (text: string, step?: number) => void (await act((id) => runAction(target, id, "note", { device, text, ...(step ? { step } : {}) }))), [act, target, device]);
-  const pause = useCallback(async () => void (await act((id) => runAction(target, id, "pause"))), [act, target]);
-  const resume = useCallback(async () => void (await act((id) => runAction(target, id, "resume"))), [act, target]);
-  const finish = useCallback(async () => void (await act((id) => runAction(target, id, "finish", { device }))), [act, target, device]);
+  const advance = useCallback(() => act((id) => runAction(target, id, "advance", { device })), [act, target, device]);
+  const back = useCallback(() => act((id) => runAction(target, id, "back", { device })), [act, target, device]);
+  const skip = useCallback((reason?: string) => act((id) => runAction(target, id, "skip", { device, ...(reason ? { reason } : {}) })), [act, target, device]);
+  const jump = useCallback((step: number) => act((id) => runAction(target, id, "jump", { device, step })), [act, target, device]);
+  const note = useCallback((text: string, step?: number) => act((id) => runAction(target, id, "note", { device, text, ...(step ? { step } : {}) })), [act, target, device]);
+  const pause = useCallback(() => act((id) => runAction(target, id, "pause")), [act, target]);
+  const resume = useCallback(() => act((id) => runAction(target, id, "resume")), [act, target]);
+  const finish = useCallback(() => act((id) => runAction(target, id, "finish", { device })), [act, target, device]);
 
   const startTimer = useCallback(
     async (opts: { seconds?: number; label?: string } = {}) => {
@@ -99,7 +105,7 @@ export function useRun(target: Target, runId: string | null | undefined, device 
   const cancelTimer = useCallback(
     async (timerId: string) => {
       await cancelTimerNotification(timerId);
-      await act((id) => cancelRunTimer(target, id, timerId));
+      return act((id) => cancelRunTimer(target, id, timerId));
     },
     [act, target],
   );

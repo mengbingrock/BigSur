@@ -113,16 +113,18 @@ struct LockScreenView: View {
 
 // MARK: - Control Center
 
-/// Opens the app in Voice mode on the latest chat (the "Talk to Labee" phrase
-/// as a button). Opening the app is all a control needs to do here.
+/// Lab mode in one press: opens the run in progress (or a new chat) already
+/// listening, so the next thing said needs no app name and no Siri. Meant for
+/// the Action Button, Control Center and the Lock Screen. The control kind is
+/// unchanged so a control someone already placed keeps working.
 @available(iOS 26.0, *)
 struct TalkControlIntent: AppIntent {
-  static let title: LocalizedStringResource = "Talk to Labee"
-  static let description = IntentDescription("Open Labee in voice mode.")
+  static let title: LocalizedStringResource = "Labee Lab Mode"
+  static let description = IntentDescription("Open Labee listening, on your run if one is going.")
   static let openAppWhenRun = true
 
   func perform() async throws -> some IntentResult & OpensIntent {
-    .result(opensIntent: OpenURLIntent(URL(string: "labee://session/new?voice=1")!))
+    .result(opensIntent: OpenURLIntent(URL(string: "labee://voice")!))
   }
 }
 
@@ -131,10 +133,10 @@ struct TalkControl: ControlWidget {
   var body: some ControlWidgetConfiguration {
     StaticControlConfiguration(kind: "online.labee.mobile.talk") {
       ControlWidgetButton(action: TalkControlIntent()) {
-        Label("Talk to Labee", systemImage: "mic")
+        Label("Lab mode", systemImage: "mic")
       }
     }
-    .displayName("Talk to Labee")
-    .description("Open Labee in voice mode.")
+    .displayName("Labee Lab Mode")
+    .description("Open Labee listening, on your run if one is going.")
   }
 }

@@ -9,6 +9,7 @@ import { parseProtocol } from "@labee/session-core";
 import { getProtocol, type Protocol } from "~/api/protocols";
 import { startRun, type RunScale } from "~/api/runs";
 import { createSession } from "~/api/sessions";
+import { registerForPush } from "~/notifications";
 import { parseScale, summaryLine } from "~/runs/format";
 import { useApp } from "~/state/AppContext";
 import { Button } from "~/ui/Button";
@@ -75,6 +76,9 @@ export default function ProtocolScreen() {
     try {
       const r = await startRun(target, { protocolSlug: p.slug, scale });
       setSheet(false);
+      // Timer alerts and the Done button on notifications need permission;
+      // ask now, the first time it matters, instead of leaving it to Settings.
+      void registerForPush(target);
       router.push(`/session/${r.run.sessionId}?skill=${encodeURIComponent(p.slug)}`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
