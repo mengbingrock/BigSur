@@ -10,6 +10,12 @@ module.exports = {
   bundleIdentifier: ".widgets",
   deploymentTarget: "26.0",
   frameworks: ["WidgetKit", "SwiftUI", "ActivityKit", "AppIntents"],
+  // The extension reads the Siri config the app wrote to the Keychain
+  // (shared/SiriConfig.swift). An extension has its own default keychain
+  // group, so both targets list the app's group first and share it.
+  entitlements: {
+    "keychain-access-groups": ["$(AppIdentifierPrefix)online.labee.mobile"],
+  },
   colors: {
     $accent: "#2F6F4F",
     $widgetBackground: { color: "#FAFAF7", darkColor: "#111111" },

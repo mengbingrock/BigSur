@@ -23,7 +23,10 @@
       "icon": "./assets/icon.png",
       "usesAppleSignIn": true,
       "entitlements": {
-        "com.apple.developer.usernotifications.time-sensitive": true
+        "com.apple.developer.usernotifications.time-sensitive": true,
+        "keychain-access-groups": [
+          "$(AppIdentifierPrefix)online.labee.mobile"
+        ]
       }
     },
     "web": {
@@ -49,7 +52,10 @@
     "experiments": {
       "typedRoutes": false,
       "inlineModules": {
-        "watchedDirectories": ["native", "targets/widgets/shared"]
+        "watchedDirectories": [
+          "native",
+          "targets/widgets/shared"
+        ]
       }
     },
     "icon": "./assets/icon.png",
