@@ -7,12 +7,16 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import {
   askProtocols,
-  listProtocols,
   indexStatus,
+  isLibrarySlug,
+  libraryIdOf,
+  listProtocols,
   searchProtocols,
+  whereLabel,
   type AskResult,
   type IndexStatus,
   type Protocol,
+  type Scope,
   type SearchHit,
 } from "~/api/protocols";
 import { useApp } from "~/state/AppContext";
@@ -29,6 +33,10 @@ export default function ProtocolsScreen() {
   const { target } = useApp();
   const [all, setAll] = useState<Protocol[]>([]);
   const [q, setQ] = useState("");
+  // Which pool search and Ask look in: own protocols, the shared library on
+  // labee.online, or both. "Mine" is the quiet way to say "my protocols only".
+  const [scope, setScope] = useState<Scope>("mine");
+  const [libraryReachable, setLibraryReachable] = useState(true);
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const [mode, setMode] = useState<"semantic" | "lexical" | null>(null);
   const [index, setIndex] = useState<IndexStatus | null>(null);
@@ -66,10 +74,11 @@ export default function ProtocolsScreen() {
     setSearching(true);
     const id = setTimeout(async () => {
       try {
-        const r = await searchProtocols(target, query);
+        const r = await searchProtocols(target, query, scope);
         if (seq === searchSeq.current) {
           setHits(r.hits);
           setMode(r.mode);
+          setLibraryReachable(r.libraryReachable !== false);
         }
       } catch (e) {
         if (seq === searchSeq.current) setErr(e instanceof Error ? e.message : String(e));
@@ -78,7 +87,7 @@ export default function ProtocolsScreen() {
       }
     }, 300);
     return () => clearTimeout(id);
-  }, [q, target]);
+  }, [q, scope, target]);
 
   // Search quality depends on the embedding pass finishing, so say so while it
   // runs. Poll only until it is done.
@@ -106,7 +115,7 @@ export default function ProtocolsScreen() {
     setAsking(true);
     setAnswer(null);
     try {
-      setAnswer(await askProtocols(target, question));
+      setAnswer(await askProtocols(target, question, scope));
       setErr(null);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -127,7 +136,9 @@ export default function ProtocolsScreen() {
     );
   }, [all]);
 
-  const open = (slug: string) => router.push(`/protocol/${encodeURIComponent(slug)}`);
+  // A library hit opens the same screen, which reads it from the library.
+  const open = (slug: string) =>
+    router.push(`/protocol/${encodeURIComponent(isLibrarySlug(slug) ? `library:${libraryIdOf(slug)}` : slug)}`);
 
   const Row = ({ p, sub }: { p: Protocol; sub?: string }) => (
     <Pressable
@@ -156,7 +167,14 @@ export default function ProtocolsScreen() {
           style={{ borderWidth: 1, borderColor: t.border, borderRadius: 8, padding: 10, color: t.text, backgroundColor: t.card }}
         />
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Button title={asking ? "Asking…" : "Ask my protocols"} onPress={ask} disabled={!q.trim() || asking} />
+          {(["mine", "library", "all"] as Scope[]).map((s) => (
+            <Pressable key={s} onPress={() => setScope(s)} hitSlop={6}>
+              <Chip label={s === "mine" ? "Mine" : s === "library" ? "Library" : "Both"} tone={scope === s ? "accent" : "muted"} />
+            </Pressable>
+          ))}
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Button title={asking ? "Asking…" : scope === "mine" ? "Ask my protocols" : scope === "library" ? "Ask the library" : "Ask both"} onPress={ask} disabled={!q.trim() || asking} />
           {q ? <Button kind="ghost" title="Clear" onPress={() => { setQ(""); setAnswer(null); }} /> : null}
           {searching ? <ActivityIndicator color={t.muted} /> : null}
         </View>
@@ -174,6 +192,11 @@ export default function ProtocolsScreen() {
           </View>
         ) : null}
 
+        {!libraryReachable && scope !== "mine" ? (
+          <Text style={{ color: t.muted, fontSize: 12, paddingHorizontal: 16, paddingTop: 12 }}>
+            The library on labee.online could not be reached — showing your protocols only.
+          </Text>
+        ) : null}
         {index && index.available && index.indexed < index.total ? (
           <Text style={{ color: t.muted, fontSize: 12, paddingHorizontal: 16, paddingTop: 12 }}>
             Indexing {index.indexed} of {index.total} for search — results improve as it finishes.
@@ -186,11 +209,18 @@ export default function ProtocolsScreen() {
 
         {answer ? (
           <View style={{ padding: 16, gap: 10, borderBottomWidth: 1, borderBottomColor: t.border, backgroundColor: t.card }}>
-            <Chip label="answered from your protocols" tone="accent" />
+            <Chip label={scope === "mine" ? "answered from your protocols" : scope === "library" ? "answered from the library" : "answered from your protocols and the library"} tone="accent" />
             {answer.available ? (
-              <Text selectable style={{ color: t.text, fontSize: 15, lineHeight: 21 }}>
-                {answer.answer}
-              </Text>
+              <>
+                <Text selectable style={{ color: t.text, fontSize: 15, lineHeight: 21 }}>
+                  {answer.answer}
+                </Text>
+                {answer.confidence !== null ? (
+                  <Text style={{ color: answer.confidence < 0.5 ? t.danger : t.muted, fontSize: 12 }}>
+                    {answer.confidence < 0.5 ? `Low confidence (${Math.round(answer.confidence * 100)}%) — check the source` : `Confidence ${Math.round(answer.confidence * 100)}%`}
+                  </Text>
+                ) : null}
+              </>
             ) : (
               <Text style={{ color: t.muted, fontSize: 13 }}>
                 Answering needs a model account on the machine holding these protocols. Set one under Settings › Connection.
@@ -200,7 +230,8 @@ export default function ProtocolsScreen() {
               <Pressable key={`${c.n}:${c.slug}`} onPress={() => open(c.slug)} style={{ gap: 2 }}>
                 <Text style={{ color: t.accent, fontSize: 12, fontWeight: "700" }}>
                   [{c.n}] {c.name}
-                  {c.heading ? ` · ${c.heading}` : ""}
+                  {whereLabel(c) ? ` · ${whereLabel(c)}` : ""}
+                  {c.pool === "library" ? ` · library${c.license ? ` · ${c.license}` : ""}` : ""}
                 </Text>
                 <Text numberOfLines={3} style={{ color: t.muted, fontSize: 12, fontStyle: "italic" }}>
                   {c.quote}
@@ -217,8 +248,23 @@ export default function ProtocolsScreen() {
             </Text>
           ) : (
             hits.map((h) => {
+              if (h.pool === "library") {
+                return (
+                  <Pressable
+                    key={h.slug}
+                    onPress={() => open(h.slug)}
+                    style={{ paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: t.border, gap: 3 }}
+                  >
+                    <Text numberOfLines={1} style={{ color: t.text, fontSize: 15, fontWeight: "600" }}>{h.name}</Text>
+                    <Text style={{ color: t.muted, fontSize: 11 }}>
+                      Library · {h.source}{h.license ? ` · ${h.license}` : ""}{whereLabel(h) ? ` · ${whereLabel(h)}` : ""}
+                    </Text>
+                    <Text numberOfLines={2} style={{ color: t.muted, fontSize: 12 }}>{h.snippet}</Text>
+                  </Pressable>
+                );
+              }
               const p = bySlug.get(h.slug);
-              return p ? <Row key={h.slug} p={p} sub={h.snippet || h.heading || p.description} /> : null;
+              return p ? <Row key={h.slug} p={p} sub={[whereLabel(h), h.snippet || p.description].filter(Boolean).join(" — ")} /> : null;
             })
           )
         ) : (
