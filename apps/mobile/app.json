@@ -16,7 +16,8 @@
           "audio",
           "remote-notification"
         ],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSSupportsLiveActivities": true
       },
       "appleTeamId": "W3X4ZUG72V",
       "icon": "./assets/icon.png",
@@ -42,12 +43,13 @@
       "expo-secure-store",
       "expo-status-bar",
       "./plugins/withSceneLifecycle",
-      "expo-web-browser"
+      "expo-web-browser",
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": false,
       "inlineModules": {
-        "watchedDirectories": ["native"]
+        "watchedDirectories": ["native", "targets/widgets/shared"]
       }
     },
     "icon": "./assets/icon.png",

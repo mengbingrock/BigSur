@@ -11,6 +11,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@bacons/apple-targets": "5.0.0",
     "@expo/metro-runtime": "~57.0.16",
     "@labee/session-core": "workspace:*",
     "@react-native-async-storage/async-storage": "2.2.0",

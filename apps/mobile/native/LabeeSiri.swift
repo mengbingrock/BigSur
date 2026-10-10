@@ -36,5 +36,25 @@ final class LabeeSiri: Module {
         }
       }
     }
+
+    // Live Activity for a run (run-design §5.3): the JS side passes the run
+    // payload it already holds, as JSON, so no second fetch is needed.
+    AsyncFunction("startRunActivity") { (payloadJson: String) in
+      guard #available(iOS 16.2, *), let p = decodePayload(payloadJson) else { return }
+      await RunActivity.start(with: p)
+    }
+    AsyncFunction("syncRunActivity") { (payloadJson: String) in
+      guard #available(iOS 16.2, *), let p = decodePayload(payloadJson) else { return }
+      await RunActivity.sync(with: p)
+    }
+    AsyncFunction("endRunActivity") { (runId: String) in
+      guard #available(iOS 16.2, *) else { return }
+      await RunActivity.end(runId: runId)
+    }
+  }
+
+  private func decodePayload(_ json: String) -> RunPayload? {
+    guard let data = json.data(using: .utf8) else { return nil }
+    return try? JSONDecoder().decode(RunPayload.self, from: data)
   }
 }

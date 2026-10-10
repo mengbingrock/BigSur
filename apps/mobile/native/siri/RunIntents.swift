@@ -84,6 +84,7 @@ struct RunStepIntent: AppIntent {
     switch action {
     case .done, .next:
       let p: RunPayload = try await api.post("/api/runs/active/advance", RunActionBody())
+      await RunActivity.sync(with: p)
       let doneN = p.done?.n ?? max(1, p.run.current - 1)
       if let next = p.next {
         return .result(dialog: IntentDialog("Done with \(doneN). \(Spoken.step(next))"))
@@ -199,6 +200,7 @@ struct StartTimerIntent: AppIntent {
     let p: RunPayload = try await api.post("/api/runs/active/timer", body)
     guard let t = p.timer else { return .result(dialog: IntentDialog("I couldn't start that timer.")) }
     await scheduleTimerNotification(run: p.run, timer: t)
+    await RunActivity.start(with: p)
     return .result(dialog: IntentDialog("\(t.label), step \(t.step). I'll tell you."))
   }
 }

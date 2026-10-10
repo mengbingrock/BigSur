@@ -16,6 +16,9 @@ interface NativeModule {
   configure(config: SiriConfig | null): Promise<void>;
   updateShortcuts(): Promise<void>;
   donate(intent: string): Promise<void>;
+  startRunActivity(payloadJson: string): Promise<void>;
+  syncRunActivity(payloadJson: string): Promise<void>;
+  endRunActivity(runId: string): Promise<void>;
 }
 
 let native: NativeModule | null | undefined;
@@ -52,6 +55,33 @@ export async function refreshSiriShortcuts(): Promise<void> {
 export async function donateSiriIntent(intent: string): Promise<void> {
   try {
     await module()?.donate(intent);
+  } catch {
+    // ignore
+  }
+}
+
+/** The run's Live Activity (run-design §5.3): started with the timer,
+ *  kept in step with every change, ended with the run. The payload is what
+ *  the app already holds, so nothing is fetched twice. */
+export async function startRunActivity(payload: unknown): Promise<void> {
+  try {
+    await module()?.startRunActivity(JSON.stringify(payload));
+  } catch {
+    // ignore
+  }
+}
+
+export async function syncRunActivity(payload: unknown): Promise<void> {
+  try {
+    await module()?.syncRunActivity(JSON.stringify(payload));
+  } catch {
+    // ignore
+  }
+}
+
+export async function endRunActivity(runId: string): Promise<void> {
+  try {
+    await module()?.endRunActivity(runId);
   } catch {
     // ignore
   }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Target } from "~/api/client";
 import { amountFor, cancelRunTimer, getRun, runAction, type AmountAnswer, type RunPayload, type RunTimer } from "~/api/runs";
 import { cancelTimerNotification, scheduleTimerNotification } from "~/runs/timers";
+import { endRunActivity, startRunActivity, syncRunActivity } from "~/siri";
 
 export interface RunHandle {
   data: RunPayload | null;
@@ -61,6 +62,9 @@ export function useRun(target: Target, runId: string | null | undefined, device 
         const r = await fn(id);
         setData({ run: r.run, view: r.view });
         setError(null);
+        // Keep the lock screen in step; it ends itself when the run does.
+        void syncRunActivity({ run: r.run, view: r.view });
+        if (r.run.status === "done" || r.run.status === "abandoned") void endRunActivity(r.run.id);
         return r;
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -84,7 +88,10 @@ export function useRun(target: Target, runId: string | null | undefined, device 
   const startTimer = useCallback(
     async (opts: { seconds?: number; label?: string } = {}) => {
       const r = await act((id) => runAction<RunPayload & { timer: RunTimer }>(target, id, "timer", { device, ...opts }));
-      if (r?.timer) await scheduleTimerNotification({ id: r.run.id, sessionId: r.run.sessionId, protocolName: r.run.protocolName }, r.timer);
+      if (r?.timer) {
+        await scheduleTimerNotification({ id: r.run.id, sessionId: r.run.sessionId, protocolName: r.run.protocolName }, r.timer);
+        void startRunActivity({ run: r.run, view: r.view });
+      }
       return r?.timer ?? null;
     },
     [act, target, device],
