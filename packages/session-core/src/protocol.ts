@@ -180,9 +180,12 @@ function subjectFor(sentence: string, matchIndex: number, matchLength: number, r
     if (c) return c;
   }
   if (ofMatch) return clip(ofMatch[1]!);
+  // For an absolute quantity the word before "at" is usually the verb
+  // ("Incubate at 30-37 C"), not the material, so only a lower-case noun
+  // phrase counts ("TSS at 4 C" keeps "TSS").
   if (beforeMatch) {
     const c = clipTail(beforeMatch[1]!);
-    if (c) return c;
+    if (c && !/^[A-Z][a-z]+$/.test(c)) return c;
   }
   // "2.5 ul buffer" / "1 ul DMSO": a bare noun right after the unit.
   const bare = after.match(/^\s+(?!of\b|at\b|for\b|to\b|in\b|on\b|into\b|per\b|and\b|or\b|until\b|then\b)([A-Z][\w'-]*(?:\s+[a-z][\w'-]*){0,1})/);

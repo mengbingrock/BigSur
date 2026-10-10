@@ -26,7 +26,11 @@ export function StepBar({ run }: { run: RunHandle }) {
   if (!d) return null;
   const { run: r, view } = d;
   const total = r.snapshot.steps.length;
-  const timer = view.timers.find((x) => x.state === "running");
+  const doneCount = view.stepLog.filter((s) => s.doneAt).length;
+  const active = r.status === "running" || r.status === "paused";
+  // A timer only matters while the run is open; the server cancels them on
+  // finish, and a stale one must not keep counting on screen.
+  const timer = active ? view.timers.find((x) => x.state === "running") : undefined;
   const left = timer ? remaining(timer.endsAt, now) : 0;
   const stepTimer = view.current?.timer ?? null;
   const live = r.status === "running";
@@ -36,7 +40,7 @@ export function StepBar({ run }: { run: RunHandle }) {
     <View style={{ borderBottomWidth: 1, borderBottomColor: t.border, backgroundColor: t.bg }}>
       <Pressable onPress={() => setOpen(true)} accessibilityRole="button" testID="step-bar-header" style={{ paddingHorizontal: 12, paddingTop: 8 }}>
         <Text style={{ color: t.muted, fontSize: 12 }}>
-          {fraction(r.current, total, r.status)} · {elapsed(elapsedS)}
+          {fraction(r.current, total, r.status, doneCount)} · {elapsed(elapsedS)}
           {r.status === "paused" ? " · paused" : ""}
           {r.scale ? ` · ${r.scale.actual.qty} ${r.scale.actual.unit}` : ""}
         </Text>

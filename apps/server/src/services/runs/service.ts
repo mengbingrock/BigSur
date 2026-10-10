@@ -228,7 +228,11 @@ export async function finish(run: RunRow, device?: string): Promise<RunRow> {
   if (run.status === "abandoned") throw new RunError(409, "This run was abandoned.");
   const events = await rdb.listRunEvents(run.id);
   if (events.some((e) => e.type === "finished")) return run;
-  const view = await viewOf(run, events);
+  // A timer has nothing to time once the run is over.
+  for (const t of await timersOf(run, events)) {
+    if (t.state === "running") await emit(run.id, "timer_cancelled", { timerId: t.id, step: t.step });
+  }
+  const view = await viewOf(run);
   if (run.status !== "done") await rdb.updateRun(run.id, { status: "done", finishedAt: new Date().toISOString() });
   const { run: after } = await emit(run.id, "finished", {
     steps: run.snapshot.steps.length,

@@ -89,7 +89,7 @@ export default function RunsScreen() {
               <View style={{ flex: 1 }}>
                 <Text numberOfLines={1} style={{ color: t.text, fontWeight: "600" }}>{r.protocolName}</Text>
                 <Text style={{ color: t.muted, fontSize: 12 }}>
-                  {fraction(r.current, r.total, r.status)}
+                  {fraction(r.current, r.total, r.status, r.done)}
                   {r.status === "paused" ? " · paused" : ""}
                   {r.status === "done" || r.status === "abandoned" ? ` · ${new Date(r.updatedAt).toLocaleDateString([], { weekday: "short" })}` : ` · ${elapsed(el)}`}
                   {left !== null ? ` · ⏱ ${clock(left)}` : ""}

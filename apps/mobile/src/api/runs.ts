@@ -76,6 +76,8 @@ export interface RunListItem {
   elapsedSeconds: number;
   timerEndsAt: string | null;
   notes: number;
+  /** Steps completed (a finished run may have fewer than `total`). */
+  done: number;
 }
 
 export interface AmountAnswer {

@@ -26,9 +26,10 @@ export function remaining(endsAt: string, now = Date.now()): number {
   return Math.max(0, Math.round((new Date(endsAt).getTime() - now) / 1000));
 }
 
-/** "step 5 of 9". */
-export function fraction(current: number, total: number, status: string): string {
-  if (status === "done") return `${total} of ${total} done`;
+/** "step 5 of 9" while running; "3 of 9 done" when finished (`done` is how
+ *  many steps were completed, which may be fewer than all of them). */
+export function fraction(current: number, total: number, status: string, done?: number): string {
+  if (status === "done") return `${done ?? total} of ${total} done`;
   if (status === "abandoned") return "abandoned";
   return `step ${current} of ${total}`;
 }

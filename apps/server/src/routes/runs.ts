@@ -161,6 +161,7 @@ export const listRunsRoute = HttpRouter.add(
             elapsedSeconds: view.elapsedSeconds,
             timerEndsAt: view.timers.find((t) => t.state === "running")?.endsAt ?? null,
             notes: view.notes.length,
+            done: view.stepLog.filter((s) => s.doneAt).length,
           };
         }),
       ),
