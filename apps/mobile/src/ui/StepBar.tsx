@@ -58,7 +58,9 @@ export function StepBar({ run }: { run: RunHandle }) {
             {view.current.note ? <Text style={{ color: t.muted, fontSize: 12, fontStyle: "italic" }}>{view.current.note}</Text> : null}
           </>
         ) : (
-          <Text style={{ color: t.text, fontSize: 16 }}>{r.status === "done" ? "All steps done." : "Run abandoned."}</Text>
+          <Text style={{ color: t.text, fontSize: 16 }}>
+            {r.status === "done" ? (doneCount >= total ? "All steps done." : `Run finished after ${doneCount} of ${total} steps.`) : "Run abandoned."}
+          </Text>
         )}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 }}>
           {timer ? (
