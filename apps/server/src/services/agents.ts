@@ -345,3 +345,84 @@ export async function mergeAgents(email: string, incoming: SyncAgent[]): Promise
   // again. Local edits notify; reconciliation does not.
   return listAgentsForSync(email);
 }
+
+// ── Starter agents ───────────────────────────────────────────────────────────
+//
+// The Protocol Agent ships with the app, the way the starter protocols do. It
+// is delivered to an account once; after that it is the person's agent to
+// rename, edit or delete. Its predecessor ran on a skill in the shared
+// `_public` folder that the two-folder layout retired, which left any such
+// agent with a slug that resolves to nothing — those are repaired in place,
+// same id, so sessions that reference them keep working.
+
+/** Slug of the bundled skill, as the user-folder scan names it. */
+export const PROTOCOL_AGENT_SKILL = "user--protocol-agent";
+const PROTOCOL_AGENT_STARTER = "protocol-agent";
+/** Slugs the retired skill went by: shared-folder and user-folder spellings. */
+const LEGACY_PROTOCOL_SKILLS = new Set(["public--protocol-plan", "user--protocol-plan"]);
+
+const PROTOCOL_AGENT_NAME = "Protocol Agent";
+const PROTOCOL_AGENT_DESCRIPTION =
+  "Plans, adapts and checks laboratory protocols. Works from your own protocols first, " +
+  "then the library and the literature; drafts in Labee's protocol format, checks the " +
+  "draft for operation, reagent and parameter errors, and saves the result into your " +
+  "protocols. Can also source reagents with verified catalog numbers.";
+
+/**
+ * Make sure the account has its Protocol Agent: repair a predecessor whose
+ * skill no longer resolves, or deliver a fresh one if none was ever
+ * delivered. Idempotent and cheap after the first call. Returns what it did.
+ */
+export async function ensureStarterAgents(
+  email: string,
+): Promise<"repaired" | "created" | "unchanged"> {
+  const db = await getDb();
+  const now = new Date().toISOString();
+
+  // 1. A predecessor to repair — whether or not a delivery was recorded.
+  const rows = db
+    .prepare("SELECT id, skill_slugs FROM agents WHERE email = ? AND deleted_at IS NULL")
+    .all(email) as Array<{ id: string; skill_slugs: string }>;
+  const legacy = rows.find((r) => parseJsonArray(r.skill_slugs).some((s) => LEGACY_PROTOCOL_SKILLS.has(s)));
+  if (legacy) {
+    const slugs = parseJsonArray(legacy.skill_slugs)
+      .filter((s) => !LEGACY_PROTOCOL_SKILLS.has(s))
+      .concat(PROTOCOL_AGENT_SKILL);
+    db.prepare(
+      "UPDATE agents SET name = ?, description = ?, skill_slugs = ?, updated_at = ? WHERE id = ?",
+    ).run(PROTOCOL_AGENT_NAME, PROTOCOL_AGENT_DESCRIPTION, JSON.stringify([...new Set(slugs)]), now, legacy.id);
+    db.prepare(
+      "INSERT OR REPLACE INTO starter_agents (email, starter_id, agent_id, delivered_at) VALUES (?, ?, ?, ?)",
+    ).run(email, PROTOCOL_AGENT_STARTER, legacy.id, now);
+    agentsChanged(email);
+    return "repaired";
+  }
+
+  // 2. Already delivered once: whatever happened since is the person's call.
+  const delivered = db
+    .prepare("SELECT agent_id FROM starter_agents WHERE email = ? AND starter_id = ?")
+    .get(email, PROTOCOL_AGENT_STARTER) as { agent_id: string } | undefined;
+  if (delivered) return "unchanged";
+
+  // 3. An agent already on the new skill, created by hand or synced from
+  //    another device: record it as the delivery rather than adding a twin.
+  const existing = rows.find((r) => parseJsonArray(r.skill_slugs).includes(PROTOCOL_AGENT_SKILL));
+  if (existing) {
+    db.prepare(
+      "INSERT OR REPLACE INTO starter_agents (email, starter_id, agent_id, delivered_at) VALUES (?, ?, ?, ?)",
+    ).run(email, PROTOCOL_AGENT_STARTER, existing.id, now);
+    return "unchanged";
+  }
+
+  // 4. Deliver.
+  const id = crypto.randomUUID();
+  db.prepare(
+    "INSERT INTO agents (id, email, name, description, skill_slugs, working_dir, reference_folders, engine, created_at, updated_at) " +
+      "VALUES (?, ?, ?, ?, ?, '', '[]', 'claude', ?, ?)",
+  ).run(id, email, PROTOCOL_AGENT_NAME, PROTOCOL_AGENT_DESCRIPTION, JSON.stringify([PROTOCOL_AGENT_SKILL]), now, now);
+  db.prepare(
+    "INSERT INTO starter_agents (email, starter_id, agent_id, delivered_at) VALUES (?, ?, ?, ?)",
+  ).run(email, PROTOCOL_AGENT_STARTER, id, now);
+  agentsChanged(email);
+  return "created";
+}

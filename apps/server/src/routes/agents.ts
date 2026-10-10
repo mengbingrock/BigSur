@@ -8,6 +8,7 @@ import {
   deleteAgent,
   getAgent,
   listAgents,
+  ensureStarterAgents,
   mergeAgents,
   updateAgent,
 } from "../services/agents";
@@ -27,6 +28,9 @@ export const listAgentsRoute = HttpRouter.add(
   Effect.gen(function* () {
     const user = yield* sessionUser;
     if (!user) return yield* error("Authentication required.", 401);
+    // The Protocol Agent is delivered (or repaired) the first time the
+    // account's agents are listed on any device; after that it is theirs.
+    yield* Effect.promise(() => ensureStarterAgents(user.email));
     const agents = yield* Effect.promise(() => listAgents(user.email));
     return yield* json({ agents });
   }),

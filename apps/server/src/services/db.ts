@@ -91,6 +91,17 @@ async function openDb(): Promise<SqlDb> {
   // Deleting therefore has to leave a tombstone — a hard DELETE would simply be
   // re-created by the next device that syncs and still has the row.
   ensureColumn(db, "agents", "deleted_at", "TEXT");
+  // Which starter agents have been delivered to which account, so one that the
+  // person later deletes stays deleted instead of being re-created on the next
+  // listing. The agent row itself may be gone; this record is what remembers.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS starter_agents (" +
+      "email TEXT NOT NULL, " +
+      "starter_id TEXT NOT NULL, " +
+      "agent_id TEXT NOT NULL, " +
+      "delivered_at TEXT NOT NULL, " +
+      "PRIMARY KEY (email, starter_id));",
+  );
   // Per-user billing: Stripe customer/subscription + a credit balance (cents).
   db.exec(
     "CREATE TABLE IF NOT EXISTS billing (" +

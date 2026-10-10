@@ -3,7 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import matter from "gray-matter";
 import type { Skill, SkillOrigin, SkillSource } from "@labee/contracts";
-import { seedStarterProtocols } from "./seedProtocols";
+import { retireLegacyProtocolPlan, seedStarterProtocols, seedStarterSkills } from "./seedProtocols";
 import { grantedFilePathsSync, grantedFolderPathsSync } from "./userFolders";
 
 interface Root {
@@ -512,6 +512,9 @@ export function getAllSkills(
       // simply skips the ones they already have.
       migrateLayout(ownDir);
       seedStarterProtocols(path.join(ownDir, PROTOCOLS_DIR));
+      // The Protocol Agent's skill rides along the same way. Once it is in
+      // place the retired shared copy of its predecessor can go.
+      if (seedStarterSkills(path.join(ownDir, SKILLS_DIR)) > 0) retireLegacyProtocolPlan(root.path);
       scanOwnBase(ownDir, "user", collected);
     }
   }

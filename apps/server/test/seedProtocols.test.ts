@@ -99,3 +99,61 @@ describe("starter protocols", () => {
     delete process.env.LABEE_SEED_PROTOCOLS;
   });
 });
+
+describe("starter skills", () => {
+  let skillSrc: string;
+  let skillsTarget: string;
+
+  beforeEach(async () => {
+    skillSrc = path.join(root, "bundle", "skills");
+    fs.mkdirSync(path.join(skillSrc, "protocol-agent", "references"), { recursive: true });
+    fs.writeFileSync(
+      path.join(skillSrc, "protocol-agent", "SKILL.md"),
+      "---\nname: protocol-agent\ndescription: d\nkind: skill\n---\n\nBody.\n",
+    );
+    fs.writeFileSync(path.join(skillSrc, "protocol-agent", "references", "kit-finder.md"), "# kits\n");
+    skillsTarget = path.join(root, "skills", "someone-at-example-com", "skills");
+    process.env.LABEE_SEED_SKILLS_DIR = skillSrc;
+    (await import("../src/services/seedProtocols")).resetSeedMemory();
+  });
+
+  afterEach(() => {
+    delete process.env.LABEE_SEED_SKILLS_DIR;
+  });
+
+  it("delivers the skill folder, references included, into the person's skills folder", async () => {
+    const mod = await import("../src/services/seedProtocols");
+    expect(mod.seedStarterSkills(skillsTarget)).toBe(2);
+    expect(fs.existsSync(path.join(skillsTarget, "protocol-agent", "SKILL.md"))).toBe(true);
+    expect(fs.existsSync(path.join(skillsTarget, "protocol-agent", "references", "kit-finder.md"))).toBe(true);
+    expect(fs.existsSync(path.join(skillsTarget, ".starter-skills"))).toBe(true);
+  });
+
+  it("keeps the protocols stamp and the skills stamp apart", async () => {
+    const mod = await import("../src/services/seedProtocols");
+    mod.seedStarterProtocols(target);
+    mod.seedStarterSkills(skillsTarget);
+    expect(fs.existsSync(path.join(target, ".starter-skills"))).toBe(false);
+    expect(fs.existsSync(path.join(skillsTarget, ".starter-protocols"))).toBe(false);
+  });
+
+  it("does not bring back a skill the person deleted", async () => {
+    const mod = await import("../src/services/seedProtocols");
+    mod.seedStarterSkills(skillsTarget);
+    fs.rmSync(path.join(skillsTarget, "protocol-agent"), { recursive: true, force: true });
+    mod.resetSeedMemory();
+    expect(mod.seedStarterSkills(skillsTarget)).toBe(0);
+  });
+
+  it("retires only the old protocol-plan folder under _public", async () => {
+    const mod = await import("../src/services/seedProtocols");
+    const rootPath = path.join(root, "skills");
+    fs.mkdirSync(path.join(rootPath, "_public", "protocol-plan"), { recursive: true });
+    fs.writeFileSync(path.join(rootPath, "_public", "protocol-plan", "SKILL.md"), "old");
+    fs.mkdirSync(path.join(rootPath, "_public", "other"), { recursive: true });
+    expect(mod.retireLegacyProtocolPlan(rootPath)).toBe(true);
+    expect(fs.existsSync(path.join(rootPath, "_public", "protocol-plan"))).toBe(false);
+    expect(fs.existsSync(path.join(rootPath, "_public", "other"))).toBe(true);
+    expect(mod.retireLegacyProtocolPlan(rootPath)).toBe(false);
+  });
+});
