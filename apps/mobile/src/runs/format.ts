@@ -30,7 +30,7 @@ export function remaining(endsAt: string, now = Date.now()): number {
  *  many steps were completed, which may be fewer than all of them). */
 export function fraction(current: number, total: number, status: string, done?: number): string {
   if (status === "done") return `${done ?? total} of ${total} done`;
-  if (status === "abandoned") return "abandoned";
+  if (status === "abandoned") return "ended early";
   return `step ${current} of ${total}`;
 }
 

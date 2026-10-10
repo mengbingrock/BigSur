@@ -9,7 +9,8 @@ import { bodyJson, error, json, requestUrl, sessionUser } from "../httpKit";
 import * as sdb from "../services/sessions/db";
 import * as runner from "../services/sessions/runner";
 import * as rdb from "../services/runs/db";
-import { timersOf } from "../services/runs/service";
+import { endRunsForDeletedSession, timersOf } from "../services/runs/service";
+import { isDesktop } from "../services/llmSettings";
 import { mapSpokenAnswer } from "../services/sessions/answerMap";
 
 const params = HttpRouter.params;
@@ -148,6 +149,11 @@ export const deleteSessionRoute = HttpRouter.add(
     if (!s) return yield* error("Session not found.", 404);
     if (runner.getHandle(s.id)) return yield* error("Stop the running turn first.", 409);
     yield* Effect.promise(() => sdb.deleteSession(s.id));
+    // A chat this server holds ends its run here. On a Mac the box owns runs
+    // and ends them when it hears of the delete, so a Mac leaves them alone.
+    if (!isDesktop()) {
+      yield* Effect.promise(() => endRunsForDeletedSession(user.email, s.id, null).catch(() => 0));
+    }
     return yield* json({ ok: true });
   }),
 );

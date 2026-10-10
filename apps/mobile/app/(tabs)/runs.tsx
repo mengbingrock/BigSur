@@ -2,9 +2,9 @@
 // research runs as before, finished protocol runs last for their write-ups.
 import { useCallback, useEffect, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { ActionSheetIOS, Alert, FlatList, Platform, Pressable, Text, View } from "react-native";
 import { listRuns as listResearch, type RunSummary } from "~/api/research";
-import { listRuns, type RunListItem } from "~/api/runs";
+import { listRuns, runAction, type RunListItem } from "~/api/runs";
 import { clock, elapsed, fraction, remaining } from "~/runs/format";
 import { useApp } from "~/state/AppContext";
 import { Chip } from "~/ui/Chip";
@@ -45,6 +45,37 @@ export default function RunsScreen() {
     return () => clearInterval(id);
   }, []);
 
+  // Long-press an open run to end it, for a run that can't be reached any
+  // more (its chat was deleted, its Mac is gone) or simply won't be finished.
+  const endRun = useCallback(
+    (r: RunListItem) => {
+      const end = async () => {
+        try {
+          await runAction(target, r.id, "abandon", { reason: "ended from the Runs list" });
+          await load();
+        } catch (e) {
+          setErr(e instanceof Error ? e.message : String(e));
+        }
+      };
+      const title = `End "${r.protocolName}"?`;
+      const message = `It stops at step ${r.current} of ${r.total} and moves to Finished. This can't be undone.`;
+      if (Platform.OS === "ios") {
+        ActionSheetIOS.showActionSheetWithOptions(
+          { title, message, options: ["End run", "Cancel"], destructiveButtonIndex: 0, cancelButtonIndex: 1 },
+          (i) => {
+            if (i === 0) void end();
+          },
+        );
+      } else {
+        Alert.alert(title, message, [
+          { text: "Cancel", style: "cancel" },
+          { text: "End run", style: "destructive", onPress: () => void end() },
+        ]);
+      }
+    },
+    [target, load],
+  );
+
   const inProgress = runs.filter((r) => r.status === "running" || r.status === "paused").sort((a, b) => (a.status === b.status ? 0 : a.status === "running" ? -1 : 1));
   const finished = runs.filter((r) => r.status === "done" || r.status === "abandoned");
   const rows: Row[] = [];
@@ -84,7 +115,13 @@ export default function RunsScreen() {
           const left = r.timerEndsAt ? remaining(r.timerEndsAt, now) : null;
           const el = r.finishedAt ? r.elapsedSeconds : Math.round((now - new Date(r.startedAt).getTime()) / 1000);
           return (
-            <Pressable testID={`run-${r.id}`} onPress={() => router.push(`/session/${r.sessionId}`)} style={rowStyle}>
+            <Pressable
+              testID={`run-${r.id}`}
+              onPress={() => router.push(`/session/${r.sessionId}`)}
+              onLongPress={r.status === "running" || r.status === "paused" ? () => endRun(r) : undefined}
+              accessibilityHint={r.status === "running" || r.status === "paused" ? "Touch and hold to end the run" : undefined}
+              style={rowStyle}
+            >
               <StatusDot status={live ? "running" : r.status === "paused" ? "awaiting_input" : "idle"} />
               <View style={{ flex: 1 }}>
                 <Text numberOfLines={1} style={{ color: t.text, fontWeight: "600" }}>{r.protocolName}</Text>

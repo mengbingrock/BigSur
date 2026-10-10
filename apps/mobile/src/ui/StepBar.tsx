@@ -59,7 +59,7 @@ export function StepBar({ run }: { run: RunHandle }) {
           </>
         ) : (
           <Text style={{ color: t.text, fontSize: 16 }}>
-            {r.status === "done" ? (doneCount >= total ? "All steps done." : `Run finished after ${doneCount} of ${total} steps.`) : "Run abandoned."}
+            {r.status === "done" ? (doneCount >= total ? "All steps done." : `Run finished after ${doneCount} of ${total} steps.`) : "Run ended early."}
           </Text>
         )}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 }}>

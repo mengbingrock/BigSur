@@ -157,4 +157,13 @@ describe("protocol runs on the server that holds the session", () => {
     expect(sys.length).toBeGreaterThanOrEqual(5);
     expect(String((sys[0]!.data.data as { content: string }).content)).toMatch(/^▶ Run started/);
   });
+
+  it("deleting a run's chat ends the run", async () => {
+    const p = (await (await post("/api/runs", { protocolSlug: "user--chemically-competent-cells-tss" })).json()) as RunPayload;
+    expect(p.run.status).toBe("running");
+    expect((await api(`/api/sessions/${p.run.sessionId}`, { method: "DELETE" })).status).toBe(200);
+    const after = (await (await api(`/api/runs/${p.run.id}`)).json()) as RunPayload;
+    expect(after.run.status).toBe("abandoned");
+    expect((await api("/api/runs/active")).status).toBe(404);
+  });
 });

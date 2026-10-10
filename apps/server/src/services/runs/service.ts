@@ -252,6 +252,26 @@ export async function abandon(run: RunRow, reason?: string): Promise<RunRow> {
   return after;
 }
 
+/** A run's chat was deleted. The run cannot go on without it (its transcript,
+ *  its write-up and every way back to it are the chat), so end it rather than
+ *  leave it "in progress" pointing at nothing. `hostId` limits it to the runs
+ *  of the Mac that held the chat; null means a chat held by this server. */
+export async function endRunsForDeletedSession(email: string, sessionId: string, hostId: string | null): Promise<number> {
+  const open = await rdb.listRuns(email, { status: ["running", "paused"] });
+  let ended = 0;
+  for (const run of open) {
+    if (run.sessionId !== sessionId || (run.hostId ?? null) !== hostId) continue;
+    // Two notices can arrive for one delete (the tunneled request and the
+    // Mac's own "deleted" frame); re-read so the second is a no-op.
+    const fresh = await rdb.getRun(run.id);
+    if (!fresh || (fresh.status !== "running" && fresh.status !== "paused")) continue;
+    await abandon(fresh, "chat deleted");
+    ended++;
+  }
+  if (ended) console.log(`[runs] ended ${ended} run(s) whose chat ${sessionId} was deleted`);
+  return ended;
+}
+
 export async function setScale(run: RunRow, scale: RunScale | null): Promise<RunRow> {
   await rdb.updateRun(run.id, { scale });
   const { run: after } = await emit(run.id, "scaled", scale ? { scale } : { cleared: true });

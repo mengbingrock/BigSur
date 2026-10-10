@@ -18,6 +18,8 @@ describe("run formatting", () => {
   it("fraction and summary", () => {
     expect(fraction(5, 9, "running")).toBe("step 5 of 9");
     expect(fraction(9, 9, "done")).toBe("9 of 9 done");
+    expect(fraction(3, 9, "done", 3)).toBe("3 of 9 done");
+    expect(fraction(4, 9, "abandoned")).toBe("ended early");
     expect(summaryLine({ steps: [{ timer: null }, { timer: { seconds: 1 } }] as never, loose: false })).toBe("2 steps · 1 timer");
     expect(summaryLine({ steps: [{ timer: null }] as never, loose: true })).toBe("1 step · no numbered list — one step per paragraph");
   });

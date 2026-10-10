@@ -15,6 +15,7 @@ import { boxSessionCookie, isDesktop, proxyServerBase } from "../services/llmSet
 import { linkState, stableHostId } from "../services/deviceLink/client";
 import { sendPush } from "../services/push";
 import { ackRunEvents, replayRunsTo } from "../services/runs/linkBridge";
+import { endRunsForDeletedSession } from "../services/runs/service";
 import { readLinkToken, sealLinkToken } from "../services/session";
 import { runBadge } from "./sessions";
 
@@ -138,7 +139,11 @@ async function handleMirror(conn: HostConn, frame: Extract<HostToBox, { t: "mirr
   try {
     if (frame.session) await mirror.upsertMirrorSession(email, hostId, { ...frame.session, hostId });
     if (frame.messages) await mirror.upsertMirrorMessages(email, hostId, frame.messages.sessionId, frame.messages.items);
-    if (frame.deleted) await mirror.deleteMirrorSession(email, hostId, frame.deleted);
+    if (frame.deleted) {
+      await mirror.deleteMirrorSession(email, hostId, frame.deleted);
+      // Deleted on the Mac itself: a run tracked in that chat ends with it.
+      await endRunsForDeletedSession(email, frame.deleted, hostId);
+    }
     if (frame.sessionIds) await mirror.pruneMirrorSessions(email, hostId, frame.sessionIds);
     if (frame.event) {
       await mirror.insertMirrorEvent(email, hostId, frame.event);
@@ -266,6 +271,11 @@ export const tunnelRoute = HttpRouter.add(
               const del = request.method === "DELETE" ? rest.match(/^\/api\/sessions\/([^/?]+)\/?(?:\?.*)?$/) : null;
               if (del && (head.status === 404 || (head.status >= 200 && head.status < 300))) {
                 void mirror.deleteMirrorSession(user.email, hostId, del[1]!);
+                // …and a run tracked in that chat ends, or it would sit "in
+                // progress" in the Runs tab pointing at a chat that is gone.
+                void endRunsForDeletedSession(user.email, del[1]!, hostId).catch((e) =>
+                  console.warn("[runs] ending runs of a deleted chat failed:", e instanceof Error ? e.message : e),
+                );
               }
               if (wkey) watching.set(wkey, (watching.get(wkey) ?? 0) + 1);
               const stream = new ReadableStream<Uint8Array>({

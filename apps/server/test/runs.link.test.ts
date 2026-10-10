@@ -143,4 +143,17 @@ describe("a run for a session held on a Mac", () => {
     expect(r.runId).toBe(runId);
     expect(r.sessionId).toBe(sessionId);
   }, 30000);
+
+  it("deleting the run's chat from the phone ends the run, so it leaves In progress", async () => {
+    expect((await api(`/api/hosts/${hostId}/api/sessions/${sessionId}`, { method: "DELETE" })).status).toBe(200);
+    await waitFor(async () => {
+      const r = (await (await api(`/api/runs/${runId}`)).json()) as { run: { status: string } };
+      return r.run.status === "abandoned";
+    }, 10000);
+    const list = (await (await api("/api/runs")).json()) as { runs: { id: string; status: string }[] };
+    expect(list.runs.find((r) => r.id === runId)?.status).toBe("abandoned");
+    // One "abandoned" event, although the box heard of the delete twice.
+    const r = (await (await api(`/api/runs/${runId}`)).json()) as { events: { type: string }[] };
+    expect(r.events.filter((e) => e.type === "abandoned")).toHaveLength(1);
+  }, 30000);
 });
