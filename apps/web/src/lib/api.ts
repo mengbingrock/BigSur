@@ -26,6 +26,10 @@ const BOX_ONLY = [
   /^\/api\/billing\//,
   /^\/api\/admin\//,
   /^\/api\/llm\/proxy-token\b/,
+  // The shared library lives on the box; reading it goes straight there. The
+  // one write — saving a copy — goes to wherever the person's own protocols
+  // live, so it is not listed.
+  /^\/api\/library\/(?!import\b)/,
 ];
 
 function readStoredHost(): string | null {

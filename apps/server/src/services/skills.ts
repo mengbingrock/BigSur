@@ -433,6 +433,17 @@ function parseOrigin(raw: unknown): SkillOrigin | undefined {
       digest: str(o.digest),
     };
   }
+  if (o.kind === "library") {
+    const id = str(o.id);
+    if (!id) return undefined;
+    return {
+      kind: "library",
+      id,
+      source: str(o.source) ?? "",
+      url: str(o.url) ?? "",
+      license: str(o.license) ?? "",
+    };
+  }
   return undefined;
 }
 
@@ -773,6 +784,8 @@ export interface SkillUpdate {
   application?: string;
   domains?: readonly string[];
   keywords?: readonly string[];
+  /** Provenance to record on create (a save keeps what the file had). */
+  origin?: SkillOrigin;
 }
 
 function assertEditable(skill: Skill) {
@@ -949,6 +962,7 @@ export function createSkill(input: SkillUpdate, email: string): Skill {
   if (input.license) data.license = input.license;
   if (input.kind === "protocol") data.kind = "protocol";
   writePurposeFields(data, input);
+  if (input.origin) data.origin = input.origin;
 
   const content = matter.stringify(input.body.replace(/\s*$/, "") + "\n", data);
   fs.writeFileSync(file, content, "utf8");

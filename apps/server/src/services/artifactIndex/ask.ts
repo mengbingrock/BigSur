@@ -7,6 +7,7 @@
 import { ensureIndexed, retrievePassages } from "./index";
 import { resolveEmbedTarget } from "./embed";
 import { chatComplete } from "./chat";
+import { libraryPassagesAnywhere, type Scope } from "../library/federate";
 
 /** How many passages the model sees. Enough for an answer that spans two
  *  sections, few enough to stay fast and cheap. */
@@ -49,6 +50,13 @@ export interface Citation {
    *  summary. Lets the UI say "Reaction › step 3" and open it. */
   path: string;
   grain: "section" | "step" | "summary";
+  /** Own protocol, or the shared library. A library citation carries its
+   *  source and licence, which is where the attribution the licence asks
+   *  for is given. */
+  pool: "mine" | "library";
+  source?: string | undefined;
+  url?: string | undefined;
+  license?: string | undefined;
 }
 
 export interface AskResult {
@@ -65,7 +73,7 @@ export interface AskResult {
 export async function askLibrary(
   question: string,
   email: string,
-  opts?: { kind?: "skill" | "protocol" },
+  opts?: { kind?: "skill" | "protocol"; scope?: Scope },
 ): Promise<AskResult> {
   const q = question.trim();
   if (!q) return { answer: "", citations: [], available: true, confidence: null };
@@ -74,11 +82,25 @@ export async function askLibrary(
   const target = await resolveEmbedTarget(email);
   if (!target) return { answer: "", citations: [], available: false, confidence: null };
 
-  const passages = await retrievePassages(q, email, {
-    kind: opts?.kind ?? "protocol",
-    limit: PASSAGE_COUNT,
-  });
-  if (!passages) return { answer: "", citations: [], available: false, confidence: null };
+  // Passages from the person's own protocols, the shared library, or both.
+  // With both, the person's own take the larger share: an answer about this
+  // lab's practice should come from this lab's protocols when they have it.
+  const scope: Scope = opts?.scope ?? "mine";
+  const own =
+    scope === "library"
+      ? []
+      : (await retrievePassages(q, email, { kind: opts?.kind ?? "protocol", limit: scope === "all" ? 5 : PASSAGE_COUNT })) ?? [];
+  const lib = scope === "mine" ? [] : await libraryPassagesAnywhere(q, { limit: scope === "all" ? 3 : PASSAGE_COUNT, email });
+  const passages: Array<{
+    slug: string; name: string; heading: string; text: string; score: number; path: string;
+    grain: "section" | "step" | "summary"; pool: "mine" | "library"; source?: string; url?: string; license?: string;
+  }> = [
+    ...own.map((p) => ({ ...p, pool: "mine" as const })),
+    ...lib.map((p) => ({
+      slug: `library:${p.id}`, name: p.title, heading: p.heading, text: p.text, score: p.score, path: p.path,
+      grain: p.grain, pool: "library" as const, source: p.source, url: p.url, license: p.license,
+    })),
+  ].sort((a, b) => b.score - a.score);
   if (passages.length === 0) {
     return {
       answer: "There are no protocols to answer from yet.",
@@ -90,7 +112,7 @@ export async function askLibrary(
 
   const numbered = passages.map((p, i) => ({
     n: i + 1,
-    name: p.name,
+    name: p.pool === "library" ? `${p.name} (library: ${p.source})` : p.name,
     heading: p.heading,
     text: p.text,
   }));
@@ -112,7 +134,10 @@ export async function askLibrary(
     const n = Number(m[1]);
     const p = passages[n - 1];
     if (!p || used.some((c) => c.n === n)) continue;
-    used.push({ n, slug: p.slug, name: p.name, heading: p.heading, quote: p.text, path: p.path, grain: p.grain });
+    used.push({
+      n, slug: p.slug, name: p.name, heading: p.heading, quote: p.text, path: p.path, grain: p.grain, pool: p.pool,
+      ...(p.pool === "library" ? { source: p.source, url: p.url, license: p.license } : {}),
+    });
   }
   return { answer: text, citations: used, available: true, confidence };
 }

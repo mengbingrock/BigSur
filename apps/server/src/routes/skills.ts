@@ -44,8 +44,8 @@ import {
   indexKey,
   indexStatus,
   rebuild,
-  search,
 } from "../services/artifactIndex";
+import { parseScope, searchScoped } from "../services/library/federate";
 
 /** Queue an artifact for re-embedding and start on it now. Queuing alone left
  *  the index stale until the next search happened to run a reconcile, so an
@@ -513,16 +513,19 @@ export const searchSkillsRoute = HttpRouter.add(
       ...(limit ? { limit } : {}),
     };
 
+    // Which pool: the person's own protocols (default), the shared library on
+    // labee.online, or both fused into one list.
+    const scope = parseScope(url.searchParams.get("scope"));
     return yield* attempt(async () => {
       // Pick up anything edited on disk since the last pass, then query. On a
       // warm index this is a few hashes.
-      await ensureIndexed(user?.email);
+      if (scope !== "library") await ensureIndexed(user?.email);
       // Hybrid when a credential is available, BM25 over the chunks when
-      // not. Only an index with nothing in it at all falls back to a plain
-      // substring scan of the files.
-      const result = await search(q, user?.email, opts);
+      // not. Only an own index with nothing in it at all falls back to a
+      // plain substring scan of the files.
+      const result = await searchScoped(q, user?.email, { scope, ...opts });
       if (result) return result;
-      return { mode: "lexical" as const, hits: searchSkills(q, user?.email, opts) };
+      return { mode: "lexical" as const, hits: searchSkills(q, user?.email, opts), libraryReachable: true };
     });
   }),
 );
@@ -564,9 +567,12 @@ export const askRoute = HttpRouter.add(
   Effect.gen(function* () {
     const user = yield* sessionUser;
     if (!user) return yield* error("Authentication required.", 401);
-    const body = yield* safeBody<{ q?: string; kind?: "skill" | "protocol" }>();
+    const body = yield* safeBody<{ q?: string; kind?: "skill" | "protocol"; scope?: string }>();
     return yield* attempt(() =>
-      askLibrary(body?.q ?? "", user.email, { ...(body?.kind ? { kind: body.kind } : {}) }),
+      askLibrary(body?.q ?? "", user.email, {
+        ...(body?.kind ? { kind: body.kind } : {}),
+        scope: parseScope(body?.scope),
+      }),
     );
   }),
 );

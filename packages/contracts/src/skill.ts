@@ -39,6 +39,19 @@ export const SkillOrigin = Schema.Union([
     /** Content digest, when the registry provides one. */
     digest: Schema.optional(Schema.String),
   }),
+  /** Saved from the shared protocol library on labee.online. The copy is the
+   *  person's own; this records where it came from, so the original is not
+   *  shown beside it in search and the licence travels with it. */
+  Schema.Struct({
+    kind: Schema.Literals(["library"]),
+    /** Library id, e.g. "protocol-io:Protocol.io-0". */
+    id: Schema.String,
+    /** Where the library got it: "protocol-io", "protocol-exchange". */
+    source: Schema.String,
+    url: Schema.String,
+    /** As stated by the source: "CC BY 4.0". */
+    license: Schema.String,
+  }),
 ]);
 export type SkillOrigin = typeof SkillOrigin.Type;
 

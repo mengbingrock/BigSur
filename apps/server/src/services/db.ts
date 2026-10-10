@@ -438,6 +438,43 @@ async function openDb(): Promise<SqlDb> {
     "CREATE VIRTUAL TABLE IF NOT EXISTS artifact_chunks_fts USING fts5(" +
       "source_path UNINDEXED, idx UNINDEXED, heading, text, tokenize='unicode61 remove_diacritics 2');",
   );
+  // The shared protocol library on the box: read-only to everyone, ingested
+  // by an operator from licensed sources, searched beside a person's own
+  // protocols and saved from. Its own tables, not the artifact scanner: a
+  // library of thousands is not read whole into memory on every listing.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS library_protocols (" +
+      "id TEXT PRIMARY KEY, " +
+      "source TEXT NOT NULL, " +
+      "source_url TEXT NOT NULL DEFAULT '', " +
+      "doi TEXT, " +
+      "license TEXT NOT NULL DEFAULT '', " +
+      "title TEXT NOT NULL, " +
+      "description TEXT NOT NULL DEFAULT '', " +
+      "category TEXT, " +
+      "domains TEXT NOT NULL DEFAULT '[]', " +
+      "keywords TEXT NOT NULL DEFAULT '[]', " +
+      "problem TEXT, method TEXT, application TEXT, " +
+      "body_md TEXT NOT NULL, " +
+      "content_hash TEXT NOT NULL, " +
+      "model TEXT NOT NULL DEFAULT '', " +
+      "ingested_at TEXT NOT NULL);",
+  );
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS library_chunks (" +
+      "protocol_id TEXT NOT NULL, " +
+      "idx INTEGER NOT NULL, " +
+      "heading TEXT NOT NULL DEFAULT '', " +
+      "text TEXT NOT NULL, " +
+      "grain TEXT NOT NULL DEFAULT 'section', " +
+      "path TEXT NOT NULL DEFAULT '', " +
+      "vector BLOB NOT NULL, " +
+      "PRIMARY KEY (protocol_id, idx));",
+  );
+  db.exec(
+    "CREATE VIRTUAL TABLE IF NOT EXISTS library_chunks_fts USING fts5(" +
+      "protocol_id UNINDEXED, idx UNINDEXED, heading, text, tokenize='unicode61 remove_diacritics 2');",
+  );
   db.exec(
     "CREATE TABLE IF NOT EXISTS mirror_sessions (" +
       "email TEXT NOT NULL, " +

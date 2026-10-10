@@ -385,7 +385,7 @@ function identifierTokens(q: string): string[] {
 }
 
 /** ~240 characters of the chunk centred on the densest run of query words. */
-function snippetOf(text: string, query: string): string {
+export function snippetOf(text: string, query: string): string {
   const flat = text.replace(/\s+/g, " ").trim();
   if (flat.length <= 240) return flat;
   const words = query.toLowerCase().split(/\W+/).filter((w) => w.length > 2);
@@ -406,7 +406,7 @@ function snippetOf(text: string, query: string): string {
 
 /** An FTS5 MATCH expression: every word of the query, quoted, OR-ed. Any word
  *  can match; BM25 does the ranking. Empty when the query has no words. */
-function ftsExpression(q: string): string {
+export function ftsExpression(q: string): string {
   const words = q
     .split(/[^\p{L}\p{N}]+/u)
     .map((w) => w.trim())
