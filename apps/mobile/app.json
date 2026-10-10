@@ -45,7 +45,10 @@
       "expo-web-browser"
     ],
     "experiments": {
-      "typedRoutes": false
+      "typedRoutes": false,
+      "inlineModules": {
+        "watchedDirectories": ["native"]
+      }
     },
     "icon": "./assets/icon.png",
     "splash": {
