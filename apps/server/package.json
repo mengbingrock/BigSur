@@ -11,7 +11,8 @@
     "build": "tsdown",
     "start": "node dist/bin.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "eval": "bun run eval/cli.ts"
   },
   "dependencies": {
     "@effect/platform-bun": "catalog:",

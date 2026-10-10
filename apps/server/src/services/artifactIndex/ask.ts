@@ -33,6 +33,10 @@ export interface Citation {
   heading: string;
   /** The passage text, so the UI can show what was cited. */
   quote: string;
+  /** Where in the protocol: "2.3" for a step, "2" for a section, "" for the
+   *  summary. Lets the UI say "Reaction › step 3" and open it. */
+  path: string;
+  grain: "section" | "step" | "summary";
 }
 
 export interface AskResult {
@@ -89,7 +93,7 @@ export async function askLibrary(
     const n = Number(m[1]);
     const p = passages[n - 1];
     if (!p || used.some((c) => c.n === n)) continue;
-    used.push({ n, slug: p.slug, name: p.name, heading: p.heading, quote: p.text });
+    used.push({ n, slug: p.slug, name: p.name, heading: p.heading, quote: p.text, path: p.path, grain: p.grain });
   }
   return { answer: answer.trim(), citations: used, available: true };
 }

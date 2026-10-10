@@ -426,6 +426,18 @@ async function openDb(): Promise<SqlDb> {
       "vector BLOB NOT NULL, " +
       "PRIMARY KEY (source_path, idx));",
   );
+  // Which grain a chunk is (section / step / summary) and where it sits in
+  // the protocol's tree ("2.3"), so retrieval can prefer steps for a
+  // parameter question and a citation can name the step.
+  ensureColumn(db, "artifact_chunks", "grain", "TEXT NOT NULL DEFAULT 'section'");
+  ensureColumn(db, "artifact_chunks", "path", "TEXT NOT NULL DEFAULT ''");
+  // Full-text index over the same chunks, for BM25. Kept in step with
+  // artifact_chunks by the indexer, not by triggers, so a chunk written
+  // before it has a vector is already searchable by its words.
+  db.exec(
+    "CREATE VIRTUAL TABLE IF NOT EXISTS artifact_chunks_fts USING fts5(" +
+      "source_path UNINDEXED, idx UNINDEXED, heading, text, tokenize='unicode61 remove_diacritics 2');",
+  );
   db.exec(
     "CREATE TABLE IF NOT EXISTS mirror_sessions (" +
       "email TEXT NOT NULL, " +

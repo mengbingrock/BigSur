@@ -31,7 +31,7 @@ import {
 } from "../services/marketplaces";
 import { importSkillFromRegistry } from "../services/registryImport";
 import { checkForUpdate, updateSkill } from "../services/updateSkill";
-import { suggestCategories } from "../services/artifactIndex/agent";
+import { suggestCategories, suggestPurpose } from "../services/artifactIndex/agent";
 import { askLibrary } from "../services/artifactIndex/ask";
 import {
   drain,
@@ -41,7 +41,7 @@ import {
   indexKey,
   indexStatus,
   rebuild,
-  retrieve,
+  search,
 } from "../services/artifactIndex";
 
 /** Queue an artifact for re-embedding and start on it now. Queuing alone left
@@ -514,8 +514,11 @@ export const searchSkillsRoute = HttpRouter.add(
       // Pick up anything edited on disk since the last pass, then query. On a
       // warm index this is a few hashes.
       await ensureIndexed(user?.email);
-      const hits = await retrieve(q, user?.email, opts);
-      if (hits) return { mode: "semantic" as const, hits };
+      // Hybrid when a credential is available, BM25 over the chunks when
+      // not. Only an index with nothing in it at all falls back to a plain
+      // substring scan of the files.
+      const result = await search(q, user?.email, opts);
+      if (result) return result;
       return { mode: "lexical" as const, hits: searchSkills(q, user?.email, opts) };
     });
   }),
@@ -565,6 +568,30 @@ export const askRoute = HttpRouter.add(
   }),
 );
 
+/**
+ * POST /api/skills/purpose/suggest — propose the purpose layer.
+ *
+ * For the protocols that lack it (or the `slugs` given): one sentence each
+ * for problem, method and application, plus domains and keywords. Writes
+ * nothing; the caller applies a proposal through PUT /api/skills/:slug, where
+ * the person can edit it first.
+ */
+export const suggestPurposeRoute = HttpRouter.add(
+  "POST",
+  "/api/skills/purpose/suggest",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const body = yield* safeBody<{ slugs?: string[]; kind?: "skill" | "protocol" }>();
+    return yield* attempt(() =>
+      suggestPurpose(user.email, {
+        ...(body?.slugs ? { slugs: body.slugs } : {}),
+        ...(body?.kind ? { kind: body.kind } : {}),
+      }),
+    );
+  }),
+);
+
 /** GET /api/skills/index/status — indexing progress, for the page's notice. */
 export const indexStatusRoute = HttpRouter.add(
   "GET",
@@ -590,6 +617,7 @@ export const indexRebuildRoute = HttpRouter.add(
 export const skillsRoutes = [
   askRoute,
   suggestCategoriesRoute,
+  suggestPurposeRoute,
   indexStatusRoute,
   indexRebuildRoute,
   listCategoriesRoute,

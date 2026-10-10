@@ -271,3 +271,98 @@ export async function suggestCategories(
 
   return { proposals, newCategories, usedModel };
 }
+
+// ---------- the purpose layer ------------------------------------------------
+
+export interface PurposeProposal {
+  slug: string;
+  name: string;
+  problem: string;
+  method: string;
+  application: string;
+  domains: string[];
+  keywords: string[];
+  /** 0–1, the model's own. */
+  confidence: number;
+}
+
+export interface PurposeResult {
+  proposals: PurposeProposal[];
+  /** False when no credential resolved, so nothing could be proposed. */
+  available: boolean;
+}
+
+/** How many artifacts go to the model in one call. */
+const PURPOSE_BATCH = 12;
+
+/**
+ * Propose the purpose layer — problem, method, application, domains,
+ * keywords — for protocols that lack it, or for the `slugs` given. One
+ * batched model call per dozen; writes nothing. The caller applies a
+ * proposal through the ordinary save, where the person can edit it first.
+ */
+export async function suggestPurpose(
+  email: string,
+  opts?: { slugs?: readonly string[]; kind?: "skill" | "protocol" },
+): Promise<PurposeResult> {
+  const kind = opts?.kind ?? "protocol";
+  const mine = getAllSkills(email).filter((s) => s.artifactKind === kind && !s.origin);
+  const target = opts?.slugs
+    ? mine.filter((s) => opts.slugs!.includes(s.slug))
+    : mine.filter((s) => !s.problem && !s.method && !s.application);
+  if (target.length === 0) return { proposals: [], available: true };
+
+  const embedTarget = await resolveEmbedTarget(email);
+  if (!embedTarget) return { proposals: [], available: false };
+
+  const proposals: PurposeProposal[] = [];
+  for (let i = 0; i < target.length; i += PURPOSE_BATCH) {
+    const batch = target.slice(i, i + PURPOSE_BATCH);
+    const answer = (await chatJSON(
+      embedTarget,
+      "You write the purpose layer for laboratory protocols: for each one, what problem it " +
+        "solves, how it does it, when a scientist would reach for it, which subject areas it " +
+        "belongs to, and a few search keywords. One sentence each for problem, method and " +
+        "application, in plain language a bench scientist would use. Domains are two to four " +
+        "short area names such as \"Cloning\" or \"Cell Biology & Culture\"; keywords are three to " +
+        "eight terms. Say nothing the text does not support. Reply as JSON: " +
+        '{"items":[{"slug","problem","method","application","domains":[],"keywords":[],"confidence"}]}.',
+      JSON.stringify({
+        artifacts: batch.map((s) => ({
+          slug: s.slug,
+          name: s.name,
+          description: s.description,
+          category: s.category ?? null,
+          text: firstWords(s.body, 1200),
+        })),
+      }),
+    )) as {
+      items?: Array<{
+        slug: string;
+        problem?: string;
+        method?: string;
+        application?: string;
+        domains?: unknown;
+        keywords?: unknown;
+        confidence?: number;
+      }>;
+    } | null;
+    for (const item of answer?.items ?? []) {
+      const s = batch.find((x) => x.slug === item.slug);
+      if (!s) continue;
+      const list = (v: unknown): string[] =>
+        Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean) : [];
+      proposals.push({
+        slug: s.slug,
+        name: s.name,
+        problem: (item.problem ?? "").trim(),
+        method: (item.method ?? "").trim(),
+        application: (item.application ?? "").trim(),
+        domains: list(item.domains).slice(0, 4),
+        keywords: list(item.keywords).slice(0, 8),
+        confidence: Math.min(1, Math.max(0, Number(item.confidence ?? 0.6))),
+      });
+    }
+  }
+  return { proposals, available: true };
+}

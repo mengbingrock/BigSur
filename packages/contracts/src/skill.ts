@@ -68,6 +68,17 @@ export const Skill = Schema.Struct({
   updatedAt: Schema.optional(Schema.String),
   /** Sibling files in the artifact directory, excluding SKILL.md itself. */
   fileCount: Schema.optional(Schema.Number),
+  /** The purpose layer — what the protocol is for, apart from its steps. A
+   *  question phrased as a goal matches a protocol through these when its
+   *  steps never use the goal's words. All optional; filled by the person or
+   *  proposed by the categorisation agent. */
+  problem: Schema.optional(Schema.String),
+  method: Schema.optional(Schema.String),
+  application: Schema.optional(Schema.String),
+  /** Subject-area tags ("Cloning", "Cell Biology & Culture"); `category` stays
+   *  the folder, these are labels. */
+  domains: Schema.optional(Schema.Array(Schema.String)),
+  keywords: Schema.optional(Schema.Array(Schema.String)),
 });
 export type Skill = typeof Skill.Type;
 
@@ -92,5 +103,11 @@ export const SkillUpdate = Schema.Struct({
   body: Schema.String,
   /** When omitted on save, the existing kind is preserved. */
   kind: Schema.optional(ArtifactKind),
+  /** Purpose layer; omitted fields are left as they are on save. */
+  problem: Schema.optional(Schema.String),
+  method: Schema.optional(Schema.String),
+  application: Schema.optional(Schema.String),
+  domains: Schema.optional(Schema.Array(Schema.String)),
+  keywords: Schema.optional(Schema.Array(Schema.String)),
 });
 export type SkillUpdate = typeof SkillUpdate.Type;

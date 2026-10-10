@@ -92,6 +92,25 @@ function fakeComplete(system: string, user: string): string {
     return `${sentence.trim()} [${hit.n}]`;
   }
 
+  // Purpose layer: a deterministic sentence from each artifact's own words,
+  // so a test can see the fields land without a model.
+  if (system.includes("purpose layer")) {
+    const payload = JSON.parse(user) as {
+      artifacts?: Array<{ slug: string; name: string; description: string; category: string | null; text: string }>;
+    };
+    return JSON.stringify({
+      items: (payload.artifacts ?? []).map((a) => ({
+        slug: a.slug,
+        problem: `Needing to ${a.name.toLowerCase()} reliably.`,
+        method: a.description || `Following the ${a.name.toLowerCase()} steps.`,
+        application: `Whenever a ${a.name.toLowerCase()} is called for.`,
+        domains: [a.category ?? "General"],
+        keywords: tokens(a.name).slice(0, 4),
+        confidence: 0.6,
+      })),
+    });
+  }
+
   const payload = JSON.parse(user) as {
     categories?: string[];
     artifacts?: Array<{ slug: string; name: string; text: string }>;
