@@ -281,3 +281,67 @@ Exit: Done from the lock screen advances the run.
    plan assumes yes; it is also the part the web and Mac apps see.
 3. Minimum iOS 26 for the Siri build (D6), which determines whether the
    iOS 1.0 build under review is the last one for older devices.
+
+## Execution log
+
+### 2026-10-09 — all five stages built on branch `worktree-siri-runs`
+
+Four commits, one per stage (stages 3 and 4 together): `1b13ae8` server,
+`851baaa` app, `f11d9a1` Siri intents, `437be0e` Live Activity and Control
+Center. Everything below was checked on this Mac; nothing has run on a
+physical iPhone yet.
+
+**Verified**
+
+- Server: 207 tests in 29 files (`apps/server`), including the new
+  `runs.parse`, `runs.http`, `runs.link` (box + Mac over the Device Link,
+  with the Mac asleep and replayed on reconnect), `siri.router` and
+  `answerMap` suites. The seeded protocols all parse without the loose
+  fallback.
+- App: type-checks; 12 unit tests (run formatting, notification
+  categories); `expo export --platform web` builds.
+- Native: `expo prebuild` + `pod install` + `xcodebuild` for the iOS
+  Simulator (Xcode 27) succeed for the app and the widget extension. The
+  App Intents metadata in the built app lists all 12 intents; the
+  extension's lists `DoneStepIntent` and `TalkControlIntent`.
+
+**Changed from the plan while building**
+
+- The parser lives in `packages/session-core` (not `apps/server`) so the
+  Start-run sheet previews with the same code that freezes the steps.
+- The run verbs share one intent with an `AppEnum`, and the timer lengths
+  are an enum too: Apple allows only entity/enum parameters in phrases, so
+  "set a timer for *15 minutes*" cannot carry a free duration.
+- `GET /api/runs/active` is the single run in progress (the `:id` route
+  accepts `active`); there is no separate active-list route.
+- The widget extension and the app compile the same shared Swift
+  (`targets/widgets/shared`): the extension through its synchronized
+  folder, the app through inline modules' `watchedDirectories`.
+- The Control Center control opens Voice mode rather than marking a step
+  done: a control's intent runs in the extension, which has no Keychain
+  access to the session; the lock screen's Done (a `LiveActivityIntent`,
+  which runs in the app) covers the bench case.
+
+**Not verified — needs a device (the stage 3–5 exit conditions)**
+
+- Every phrase from the lock screen with the app killed; "Start … in
+  Labee" resolving the protocol name; the two-beat note and ask; the
+  disambiguation prompt; the read-back wording.
+- Time-sensitive announce on AirPods; the Reply and question buttons on
+  pushes; the timer notification's Done / Five more minutes.
+- The Live Activity appearing when a timer starts, counting down, and its
+  Done advancing the run; the Control Center button.
+- Cold-start cost of a background intent on a mid-range iPhone (plan §8:
+  move to an App Intents extension if it hurts).
+- Signing: the widget target needs its own provisioning profile under the
+  team; EAS creates it on the first production build.
+
+**Known rough edges**
+
+- `requestConfirmation(result:)` in the Ask intent is deprecated in the
+  iOS 26 SDK (still works); the replacement takes a `conditions:` form.
+- The question push's buttons are generic ("Option 1/2/3"); iOS fixes
+  category button titles at registration, so the body lists the options.
+- The Siri router's model call uses the account's provider through the
+  same credential path as chat; with no credential it falls through to
+  "new chat" rather than failing.
