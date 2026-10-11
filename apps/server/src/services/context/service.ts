@@ -19,6 +19,7 @@ import {
   snapshotHierarchy,
 } from "../protocolHierarchy";
 import { getLibraryProtocol } from "../library/store";
+import { expandProtocolEvidence } from "../protocolRetrieval";
 import { searchScoped } from "../library/federate";
 import { reconcile } from "../artifactIndex/index";
 import { getHost, listHosts, requestHostJson } from "../deviceLink/hosts";
@@ -83,7 +84,7 @@ export function validateContextCall(value: unknown): ContextCall {
     throw new ContextError(400, "Invalid direction.");
   if (
     c.part !== undefined &&
-    !["state", "snapshot", "events", "tree"].includes(c.part)
+    !["state", "snapshot", "events", "tree", "context"].includes(c.part)
   )
     throw new ContextError(400, "Invalid part.");
   for (const k of ["archived", "localOnly", "includeEvents"] as const)
@@ -319,6 +320,16 @@ export async function retrieveLocal(
         name: library?.title ?? own!.name,
         revision,
       };
+      if (c.part === "context") {
+        const nodes = library?.hierarchy ?? markdownHierarchy(body);
+        if (c.nodeId && c.nodeId !== "summary:" && !nodes.some((n) => n.id === c.nodeId))
+          throw new ContextError(404, "Protocol node not found.");
+        const evidence = expandProtocolEvidence({ id: c.protocolSlug!, title: ref.name, nodes },
+          c.nodeId && c.nodeId !== "summary:" ? [c.nodeId] : nodes.filter((n) => !n.parentId).map((n) => n.id), c.query ?? "", 8000);
+        return result([{ ...ref, evidence, sourceNodeCount: nodes.length,
+          omittedNodeCount: nodes.length - evidence.length,
+          treeAvailable: true, continuation: "Use part:tree and nodeId to discover/read omitted nodes; use offset for long node text." }]);
+      }
       if (c.nodeId || c.part === "tree") {
         const nodes = library?.hierarchy ?? markdownHierarchy(body);
         const read = hierarchyNode(
@@ -378,6 +389,7 @@ export async function retrieveLocal(
         (found?.hits ?? []).map((h) => ({
           protocolSlug: h.slug,
           name: h.name,
+          ...(h.pool === "library" ? { source: h.source, sourceUrl: h.url, libraryId: h.id } : {}),
           nodeId: `${h.grain}:${h.path}`,
           path: h.path,
           grain: h.grain,

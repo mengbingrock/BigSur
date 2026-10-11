@@ -7,6 +7,8 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 if (!process.argv.includes("--live"))
   throw new Error("Pass --live to use the authenticated Claude CLI.");
+const arg = (name: string, fallback: string) => process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1]! : fallback;
+const modelId = arg("--model", "haiku");
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "labee-siri-live-"));
 process.env.LABEE_DATA_DIR = path.join(root, "data");
 process.env.DECK_ROOT = path.join(root, "decks");
@@ -53,7 +55,11 @@ await sdb.appendMessage(
 await sdb.updateSession(older.id, { archived: true });
 for (let i = 0; i < 210; i++)
   await sdb.createSession({ email, title: `Recent unrelated session ${i}` });
-const cases = [
+const { upsertLibraryProtocol } = await import("../src/services/library/store");
+const { bioProHierarchy } = await import("../src/services/protocolHierarchy");
+await upsertLibraryProtocol({ id: "synthetic-violet", source: "synthetic", sourceUrl: "https://example.invalid/violet", license: "synthetic fixture", title: "Violet sensor calibration", description: "Calibration of a simulated sensor.", domains: [], keywords: [], body: "", hierarchy: bioProHierarchy({ "1": { title: "Calibration", text: "Use the amber reference only after the indicator turns green.", "1.1": "Set the simulated dial to 17.", "1.2": "Wait for the green indicator.", "1.3": "Apply the amber reference.", "1.4": "Record the displayed code Z42." } }) });
+await upsertLibraryProtocol({ id: "synthetic-distractor", source: "synthetic", sourceUrl: "https://example.invalid/other", license: "synthetic fixture", title: "Old violet sensor worksheet", description: "Violet sensor calibration reference", domains: [], keywords: [], body: "## Calibration\n1. Set dial to 99 and apply blue reference." });
+const cases: Array<{ name: string; request: string; expectedSession?: string; expectedProtocol?: string; expected: RegExp }> = [
   {
     name: "own-history-correction",
     request: "What final temperature did we agree for cobalt preparation?",
@@ -66,13 +72,16 @@ const cases = [
     expectedSession: older.id,
     expected: /K.?27|kay.?twenty.?seven/i,
   },
+  { name: "named-protocol-parameter", request: "In the protocol Violet sensor calibration, what value should I set the simulated dial to?", expectedProtocol: "library:synthetic-violet", expected: /17|seventeen/i },
+  { name: "named-protocol-condition", request: "According to Violet sensor calibration, when may I apply the amber reference?", expectedProtocol: "library:synthetic-violet", expected: /green/i },
+  { name: "named-protocol-order", request: "In Violet sensor calibration, what happens immediately after applying the amber reference?", expectedProtocol: "library:synthetic-violet", expected: /Z.?42|record.*code/i },
 ];
 let calls = 0;
 async function model(
   _: string,
   input: Record<string, unknown>,
 ): Promise<string> {
-  if (++calls > 24) throw new Error("Live evaluation call budget exceeded.");
+  if (++calls > 48) throw new Error("Live evaluation call budget exceeded.");
   return new Promise((resolve, reject) => {
     const child = spawn(
       process.env.CLAUDE_BIN || "claude",
@@ -82,14 +91,14 @@ async function model(
         "--system-prompt",
         CONTEXT_SYSTEM,
         "--model",
-        "haiku",
+        modelId,
         "--tools",
         "",
         "--output-format",
         "text",
         "--no-session-persistence",
       ],
-      { stdio: ["ignore", "pipe", "pipe"] },
+      { stdio: ["ignore", "pipe", "pipe"], cwd: "/private/tmp" },
     );
     let out = "",
       err = "";
@@ -122,7 +131,7 @@ const report: {
   calls?: number;
 } = {
   date: new Date().toISOString(),
-  model: "Claude Haiku via authenticated CLI",
+  model: modelId,
   cases: [],
 };
 for (const test of cases) {
@@ -149,13 +158,13 @@ for (const test of cases) {
         .map((r) => JSON.parse(String(r.data)));
       const hasSource = reads.some(
         (r) =>
-          r.call.sessionId === test.expectedSession &&
-          ["messages.read", "sessions.read"].includes(r.call.tool),
+          (test.expectedProtocol ? r.call.protocolSlug === test.expectedProtocol && r.call.tool === "protocols.read" : r.call.sessionId === test.expectedSession && ["messages.read", "sessions.read"].includes(r.call.tool)),
       );
       report.cases.push({
         name: test.name,
         passed: test.expected.test(result.spoken) && hasSource,
         expectedSession: test.expectedSession,
+        expectedProtocol: test.expectedProtocol,
         spoken: result.spoken,
         readCalls: reads.map((r) => r.call),
         elapsedMs: Date.now() - started,
@@ -170,7 +179,7 @@ for (const test of cases) {
 }
 report.calls = calls;
 fs.writeFileSync(
-  path.resolve("docs/siri-context-live-evaluation.json"),
+  path.resolve(arg("--out", "docs/siri-context-live-evaluation.json")),
   JSON.stringify(report, null, 2) + "\n",
 );
 process.exitCode = report.cases.every((c) => (c as { passed: boolean }).passed)

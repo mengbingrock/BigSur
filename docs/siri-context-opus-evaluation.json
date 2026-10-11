@@ -1,0 +1,152 @@
+{
+  "date": "2026-10-11T06:43:19.088Z",
+  "model": "claude-opus-5-5",
+  "cases": [
+    {
+      "name": "own-history-correction",
+      "passed": true,
+      "expectedSession": "ses_041842af9087c2d457",
+      "spoken": "42 degrees Celsius. That replaced the 37 degrees we first agreed, and you called it the final temperature.",
+      "readCalls": [
+        {
+          "tool": "sessions.search",
+          "mode": "hybrid",
+          "query": "cobalt preparation final temperature",
+          "limit": 20
+        },
+        {
+          "tool": "sessions.read",
+          "sessionId": "ses_041842af9087c2d457",
+          "hostId": "local",
+          "messageIdx": 50,
+          "direction": "after",
+          "limit": 20
+        },
+        {
+          "tool": "sessions.search",
+          "mode": "lexical",
+          "query": "temperature",
+          "sessionId": "ses_041842af9087c2d457",
+          "hostId": "local",
+          "limit": 20
+        },
+        {
+          "tool": "sessions.search",
+          "mode": "lexical",
+          "query": "degrees Celsius",
+          "sessionId": "ses_041842af9087c2d457",
+          "hostId": "local",
+          "limit": 20
+        },
+        {
+          "tool": "sessions.search",
+          "mode": "lexical",
+          "query": "cobalt",
+          "sessionId": "ses_041842af9087c2d457",
+          "hostId": "local",
+          "limit": 20
+        }
+      ],
+      "elapsedMs": 67198
+    },
+    {
+      "name": "archived-cross-session",
+      "passed": true,
+      "expectedSession": "ses_299437514d73f88e2f",
+      "spoken": "We chose lot K27 because lot K19 failed the purity check. That comes from the archived nickel comparison session, which has only that one note.",
+      "readCalls": [
+        {
+          "tool": "sessions.search",
+          "mode": "hybrid",
+          "query": "nickel lot comparison chose lot reason",
+          "limit": 10
+        },
+        {
+          "tool": "sessions.search",
+          "mode": "lexical",
+          "query": "nickel",
+          "limit": 20
+        },
+        {
+          "tool": "sessions.read",
+          "sessionId": "ses_299437514d73f88e2f",
+          "hostId": "local",
+          "limit": 50
+        }
+      ],
+      "elapsedMs": 29059
+    },
+    {
+      "name": "named-protocol-parameter",
+      "passed": true,
+      "expectedProtocol": "library:synthetic-violet",
+      "spoken": "Set the simulated dial to 17. That's step 1.1 of the Violet sensor calibration protocol. Next you wait for the green indicator, and only after that do you apply the amber reference.",
+      "readCalls": [
+        {
+          "tool": "protocols.search",
+          "query": "Violet sensor calibration simulated dial"
+        },
+        {
+          "tool": "protocols.read",
+          "protocolSlug": "library:synthetic-violet",
+          "part": "context",
+          "query": "simulated dial value"
+        }
+      ],
+      "elapsedMs": 23773
+    },
+    {
+      "name": "named-protocol-condition",
+      "passed": true,
+      "expectedProtocol": "library:synthetic-violet",
+      "spoken": "Only after the indicator turns green. In the protocol, step 1.1 sets the dial to 17 and step 1.2 waits for the green indicator. The amber reference goes on at step 1.3. Step 1.4 records the displayed code, Z42.",
+      "readCalls": [
+        {
+          "tool": "protocols.search",
+          "query": "Violet sensor calibration amber reference"
+        },
+        {
+          "tool": "protocols.read",
+          "protocolSlug": "library:synthetic-violet",
+          "part": "context",
+          "query": "amber reference",
+          "hostId": "local"
+        }
+      ],
+      "elapsedMs": 32793
+    },
+    {
+      "name": "named-protocol-order",
+      "passed": true,
+      "expectedProtocol": "library:synthetic-violet",
+      "spoken": "Next you record the displayed code, Z42. Applying the amber reference is step 1.3, and step 1.4 is recording that code. Step 1.4 is the last step of the protocol.",
+      "readCalls": [
+        {
+          "tool": "protocols.search",
+          "query": "Violet sensor calibration amber reference"
+        },
+        {
+          "tool": "protocols.read",
+          "protocolSlug": "library:synthetic-violet",
+          "part": "tree"
+        },
+        {
+          "tool": "protocols.read",
+          "protocolSlug": "library:synthetic-violet",
+          "nodeId": "section:1",
+          "part": "tree",
+          "revision": "753138706b28e5b4f2ae8078fa6c639411bbb91d19179eb3217e78d9318d1763"
+        },
+        {
+          "tool": "protocols.read",
+          "protocolSlug": "library:synthetic-violet",
+          "nodeId": "step:1.3",
+          "part": "context",
+          "revision": "753138706b28e5b4f2ae8078fa6c639411bbb91d19179eb3217e78d9318d1763"
+        }
+      ],
+      "elapsedMs": 49774
+    }
+  ],
+  "calls": 21
+}

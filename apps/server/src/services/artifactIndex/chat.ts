@@ -85,7 +85,7 @@ function fakeComplete(system: string, user: string): string {
     };
     const words = tokens(payload.question);
     const hit = payload.passages.find((p) =>
-      words.some((w) => p.text.toLowerCase().includes(w)),
+      words.some((w) => `${p.name} ${p.heading} ${p.text}`.toLowerCase().includes(w)),
     );
     if (!hit) return "The protocols provided do not cover that. [CONFIDENCE: 0.05]";
     const sentence = hit.text.split(/(?<=\.)\s/)[0] ?? hit.text;

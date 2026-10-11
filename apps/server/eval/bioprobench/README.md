@@ -42,3 +42,38 @@ python3 apps/server/eval/bioprobench/report.py --source /path/to/bioprobench --o
 ```
 
 This reuses the same indexes and already recorded predictions for overlapping questions. Exact title coverage is an auditable availability proxy; it does not prove that protocols under different titles are absent. Flat-window inputs include title, description, and rendered procedure, whereas legacy/hierarchy also include purpose summary fields; legacy versus hierarchy is the closer controlled representation comparison.
+
+## Opus 5.5, four tasks, and context expansion
+
+`prepareExpanded.ts` reuses the original corpus-only indexes. By default it selects 24 **fresh** questions per task (PQA, ORD, ERR, GEN), excluding every ID used in both earlier pilots. Sampling is deterministic and stratified by subtype; ERR additionally stratifies by correct/incorrect status. It compares `flat`, `hierarchy`, and `expanded`. `expanded` uses the production identity resolver and evidence expander: an unambiguous explicit title/ID selects its protocol, then three ranked nodes seed tree expansion under an 8,000-character serialized evidence budget. Expanded evidence has no eight-passage cap. Nodes retain source order and whole text. Ambiguous names fall back to global ranking.
+
+```sh
+bun run apps/server/eval/bioprobench/prepareExpanded.ts --base /tmp/biopro-eval --covered /tmp/biopro-covered --source /path/to/bioprobench --out /tmp/biopro-opus --per-task 24
+python3 apps/server/eval/bioprobench/run.py --source /path/to/bioprobench --out /tmp/biopro-opus --model claude-opus-5-5 --workers 4 --live
+python3 apps/server/eval/bioprobench/report.py --source /path/to/bioprobench --base /tmp/biopro-eval --out /tmp/biopro-opus --report /tmp/biopro-opus-report.json
+```
+
+For a separate, explicitly **development-only** source-covered ordering audit, add `--development --variants hierarchy,expanded` to the preparation command and use a different output directory. It selects all 35 available exact-title matches, including cases already analyzed before implementing the changes. Do not present this as an untouched holdout.
+
+The live harness pins the model ID, records CLI-reported model usage, and rejects cached predictions from a different model or prompt. Each run retains all refusals and failures without retrying for favorable results. A fresh output directory is required to intentionally evaluate another model. Raw provider errors stay in local checkpoints; shareable reports classify failures without incidental session metadata.
+
+Four task metrics:
+
+- PQA: exact-answer accuracy and confidence Brier score.
+- ORD: exact permutation and Kendall tau. Duplicate reference steps can be rejected by the official scorer.
+- ERR: accuracy, precision, recall, and F1, where **contains an error** is the positive class. The model sees only the official target and context, never a hidden correction or error explanation.
+- GEN: the official dependency-free **token-overlap F1**, precision, recall and exact match. These measure lexical overlap, not scientific validity, semantic step recall, or experimental success. Reference output never enters the prompt or index.
+
+`allQuestionScores` counts failed calls/parses as zero; for GEN its score is token F1, and for the other tasks it is accuracy. `commonScorable` and official `samples` expose excluded denominators. Paired bootstrap intervals are descriptive for a small, single-run sample. This is a lexical ablation, not a production dense retrieval or full BioProBench leaderboard evaluation. The flat and hierarchy indexes retain the input-field differences described above. Exact-title availability can be audited for ORD; other tasks have no dependable source IDs in the supplied test files.
+
+The actual router is checked separately using synthetic sources and its real search/read tool loop:
+
+```sh
+bun run apps/server/eval/siriContext.ts --live --model claude-opus-5-5 --out /tmp/siri-opus-report.json
+```
+
+That check exercises old history, archived sessions, a named protocol's parameter, a parent qualification, and source step order. It is not a substitute for the BioProBench evaluation.
+
+For the recorded post-hoc **title-precedence-only** correction, `prepareExpanded.ts --reuse /path/to/original-run` reuses questions and saved predictions whose resolution is unchanged. It rebuilds evidence only when the resolved protocol changes. This shortcut assumes the same expansion algorithm and indexes; it is not a generic cache for arbitrary retrieval changes. Corpus/test checksums must match, and `run.py` still rejects mismatched model/prompt checkpoints. Use a new output directory and no `--reuse` when changing any other retrieval behavior. Original results and corrected follow-up results are both retained.
+
+After these experiments, production defaults expand only confidently identified protocols; broad/ambiguous queries retain ranked chunks, with explicit context expansion available to the router. The `expanded` benchmark variant deliberately evaluates unconditional expansion and must not be labeled a direct measurement of that final conditional policy.

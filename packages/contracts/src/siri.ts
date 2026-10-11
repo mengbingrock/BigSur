@@ -38,7 +38,7 @@ export interface ContextCall extends ContextRef {
   nodeId?: string;
   revision?: string;
   taskId?: string;
-  part?: "state" | "snapshot" | "events" | "tree";
+  part?: "state" | "snapshot" | "events" | "tree" | "context";
   offset?: number;
   /** Prevent a forwarded request from recursively federating. */
   localOnly?: boolean;

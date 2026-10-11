@@ -57,6 +57,9 @@ export interface Citation {
   source?: string | undefined;
   url?: string | undefined;
   license?: string | undefined;
+  /** Exact source nodes included in an expanded passage, at this revision. */
+  nodeIds?: string[] | undefined;
+  revision?: string | undefined;
 }
 
 export interface AskResult {
@@ -101,6 +104,7 @@ export async function askLibrary(
   type Passage = {
     slug: string; name: string; heading: string; text: string; score: number; path: string;
     grain: "section" | "step" | "summary"; pool: "mine" | "library"; source?: string; url?: string; license?: string;
+    nodeIds?: string[] | undefined; revision?: string | undefined;
   };
   // The caller's own passages (a run's state, a chat's tail) come first: they
   // are the context the question was asked in, not something retrieved.
@@ -113,7 +117,7 @@ export async function askLibrary(
       ...own.map((p) => ({ ...p, pool: "mine" as const })),
       ...lib.map((p) => ({
         slug: `library:${p.id}`, name: p.title, heading: p.heading, text: p.text, score: p.score, path: p.path,
-        grain: p.grain, pool: "library" as const, source: p.source, url: p.url, license: p.license,
+        grain: p.grain, pool: "library" as const, source: p.source, url: p.url, license: p.license, nodeIds: p.nodeIds, revision: p.revision,
       })),
     ].sort((a, b) => b.score - a.score),
   ];
@@ -152,6 +156,7 @@ export async function askLibrary(
     if (!p || used.some((c) => c.n === n)) continue;
     used.push({
       n, slug: p.slug, name: p.name, heading: p.heading, quote: p.text, path: p.path, grain: p.grain, pool: p.pool,
+      ...(p.nodeIds ? { nodeIds: p.nodeIds, revision: p.revision } : {}),
       ...(p.pool === "library" ? { source: p.source, url: p.url, license: p.license } : {}),
     });
   }
