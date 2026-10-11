@@ -6,6 +6,7 @@
 // filled in by `embedLibraryPending` as a separate, resumable pass, because
 // embedding thousands of protocols is a job, not a side effect.
 import { createHash } from "node:crypto";
+import { PROTOCOL_INDEX_VERSION, type ProtocolNode } from "../protocolHierarchy";
 import { getDb } from "../db";
 import { chunkProtocol, embeddingText, type Chunk, type Grain } from "../artifactIndex/chunk";
 import { blobToVector, embedBatch, embedModel, vectorToBlob, type EmbedTarget } from "../artifactIndex/embed";
@@ -27,6 +28,7 @@ export interface LibraryRecord {
   application?: string | undefined;
   /** Markdown body in Labee's format: sections and numbered steps. */
   body: string;
+  hierarchy?: ProtocolNode[] | undefined;
 }
 
 export interface LibraryRow extends LibraryRecord {
@@ -47,7 +49,7 @@ export interface LibraryChunk {
 
 function contentHash(r: LibraryRecord): string {
   return createHash("sha256")
-    .update([r.title, r.description, r.body, r.problem ?? "", r.method ?? "", r.application ?? "", r.domains.join(","), r.keywords.join(",")].join("\u0000"))
+    .update([PROTOCOL_INDEX_VERSION, JSON.stringify(r.hierarchy ?? null), r.title, r.description, r.body, r.problem ?? "", r.method ?? "", r.application ?? "", r.domains.join(","), r.keywords.join(",")].join("\u0000"))
     .digest("hex");
 }
 
@@ -56,6 +58,7 @@ function chunksFor(r: LibraryRecord): Chunk[] {
     name: r.title,
     description: r.description,
     body: r.body,
+    hierarchy: r.hierarchy,
     problem: r.problem,
     method: r.method,
     application: r.application,
@@ -91,6 +94,7 @@ function toRow(r: Record<string, unknown>): LibraryRow {
     method: r.method ? String(r.method) : undefined,
     application: r.application ? String(r.application) : undefined,
     body: String(r.body_md ?? ""),
+    hierarchy: r.hierarchy_json ? JSON.parse(String(r.hierarchy_json)) : undefined,
     contentHash: String(r.content_hash ?? ""),
     model: String(r.model ?? ""),
     ingestedAt: String(r.ingested_at ?? ""),
@@ -118,8 +122,8 @@ function writeChunks(db: Db, id: string, chunks: readonly Chunk[], vectors: read
 export async function upsertLibraryProtocol(r: LibraryRecord): Promise<"inserted" | "updated" | "unchanged"> {
   const db = await getDb();
   const hash = contentHash(r);
-  const existing = db.prepare("SELECT content_hash FROM library_protocols WHERE id = ?").get(r.id) as { content_hash: string } | undefined;
-  if (existing && existing.content_hash === hash) return "unchanged";
+  const existing = db.prepare("SELECT content_hash,index_version FROM library_protocols WHERE id = ?").get(r.id) as { content_hash: string; index_version: string } | undefined;
+  if (existing && existing.content_hash === hash && existing.index_version === PROTOCOL_INDEX_VERSION) return "unchanged";
   const now = new Date().toISOString();
   db.exec("BEGIN");
   try {
@@ -137,6 +141,7 @@ export async function upsertLibraryProtocol(r: LibraryRecord): Promise<"inserted
       JSON.stringify(r.domains), JSON.stringify(r.keywords), r.problem ?? null, r.method ?? null, r.application ?? null,
       r.body, hash, now,
     );
+    db.prepare("UPDATE library_protocols SET hierarchy_json=?,index_version=? WHERE id=?").run(r.hierarchy ? JSON.stringify(r.hierarchy) : null, PROTOCOL_INDEX_VERSION, r.id);
     writeChunks(db, r.id, chunksFor(r), null);
     db.exec("COMMIT");
   } catch (e) {
@@ -168,6 +173,7 @@ export interface LibraryStatus {
 }
 
 export async function libraryStatus(): Promise<LibraryStatus> {
+  await ensureLibraryHierarchy();
   const db = await getDb();
   const model = embedModel();
   const total = (db.prepare("SELECT COUNT(*) AS n FROM library_protocols").get() as { n: number }).n;
@@ -185,6 +191,7 @@ export async function libraryStatus(): Promise<LibraryStatus> {
  * returns 0 and a provider outage costs one batch, not the job.
  */
 export async function embedLibraryPending(target: EmbedTarget, opts: { limit?: number } = {}): Promise<number> {
+  await ensureLibraryHierarchy();
   const db = await getDb();
   const model = embedModel();
   const limit = Math.max(1, opts.limit ?? 20);
@@ -198,6 +205,10 @@ export async function embedLibraryPending(target: EmbedTarget, opts: { limit?: n
     const vectors = chunks.length
       ? await embedBatch(chunks.map((c) => embeddingText(r.title, c.heading, c.text, c.grain, c.path)), target)
       : [];
+    // A reingest may replace the hierarchy while the provider is answering.
+    // Leave the new revision pending instead of writing old vectors over it.
+    const current = db.prepare("SELECT content_hash FROM library_protocols WHERE id=?").get(r.id);
+    if (!current || current.content_hash !== r.contentHash || embedModel() !== model) continue;
     db.exec("BEGIN");
     try {
       writeChunks(db, r.id, chunks, vectors);
@@ -315,4 +326,24 @@ export async function listLibrary(opts: { category?: string | undefined; limit?:
       domains: parseList(r.domains),
     })),
   };
+}
+
+let upgrading: Promise<void> | undefined;
+/** Rebuild derived chunks for existing rows. Old flattened corpus bodies cannot
+ * recover lost structure: reingest the original corpus to restore its paths. */
+export function ensureLibraryHierarchy(): Promise<void> {
+  if (upgrading) return upgrading;
+  upgrading = (async () => {
+    const db = await getDb();
+    for (;;) {
+      const rows = db.prepare("SELECT * FROM library_protocols WHERE index_version != ? LIMIT 100").all(PROTOCOL_INDEX_VERSION);
+      if (!rows.length) break;
+      for (const raw of rows) {
+        const record = toRow(raw);
+        await upsertLibraryProtocol(record);
+      }
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+  })().finally(() => { upgrading = undefined; });
+  return upgrading;
 }

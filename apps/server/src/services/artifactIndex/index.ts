@@ -15,6 +15,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { Skill } from "@labee/contracts";
+import { PROTOCOL_INDEX_VERSION } from "../protocolHierarchy";
 import { getDb } from "../db";
 import { getAllSkills } from "../skills";
 import {
@@ -34,7 +35,7 @@ import { chunkArtifact, chunkProtocol, embeddingText, summaryText, type Chunk, t
 function contentHash(s: Skill): string {
   return createHash("sha256")
     .update(
-      [s.name, s.description, s.body, s.problem ?? "", s.method ?? "", s.application ?? "",
+      [PROTOCOL_INDEX_VERSION, s.name, s.description, s.body, s.problem ?? "", s.method ?? "", s.application ?? "",
         (s.domains ?? []).join(","), (s.keywords ?? []).join(",")].join("\u0000"),
     )
     .digest("hex");

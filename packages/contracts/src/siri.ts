@@ -34,8 +34,11 @@ export interface ContextCall extends ContextRef {
   until?: string;
   includeEvents?: boolean;
   protocolSlug?: string;
+  /** Hierarchy address from a protocol search or tree read. */
+  nodeId?: string;
+  revision?: string;
   taskId?: string;
-  part?: "state" | "snapshot" | "events";
+  part?: "state" | "snapshot" | "events" | "tree";
   offset?: number;
   /** Prevent a forwarded request from recursively federating. */
   localOnly?: boolean;

@@ -462,6 +462,8 @@ async function openDb(): Promise<SqlDb> {
       "model TEXT NOT NULL DEFAULT '', " +
       "ingested_at TEXT NOT NULL);",
   );
+  ensureColumn(db, "library_protocols", "hierarchy_json", "TEXT");
+  ensureColumn(db, "library_protocols", "index_version", "TEXT NOT NULL DEFAULT ''");
   db.exec(
     "CREATE TABLE IF NOT EXISTS library_chunks (" +
       "protocol_id TEXT NOT NULL, " +

@@ -1,0 +1,5792 @@
+{
+  "date": "2026-10-11T06:14:36.721Z",
+  "upstreamRevision": "cf00fecd62583b98350cc48e26a29c92d3f21e5d",
+  "baselineRevision": "96384e2",
+  "protocols": 10359,
+  "counts": {
+    "flat": 37415,
+    "legacy": 314780,
+    "hierarchy": 323743
+  },
+  "checksums": {
+    "Protocol-exchange.json": "5ed3b7f1120af7442b06e50a14c4dc654dfe096fbb7db93e834433f2b43806e9",
+    "Protocol-io.json": "9f0e6cdeebce322a1282c29637399e5e5012b2a68e4bf88fda21d617ccef98a3",
+    "PQA_test.json": "118f62764c385e7ae68ff4d03302c5353ca9082769c1c89980952a7278028044",
+    "ORD_test.json": "91d3e6641d6d05b23032529a86345b7d581774231d122898d42ccbbd57d1a6fb"
+  },
+  "selection": {
+    "ORD": {
+      "available": 1161,
+      "sourceCovered": 35,
+      "selected": [
+        {
+          "id": "TEST-ORD-000018",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000157",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000241",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000243",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000244",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000253",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000397",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000419",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000422",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000463",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000523",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000570",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000590",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000591",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000607",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000616",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000636",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000657",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000723",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000724",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000741",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000751",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000784",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000813",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000825",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000847",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000856",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000884",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000958",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000977",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000979",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-001051",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-001052",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-001080",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-001084",
+          "type": "top"
+        }
+      ]
+    }
+  },
+  "variants": [
+    "flat",
+    "legacy",
+    "hierarchy"
+  ],
+  "retrieval": "BM25 only; identical weights; up to 8 passages within 8000 serialized characters; 300 candidates",
+  "scope": "Secondary source-covered ORD audit: ALL official ordering questions whose exact normalized protocol title exists in the same downloaded source corpus. Selected by source availability, not reference answers. Same indexes, ranking, evidence budgets and model as the first pilot. Not directly comparable with the full BioProBench leaderboard.",
+  "model": "haiku",
+  "cliVersion": "2.1.296 (Claude Code)",
+  "transportErrors": 1,
+  "metrics": {
+    "flat": {
+      "ORD": {
+        "skill": "evaluate-protocol-outputs",
+        "version": "2.0.0",
+        "task": "step-ordering",
+        "samples": {
+          "total": 35,
+          "scored": 34,
+          "failed": 1,
+          "failure_rate": 0.02857142857142857
+        },
+        "metrics": {
+          "exact_match": 0.7941176470588235,
+          "kendall_tau": 0.825136612021858
+        },
+        "config": {
+          "profile": "bioprobench",
+          "parser": "profile-defined",
+          "fields": null
+        }
+      }
+    },
+    "legacy": {
+      "ORD": {
+        "skill": "evaluate-protocol-outputs",
+        "version": "2.0.0",
+        "task": "step-ordering",
+        "samples": {
+          "total": 35,
+          "scored": 33,
+          "failed": 2,
+          "failure_rate": 0.05714285714285714
+        },
+        "metrics": {
+          "exact_match": 0.6666666666666666,
+          "kendall_tau": 0.7097701149425287
+        },
+        "config": {
+          "profile": "bioprobench",
+          "parser": "profile-defined",
+          "fields": null
+        }
+      }
+    },
+    "hierarchy": {
+      "ORD": {
+        "skill": "evaluate-protocol-outputs",
+        "version": "2.0.0",
+        "task": "step-ordering",
+        "samples": {
+          "total": 35,
+          "scored": 34,
+          "failed": 1,
+          "failure_rate": 0.02857142857142857
+        },
+        "metrics": {
+          "exact_match": 0.6764705882352942,
+          "kendall_tau": 0.7540983606557377
+        },
+        "config": {
+          "profile": "bioprobench",
+          "parser": "profile-defined",
+          "fields": null
+        }
+      }
+    }
+  },
+  "totalPredictions": 105,
+  "newCalls": 102,
+  "reusedPredictions": 3,
+  "allQuestionAccuracy": {
+    "ORD": {
+      "flat": 0.7714285714285715,
+      "legacy": 0.6285714285714286,
+      "hierarchy": 0.6571428571428571
+    }
+  },
+  "commonScorable": {
+    "ORD": {
+      "scored": 33,
+      "excluded": 2,
+      "accuracy": {
+        "flat": 0.8181818181818182,
+        "legacy": 0.6666666666666666,
+        "hierarchy": 0.696969696969697
+      }
+    }
+  },
+  "comparisons": {
+    "ORD": {
+      "flat": {
+        "pairedDelta": -0.11428571428571428,
+        "wins": 2,
+        "losses": 6,
+        "ties": 27,
+        "bootstrap95CI": [
+          -0.2571428571428571,
+          0.02857142857142857
+        ],
+        "exactMcNemarP": 0.2890625
+      },
+      "legacy": {
+        "pairedDelta": 0.02857142857142857,
+        "wins": 3,
+        "losses": 2,
+        "ties": 30,
+        "bootstrap95CI": [
+          -0.08571428571428572,
+          0.14285714285714285
+        ],
+        "exactMcNemarP": 1
+      }
+    }
+  },
+  "performance": {
+    "flat": {
+      "indexBytes": 116736000,
+      "medianRetrievalMs": 260.26295799999207,
+      "medianModelMs": 7229,
+      "meanContextChars": 7777.114285714286,
+      "meanPassages": 4.628571428571429
+    },
+    "legacy": {
+      "indexBytes": 264208384,
+      "medianRetrievalMs": 1038.972332999998,
+      "medianModelMs": 8420,
+      "meanContextChars": 5114.285714285715,
+      "meanPassages": 7.857142857142857
+    },
+    "hierarchy": {
+      "indexBytes": 181411840,
+      "medianRetrievalMs": 886.5809169999993,
+      "medianModelMs": 8904,
+      "meanContextChars": 3914.342857142857,
+      "meanPassages": 8
+    }
+  },
+  "orderingCorpusCoverage": {
+    "TEST-ORD-000856": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": true,
+        "hierarchy": true,
+        "legacy": true
+      }
+    },
+    "TEST-ORD-000422": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "legacy": true,
+        "hierarchy": true,
+        "flat": true
+      }
+    },
+    "TEST-ORD-000397": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": false,
+        "hierarchy": false,
+        "legacy": false
+      }
+    },
+    "TEST-ORD-000463": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "legacy": true,
+        "hierarchy": true,
+        "flat": true
+      }
+    },
+    "TEST-ORD-000825": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "hierarchy": false,
+        "legacy": false,
+        "flat": false
+      }
+    },
+    "TEST-ORD-000018": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "hierarchy": true,
+        "legacy": true,
+        "flat": true
+      }
+    },
+    "TEST-ORD-000616": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": true,
+        "hierarchy": true,
+        "legacy": true
+      }
+    },
+    "TEST-ORD-000591": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": false,
+        "hierarchy": false,
+        "legacy": false
+      }
+    },
+    "TEST-ORD-000657": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": true,
+        "hierarchy": true,
+        "legacy": true
+      }
+    },
+    "TEST-ORD-000724": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": true,
+        "hierarchy": true,
+        "legacy": true
+      }
+    },
+    "TEST-ORD-000741": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "hierarchy": false,
+        "legacy": false,
+        "flat": false
+      }
+    },
+    "TEST-ORD-000636": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": false,
+        "hierarchy": false,
+        "legacy": false
+      }
+    },
+    "TEST-ORD-000253": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "legacy": true,
+        "hierarchy": true,
+        "flat": true
+      }
+    },
+    "TEST-ORD-000813": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "hierarchy": false,
+        "legacy": false,
+        "flat": false
+      }
+    },
+    "TEST-ORD-000157": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "legacy": true,
+        "hierarchy": true,
+        "flat": true
+      }
+    },
+    "TEST-ORD-001080": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "hierarchy": false,
+        "legacy": false,
+        "flat": false
+      }
+    },
+    "TEST-ORD-000784": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "legacy": true,
+        "hierarchy": true,
+        "flat": true
+      }
+    },
+    "TEST-ORD-001052": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "legacy": false,
+        "hierarchy": false,
+        "flat": false
+      }
+    },
+    "TEST-ORD-000243": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "hierarchy": false,
+        "legacy": false,
+        "flat": false
+      }
+    },
+    "TEST-ORD-000244": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "legacy": true,
+        "hierarchy": true,
+        "flat": true
+      }
+    },
+    "TEST-ORD-000751": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "legacy": true,
+        "hierarchy": true,
+        "flat": true
+      }
+    },
+    "TEST-ORD-000590": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": false,
+        "hierarchy": false,
+        "legacy": false
+      }
+    },
+    "TEST-ORD-001051": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": true,
+        "hierarchy": true,
+        "legacy": true
+      }
+    },
+    "TEST-ORD-000419": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "legacy": true,
+        "hierarchy": true,
+        "flat": true
+      }
+    },
+    "TEST-ORD-000570": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "legacy": true,
+        "hierarchy": true,
+        "flat": true
+      }
+    },
+    "TEST-ORD-001084": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": true,
+        "hierarchy": true,
+        "legacy": true
+      }
+    },
+    "TEST-ORD-000977": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "hierarchy": false,
+        "legacy": false,
+        "flat": false
+      }
+    },
+    "TEST-ORD-000958": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": false,
+        "legacy": false,
+        "hierarchy": false
+      }
+    },
+    "TEST-ORD-000523": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": true,
+        "legacy": true,
+        "hierarchy": true
+      }
+    },
+    "TEST-ORD-000607": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": true,
+        "legacy": true,
+        "hierarchy": true
+      }
+    },
+    "TEST-ORD-000241": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": true,
+        "legacy": true,
+        "hierarchy": true
+      }
+    },
+    "TEST-ORD-000884": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": false,
+        "legacy": false,
+        "hierarchy": false
+      }
+    },
+    "TEST-ORD-000979": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": false,
+        "legacy": false,
+        "hierarchy": false
+      }
+    },
+    "TEST-ORD-000847": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": true,
+        "legacy": true,
+        "hierarchy": true
+      }
+    },
+    "TEST-ORD-000723": {
+      "titleParsed": true,
+      "sourceAvailable": true,
+      "retrievedTarget": {
+        "flat": false,
+        "legacy": false,
+        "hierarchy": false
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "TEST-ORD-000856",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 210.65829099999974,
+      "modelMs": 10167,
+      "contextChars": 7921,
+      "error": null,
+      "promptSha256": "dedc2cc7e7c7280b01d1168505b364ee4a01f5c36dc0ace3836c8f9f6c01e308",
+      "responseSha256": "955345aa24f8c04db94bcdf439b6c2d35a67fefafe62d01dad73564f2a8af681",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-516",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-516",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-516",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1062",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7817",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000422",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 961.8496249999989,
+      "modelMs": 5602,
+      "contextChars": 3116,
+      "error": null,
+      "promptSha256": "a2958f11b8ce111707f6b0e6922d37ebde06c672a34966e61b89267ad6702644",
+      "responseSha256": "4d82889fa0bcf09923b78fcdd91b711bf74efae3f18f1e4f1de6243469facca7",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "5.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "2.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "2.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "2.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "5",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "2.1.2",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000397",
+      "task": "ORD",
+      "type": "child",
+      "variant": "flat",
+      "correct": false,
+      "retrievalMs": 1107.803750000001,
+      "modelMs": 17006,
+      "contextChars": 7783,
+      "error": null,
+      "promptSha256": "43cfde8d915029f80a3a25accc02e57590dd9da7dc0cf5dce170dcc26f694ef7",
+      "responseSha256": "8b3fad7fc79eac42c69cd55870dbff199d969a4934872a7ff60e0401aefecb73",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-888",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1347",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2271",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1881",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000463",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": false,
+      "retrievalMs": 893.5896250000005,
+      "modelMs": 120017,
+      "contextChars": 7717,
+      "error": "Command '['claude', '-p', '--system-prompt', 'Answer the benchmark question using the provided evidence when applicable. Follow the requested answer format. Do not use external tools.', '--model', 'haiku', '--tools', '', '--output-format', 'text', '--no-session-persistence']' timed out after 120 seconds",
+      "promptSha256": "16c1aa06d998fd3fb515567d38f51d9a6530face7e7a50682bca1e3768cdb66d",
+      "responseSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1080",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1080",
+          "path": "1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1083",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1082",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1081",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-4554",
+          "path": "8.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7876",
+          "path": "8.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7876",
+          "path": "8",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000825",
+      "task": "ORD",
+      "type": "child",
+      "variant": "hierarchy",
+      "correct": false,
+      "retrievalMs": 1816.8457909999997,
+      "modelMs": 16002,
+      "contextChars": 3416,
+      "error": null,
+      "promptSha256": "769679f2b8a4ef64df2800651cbea60adbe2e1bb445177b29335260633dee670",
+      "responseSha256": "bea65ca41ea1b829df2784019b1286ae1f8274e45941fd6f0fb705515d709eb5",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-999",
+          "path": "1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-155",
+          "path": "3.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-856",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-855",
+          "path": "1.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-195",
+          "path": "1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-855",
+          "path": "1.9",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6952",
+          "path": "4.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-5722",
+          "path": "7.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000018",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": false,
+      "retrievalMs": 771.1677920000002,
+      "modelMs": 7952,
+      "contextChars": 7182,
+      "error": null,
+      "promptSha256": "fc76de37d78a55a40a2ebe524c64a6070993124b7e44a8c4993204d81c4ef32b",
+      "responseSha256": "8623850c19c208af3ce61365504c43fab54d8e1de6b07a1b05722ef1a3fe1d47",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-634",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-636",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-639",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-635",
+          "path": "1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-635",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-637",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-642",
+          "path": "4.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-634",
+          "path": "4.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000616",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 227.24483399999735,
+      "modelMs": 6197,
+      "contextChars": 7648,
+      "error": null,
+      "promptSha256": "d2d8e6b535ab3f5136e52dbdd90cd353929aaf67f7b0ea2a29580b64852a4364",
+      "responseSha256": "76ba20b866b3ee26103e8e095ba14d63e4366a15ac8904bff3006a08d60b81cc",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-768",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-768",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-768",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-846",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000591",
+      "task": "ORD",
+      "type": "child",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 566.2495409999974,
+      "modelMs": 6717,
+      "contextChars": 7873,
+      "error": null,
+      "promptSha256": "686c26d0b340d27af4703365b050c1bfee72ce33c117ba8115b3a5b6e67cffd7",
+      "responseSha256": "02f250b7f5d12c06440e7d2ce625e71e2b9b34d8063f42aec9246e8141271bd3",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-7117",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-3112",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-820",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7575",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2782",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000657",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 216.6398330000011,
+      "modelMs": 6215,
+      "contextChars": 7930,
+      "error": null,
+      "promptSha256": "63f158d26cc76ebabaddd1b4de012871a19a10e713faf3bfe6541eba0e516655",
+      "responseSha256": "03565b5379d2354f3fd423f767aa61069afc8f43f1d9fae01c0ccf5925a0dc72",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-199",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-198",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-199",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-193",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1784",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000724",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": false,
+      "retrievalMs": 212.60591600000043,
+      "modelMs": 14011,
+      "contextChars": 7931,
+      "error": null,
+      "promptSha256": "0071563a4a6c16fa42f2d9ad1c028ffbe4719f5698b0b4fee0f950f9ad4fe274",
+      "responseSha256": "e1540c85b043cee4b8ef191663e002b44c505e66a08557ecebf0a30e91ee29b4",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-826",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-826",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-826",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-826",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8559",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000741",
+      "task": "ORD",
+      "type": "child",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 1292.799708999999,
+      "modelMs": 6717,
+      "contextChars": 2728,
+      "error": null,
+      "promptSha256": "016214abdd24d294b19bf232182e937bfd37f062df0056d7ce0366f0a68b8fff",
+      "responseSha256": "01919689bdb40ae02756968fb4cb1080533645e8ef054e438d2ba149c7f60fc4",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-968",
+          "path": "2.2.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6920",
+          "path": "3.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7303",
+          "path": "1.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-626",
+          "path": "2.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7219",
+          "path": "1.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-553",
+          "path": "1.5.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7219",
+          "path": "1.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9873",
+          "path": "11.3",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000636",
+      "task": "ORD",
+      "type": "child",
+      "variant": "flat",
+      "correct": false,
+      "retrievalMs": 1749.9620839999989,
+      "modelMs": 34771,
+      "contextChars": 7562,
+      "error": null,
+      "promptSha256": "778a649faa8d212a4ad9f25a443ac2b6d6667dccba92b36f1d5eb6440018d29a",
+      "responseSha256": "dccf846caf5e252d8b84691fe962020abe28a8ac2909111dd0c31a39bace3209",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-1670",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9184",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9184",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8806",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000253",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": false,
+      "retrievalMs": 911.3134580000005,
+      "modelMs": 10241,
+      "contextChars": 3444,
+      "error": null,
+      "promptSha256": "b766544f4cd9687d11f78e06fd3382c727f7a4e2cb878c65d06ed77aaad33639",
+      "responseSha256": "a86bd37770bf89b8f561948fd449c95f6ea2ac3e8f2a2350398e69f2a005a73a",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "8.1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "8.1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "8.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "5.3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "5.5.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "5.3.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "4.3.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000813",
+      "task": "ORD",
+      "type": "child",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 1133.3706669999956,
+      "modelMs": 7437,
+      "contextChars": 4256,
+      "error": null,
+      "promptSha256": "31ddcf4f850715f7257a61bb9d05f1abbd9aadd6068acf9955351a287d948bcc",
+      "responseSha256": "e59af6ec222ac9206492b76a23d17fa423f6530ca59649f77223bb6dbe47138f",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-8880",
+          "path": "2.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8880",
+          "path": "2.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8880",
+          "path": "2.5",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8880",
+          "path": "1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8609",
+          "path": "1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8880",
+          "path": "1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8880",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2252",
+          "path": "5.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000157",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": false,
+      "retrievalMs": 783.2801249999902,
+      "modelMs": 13593,
+      "contextChars": 6440,
+      "error": null,
+      "promptSha256": "0fabfa84acb2045d96b8b512ad32bd668532eb3f7f588d40b892eb096ce2b5ac",
+      "responseSha256": "c4ea085a3ca54202eb7efbf583814e5e02342e9feba07f20586c2ef30e16f8e9",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "6.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "6.1.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "6.1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "6.1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "8.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "8",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "1.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-001080",
+      "task": "ORD",
+      "type": "child",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 833.1931250000052,
+      "modelMs": 5874,
+      "contextChars": 2030,
+      "error": null,
+      "promptSha256": "bd7e69349e71117788cd73b6a734bbc056c940999784d97157654614a81c4ae6",
+      "responseSha256": "52847f1ac592af41092285b559a60724d689f5edb5b7f1d12ad294f389a2b5c7",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-6871",
+          "path": "7.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-4083",
+          "path": "5.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-730",
+          "path": "1.5.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2993",
+          "path": "6.5",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8022",
+          "path": "8.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-487",
+          "path": "3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2206",
+          "path": "1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6241",
+          "path": "6.5",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000784",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": false,
+      "retrievalMs": 860.6621250000026,
+      "modelMs": 7525,
+      "contextChars": 4166,
+      "error": null,
+      "promptSha256": "2e55cad6d1c753bab187bbae43d805850705563f47e4d9a9819d998f00aa97ca",
+      "responseSha256": "9824e77d5161bedda4f5f1b5a9743b008c15fd027d3116290f08a643953880fb",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "7.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "7.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "7.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "7.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "7.1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "7.1.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "7",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-001052",
+      "task": "ORD",
+      "type": "child",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 993.5530410000065,
+      "modelMs": 6457,
+      "contextChars": 2682,
+      "error": null,
+      "promptSha256": "8323467b9d2138239dc94bd1f7a844641e5184f25c2e34e8a898aaed30471b8d",
+      "responseSha256": "569fb87d06baef2a078e1af5f7de6750c47403c47631bb5902f0fdc5afd09ea1",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-635",
+          "path": "4",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-641",
+          "path": "4",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-713",
+          "path": "6",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-644",
+          "path": "5.2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-637",
+          "path": "5",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-635",
+          "path": "4.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-632",
+          "path": "6.2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-710",
+          "path": "4",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000243",
+      "task": "ORD",
+      "type": "child",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 881.3628340000005,
+      "modelMs": 7570,
+      "contextChars": 1997,
+      "error": null,
+      "promptSha256": "34a70df02dfed94d08afecff8ffdd15c7bf6b5c536ad0875626fa0fcd98a28d9",
+      "responseSha256": "da75e443a750011e95acab5159a61f74e9b5f47af79cea6d296cfb0a694cb23c",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "2.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9253",
+          "path": "1.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1117",
+          "path": "3.5.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-411",
+          "path": "5.2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1586",
+          "path": "3.29",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1309",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7870",
+          "path": "4.4",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000244",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 919.9749579999989,
+      "modelMs": 10227,
+      "contextChars": 3128,
+      "error": null,
+      "promptSha256": "7e48649760500ffaf9005af36d78147fff4991934a9c88b506fc584d5aa4faa5",
+      "responseSha256": "729d08a041708c07e87acce90283454a3b951390de2274dfd0045d76fe7513ec",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "3.3.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "3.6.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "3.8.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "3.2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "3.2.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "3.4.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "3.8.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "3.7.2",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000751",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 935.8785840000055,
+      "modelMs": 7927,
+      "contextChars": 3886,
+      "error": null,
+      "promptSha256": "53b84a8fa397847f6bb216c1beae0a3777098c307ab5eafe16945042bb24d1e8",
+      "responseSha256": "aa5123c2b8b1ee5b759e7c8831939dade8581af7a5bffe41d0f1271a4efa03bc",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-400",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-400",
+          "path": "2.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-848",
+          "path": "1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-844",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-848",
+          "path": "1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-844",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6742",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6742",
+          "path": "2",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000590",
+      "task": "ORD",
+      "type": "child",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 604.341124999999,
+      "modelMs": 6356,
+      "contextChars": 7753,
+      "error": null,
+      "promptSha256": "0fe71d629bf1cef8d80977e91d2418aa319b957b5f62784a55948479c90fcaca",
+      "responseSha256": "258177ea5b8bcb715464a14f5a3655788fd370f1b50cb67d1809c122350a6184",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-5868",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1233",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-3195",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-4306",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-001051",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 213.11679200000071,
+      "modelMs": 7953,
+      "contextChars": 7824,
+      "error": null,
+      "promptSha256": "0f10a547efe40dd505f9beb282b8020f77fcc04fa2bf28245f947d35b928cc17",
+      "responseSha256": "bd167d589e5c119e8a12e27e14480c999c3c2cccb2c30664110d143a03490ae9",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-635",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-637",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-634",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-636",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-914",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000419",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 785.3036250000005,
+      "modelMs": 8154,
+      "contextChars": 3604,
+      "error": null,
+      "promptSha256": "a6be1855aa97a31d8bc629b02eced790a5afe388c6ddd54f72628b03e0706954",
+      "responseSha256": "65b0d33d24a4547722ab01ab22651f23a1cf0e46acaea27e99b2042259c01f75",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "3.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "2.7",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "5.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "3.10",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "2.5",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "5",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "2",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000570",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 915.632999999998,
+      "modelMs": 8956,
+      "contextChars": 2285,
+      "error": null,
+      "promptSha256": "626e7df6455b331dbfe96c429ed6f83681cda6e2a71b80b94ad70a1bfca57129",
+      "responseSha256": "271969ce1633819cc88f42ca5a3790e89326f09965c61a510a225b3881f4c6d4",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "6.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "7.2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "2.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "2.2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "6.1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "7.1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "3.1.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "7.3.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-001084",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 188.44862499999,
+      "modelMs": 6420,
+      "contextChars": 7605,
+      "error": null,
+      "promptSha256": "0307ab8c5f0267ec83492908d91d5184b2c1127119f479a024865584c66716ed",
+      "responseSha256": "76ce8133bdceef0abd8f8a6a93451987b3f524a4254e576c55e803c5bab097a4",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-313",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8067",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1100",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1100",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2813",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000977",
+      "task": "ORD",
+      "type": "child",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 998.9611659999937,
+      "modelMs": 9902,
+      "contextChars": 5082,
+      "error": null,
+      "promptSha256": "1d45f8d295a7c8441f0e21cfd210989a73bf90ce75cda4c8719f1b775de8d72c",
+      "responseSha256": "ca919aa3d34a4319da7d2cbefb0256b5225df494283d917f8e71bbc284528f77",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-364",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-539",
+          "path": "3.7",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-848",
+          "path": "3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-849",
+          "path": "3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9523",
+          "path": "9.7",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1117",
+          "path": "3.2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-848",
+          "path": "2.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1117",
+          "path": "3.3.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-001052",
+      "task": "ORD",
+      "type": "child",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 855.9422499999928,
+      "modelMs": 10631,
+      "contextChars": 1822,
+      "error": null,
+      "promptSha256": "ac02a432120d5ec350d1cd79d0a444a3e2c92748694df116707e5cf4ef40e526",
+      "responseSha256": "569fb87d06baef2a078e1af5f7de6750c47403c47631bb5902f0fdc5afd09ea1",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-635",
+          "path": "3.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-635",
+          "path": "3.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-635",
+          "path": "3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-713",
+          "path": "5.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-641",
+          "path": "3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-644",
+          "path": "4.5.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-641",
+          "path": "3.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-637",
+          "path": "4.2",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000243",
+      "task": "ORD",
+      "type": "child",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 1276.6548750000002,
+      "modelMs": 13073,
+      "contextChars": 2075,
+      "error": null,
+      "promptSha256": "d1cfae28d7035487c667a36510a75a180dbc1a0a540644df8c9b6fce7bce4969",
+      "responseSha256": "da75e443a750011e95acab5159a61f74e9b5f47af79cea6d296cfb0a694cb23c",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "3",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "3.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1117",
+          "path": "4.5.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9253",
+          "path": "1.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7870",
+          "path": "4.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-411",
+          "path": "6.2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1586",
+          "path": "3.28",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000244",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": false,
+      "retrievalMs": 746.9862499999999,
+      "modelMs": 9876,
+      "contextChars": 3106,
+      "error": null,
+      "promptSha256": "a72ea7276e4bea31c2e5827d552f394a06c799952c2c5ee0ef5530dff0817ff8",
+      "responseSha256": "dec9fffc997d67792c44d4f0b8e5217deb2d4ffaf9b052f6f366894ce4fbab6f",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "2.11.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "2.8.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "2.7",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "2.13.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "2.7.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "2.11",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "2.7.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "2.12.2",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000751",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 809.0145419999972,
+      "modelMs": 7246,
+      "contextChars": 3466,
+      "error": null,
+      "promptSha256": "7289f8d67b2eb0898dffdbd0ae01ea9b1d40301852d14bdf3927dac986c91105",
+      "responseSha256": "aa5123c2b8b1ee5b759e7c8831939dade8581af7a5bffe41d0f1271a4efa03bc",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-400",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-400",
+          "path": "1.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-848",
+          "path": "1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-844",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6742",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-5781",
+          "path": "3.9",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-844",
+          "path": "2.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6664",
+          "path": "4.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000958",
+      "task": "ORD",
+      "type": "child",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 1278.3294170000008,
+      "modelMs": 12677,
+      "contextChars": 7552,
+      "error": null,
+      "promptSha256": "d211d58a585b2f2e7385054e1d6a9a7bafa6163e76cbc8ae94fd89000a2b0122",
+      "responseSha256": "6beec3d51888d398fa111176e2416cb6cca0bd76a2aa7838f01e8cfbfbd8b668",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-704",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-872",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-531",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-4506",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-001080",
+      "task": "ORD",
+      "type": "child",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 1137.9022919999989,
+      "modelMs": 6622,
+      "contextChars": 3118,
+      "error": null,
+      "promptSha256": "360ee1739477a3f19e1b52178b1b141695ef5f79a832029ea65335bb3489436c",
+      "responseSha256": "52847f1ac592af41092285b559a60724d689f5edb5b7f1d12ad294f389a2b5c7",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-6871",
+          "path": "7.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6871",
+          "path": "7",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-4083",
+          "path": "2.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-487",
+          "path": "3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-730",
+          "path": "2.5.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2993",
+          "path": "6.5",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8022",
+          "path": "8.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1102",
+          "path": "1",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000784",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": false,
+      "retrievalMs": 1012.3507919999975,
+      "modelMs": 8998,
+      "contextChars": 3626,
+      "error": null,
+      "promptSha256": "75bb7b54d27ef01f71701d974b09c19929fd2fb733ce555bcc5c7c59b62afd38",
+      "responseSha256": "9824e77d5161bedda4f5f1b5a9743b008c15fd027d3116290f08a643953880fb",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "6.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "6.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "6.5.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "6.5",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "6.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "6",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "6.5.3",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000157",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": false,
+      "retrievalMs": 678.6385410000075,
+      "modelMs": 12516,
+      "contextChars": 5639,
+      "error": null,
+      "promptSha256": "75305a3aa633926ecc77bfb0ebd87e361318570c8ef7dbb8f9543133d38a33e9",
+      "responseSha256": "3af9f2c2318b1f5516fae8b33b2c2418e0b7b18216fee59256d46b32cfb87e8b",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "6.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "6.1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "6",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "6.1.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "6.1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "8.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "8",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000523",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 291.5969589999986,
+      "modelMs": 8063,
+      "contextChars": 7566,
+      "error": null,
+      "promptSha256": "7f76888d15bcf99fe04f933e691753de0e86e757b5c7814b1d87a4e444b68c5a",
+      "responseSha256": "7b3188e259f4cab04a5a698bd03de6a1d18acc10191d7e48d8f12ae1d9090fcd",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1428",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-595",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000977",
+      "task": "ORD",
+      "type": "child",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 1326.8865829999995,
+      "modelMs": 8873,
+      "contextChars": 7941,
+      "error": null,
+      "promptSha256": "befb27bd375c9c69ae1c6929fa6b428b3a802c16f07c58f8ea09900770481fd9",
+      "responseSha256": "ca919aa3d34a4319da7d2cbefb0256b5225df494283d917f8e71bbc284528f77",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-848",
+          "path": "3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-848",
+          "path": "3",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9523",
+          "path": "9",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-849",
+          "path": "3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-849",
+          "path": "3",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-364",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1117",
+          "path": "4.2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9523",
+          "path": "9.8",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000570",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": false,
+      "retrievalMs": 758.8042919999971,
+      "modelMs": 8848,
+      "contextChars": 2139,
+      "error": null,
+      "promptSha256": "9c132b8348ea712a74e8fc707ea3dfdf3f14a1d97ccb1ce8c7e7f1942f4c598e",
+      "responseSha256": "e8274b5d5f7853d5a63800b602e24884c822b62f16f5eb423624debbf5370a05",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "5.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "6.2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "6.3",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "1.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "1.2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "6.1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "2.1.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "6.3.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000419",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 684.1658749999988,
+      "modelMs": 7251,
+      "contextChars": 2092,
+      "error": null,
+      "promptSha256": "ce134cf541839382d7a3053cb73d6209d2a0c3ccfe8d86455d2be93489726d7b",
+      "responseSha256": "65b0d33d24a4547722ab01ab22651f23a1cf0e46acaea27e99b2042259c01f75",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "3.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "2.8",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "5.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "3.10",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "2.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "2.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "2.5.4",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000607",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 241.04454200000328,
+      "modelMs": 6423,
+      "contextChars": 7951,
+      "error": null,
+      "promptSha256": "15cd347f1f69f3e3e67c31fc3c56a6eb7a61eefd4ff3d4bf262f4cff51764f82",
+      "responseSha256": "063a8d350a91d7de6c341c376d33921fe29892dbe56fd75fa5226566cbe6e098",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-191",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-191",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9928",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-42",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000241",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 139.7846669999999,
+      "modelMs": 5980,
+      "contextChars": 7686,
+      "error": null,
+      "promptSha256": "a85af613b668b701e0aea50c8e30a4e23c062fa8603da41782bd4aaae6fb2da7",
+      "responseSha256": "e59af6ec222ac9206492b76a23d17fa423f6530ca59649f77223bb6dbe47138f",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9311",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9523",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1124",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000884",
+      "task": "ORD",
+      "type": "child",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 137.48791699999128,
+      "modelMs": 6924,
+      "contextChars": 7784,
+      "error": null,
+      "promptSha256": "e2abc098fdc930d1dd90e71615c58d3679e07420660330d07b302adcacd56188",
+      "responseSha256": "569fb87d06baef2a078e1af5f7de6750c47403c47631bb5902f0fdc5afd09ea1",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-1721",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1879",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9542",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-10082",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2192",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000018",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": false,
+      "retrievalMs": 983.70775,
+      "modelMs": 7358,
+      "contextChars": 7308,
+      "error": null,
+      "promptSha256": "edf666fa1ce79a0c45e8902919e194bcfa9003e86e9ced9f46f91ce17d3c725f",
+      "responseSha256": "8623850c19c208af3ce61365504c43fab54d8e1de6b07a1b05722ef1a3fe1d47",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-634",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-636",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-639",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-635",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-635",
+          "path": "2.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-637",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-635",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-642",
+          "path": "5.2",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000979",
+      "task": "ORD",
+      "type": "child",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 293.28879200000665,
+      "modelMs": 7763,
+      "contextChars": 7987,
+      "error": null,
+      "promptSha256": "fd37b16774f3b5aa891f8b8d6a08f8994641e3406b85c7227cfeb85e7f42137c",
+      "responseSha256": "d3dd93e8a67cb27defd0fc560035d43cd6bb7cb68b7738a4fdc152ee0b5fba87",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-7264",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1044",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1603",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-917",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-235",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-820",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000847",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": false,
+      "retrievalMs": 170.24858300000778,
+      "modelMs": 5383,
+      "contextChars": 7947,
+      "error": null,
+      "promptSha256": "c62f1100ffee41f794b5707628498a73b08463f2f24b928198dbb2eb8f7044dc",
+      "responseSha256": "8900c56f734e54c98dcee081ad022d5f9d8876906be21dbc6dbe40dc0e0268db",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-5363",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9876",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-785",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000463",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": false,
+      "retrievalMs": 886.5809169999993,
+      "modelMs": 8651,
+      "contextChars": 7858,
+      "error": null,
+      "promptSha256": "57fddc0a68da4fbd03e4a8deb3884f0bb4de7369ca9ba471d782dadbc3ca63fd",
+      "responseSha256": "e01b3678bce458d165cb628d0224e532f7821d2cf5fad9c0340041cd3fb578fb",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1080",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-4554",
+          "path": "8.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1083",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1082",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1081",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1080",
+          "path": "materials",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-682",
+          "path": "4.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-682",
+          "path": "4.1",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000825",
+      "task": "ORD",
+      "type": "child",
+      "variant": "legacy",
+      "correct": false,
+      "retrievalMs": 2061.3447089999972,
+      "modelMs": 15902,
+      "contextChars": 7626,
+      "error": null,
+      "promptSha256": "c17dbef4ac721a1954d238095ba305ff3f6faf135a6267200df47a0c56b5e111",
+      "responseSha256": "2ce5dac30a7bfcb686ca0df248e4859232b5d3d58f795d172a928459f25b65d7",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-855",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1370",
+          "path": "1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-999",
+          "path": "1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-155",
+          "path": "3",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-999",
+          "path": "1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-856",
+          "path": "3",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-853",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-155",
+          "path": "3.6",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000422",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 960.8734169999989,
+      "modelMs": 10366,
+      "contextChars": 2898,
+      "error": null,
+      "promptSha256": "4e5fc8aa39c3053adae0026171c42d636d54eef7102751c501753e9b29b472e0",
+      "responseSha256": "4d82889fa0bcf09923b78fcdd91b711bf74efae3f18f1e4f1de6243469facca7",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "4.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "1.4",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "1.4.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "1.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "1.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000813",
+      "task": "ORD",
+      "type": "child",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 1165.7381250000035,
+      "modelMs": 6029,
+      "contextChars": 5313,
+      "error": null,
+      "promptSha256": "b8378dea0780f1b8b605e82452774a6276c8cb8184284a6e0bef4dcc71d2008c",
+      "responseSha256": "e59af6ec222ac9206492b76a23d17fa423f6530ca59649f77223bb6dbe47138f",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-8880",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8880",
+          "path": "2.5",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8880",
+          "path": "2.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8880",
+          "path": "2.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8880",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8880",
+          "path": "1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8880",
+          "path": "1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8609",
+          "path": "1.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000741",
+      "task": "ORD",
+      "type": "child",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 1125.2885830000014,
+      "modelMs": 7056,
+      "contextChars": 7423,
+      "error": null,
+      "promptSha256": "117eeb523182d3688116e109b7338d25da170426956f8bc9e9cf654a8d66329a",
+      "responseSha256": "01919689bdb40ae02756968fb4cb1080533645e8ef054e438d2ba149c7f60fc4",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-626",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7219",
+          "path": "1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7219",
+          "path": "1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7303",
+          "path": "1.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-712",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-553",
+          "path": "2.5",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7179",
+          "path": "3",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8332",
+          "path": "5",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000253",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 696.1248750000013,
+      "modelMs": 12997,
+      "contextChars": 3403,
+      "error": null,
+      "promptSha256": "8bb5754bbcb403e20b35ccc8f010b8b21d89f1d529600cffd932de0a55ac0160",
+      "responseSha256": "0f7356f3e4c928cf114bc9adba66d2e66eb07f26d567a8efa76b63b0db37214f",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "8",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "7.1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "4",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "7.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "4.3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "4.5.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "3.1.3",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000723",
+      "task": "ORD",
+      "type": "child",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 390.4618330000012,
+      "modelMs": 8109,
+      "contextChars": 7964,
+      "error": null,
+      "promptSha256": "ee2cd90970550efd872930e22c11b481660720a8573a34d75eb351073ae4f544",
+      "responseSha256": "569fb87d06baef2a078e1af5f7de6750c47403c47631bb5902f0fdc5afd09ea1",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-190",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1196",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-5307",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2261",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-4283",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8107",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000825",
+      "task": "ORD",
+      "type": "child",
+      "variant": "flat",
+      "correct": false,
+      "retrievalMs": 667.7103750000097,
+      "modelMs": 16021,
+      "contextChars": 7774,
+      "error": null,
+      "promptSha256": "354d8a5983e59302df8be6c2ee9798cb5275f84b8671359eaaa04e084626b10f",
+      "responseSha256": "5f7352668eeffef8576b8443bf696c4d2feb481fb1bfb454807bd7951596e6de",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-1370",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-855",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-856",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-999",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000847",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 758.1647909999883,
+      "modelMs": 8246,
+      "contextChars": 3097,
+      "error": null,
+      "promptSha256": "8ebbbb6f1c37fc23a75935c3b8f765e3399c72ec56abdceefe82ed247ce51644",
+      "responseSha256": "aec375cb2e8833d965a9c41188059af2ec41cedaf29fdcd3062bcad2060c70b8",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "1.1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "1.1.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "1.1.7",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "1.3.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "1.3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "1.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "1.2.3",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000397",
+      "task": "ORD",
+      "type": "child",
+      "variant": "hierarchy",
+      "correct": false,
+      "retrievalMs": 2424.1084169999995,
+      "modelMs": 19698,
+      "contextChars": 3521,
+      "error": null,
+      "promptSha256": "4e9ce06734d1c1c92a7b04e832d93638734eec9749434af36879835d72e64119",
+      "responseSha256": "e9d86a4528970e9ec9ac1f6b8c7b1c23465dbc9d2cd2faa9dffd960dbf606a93",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-497",
+          "path": "5.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-510",
+          "path": "4.4.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6047",
+          "path": "17.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-496",
+          "path": "6.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-354",
+          "path": "1.33",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-3421",
+          "path": "11.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8704",
+          "path": "11.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-497",
+          "path": "5.3",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000856",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": false,
+      "retrievalMs": 1099.1832080000022,
+      "modelMs": 11541,
+      "contextChars": 3814,
+      "error": null,
+      "promptSha256": "def2a603cab6911b8ce6b71e8ca35f0ab5130b07d584a66a0827320894f1a092",
+      "responseSha256": "6e8b3730a6237d4c6c25bd38dbe5055141227eb195bd1d14bd6d074ad2385c0d",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-516",
+          "path": "1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-516",
+          "path": "1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-516",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1053",
+          "path": "1.3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-465",
+          "path": "3.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-465",
+          "path": "12.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-465",
+          "path": "12",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000591",
+      "task": "ORD",
+      "type": "child",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 1078.8213749999995,
+      "modelMs": 6505,
+      "contextChars": 4369,
+      "error": null,
+      "promptSha256": "b12a80166dc2a7f7d076f74d7df5026e822aab9ab5dcfd0e08cf3675075cc9d9",
+      "responseSha256": "02f250b7f5d12c06440e7d2ce625e71e2b9b34d8063f42aec9246e8141271bd3",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-3112",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2782",
+          "path": "2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-239",
+          "path": "6.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6275",
+          "path": "1.7",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-3697",
+          "path": "4.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-241",
+          "path": "10.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-5472",
+          "path": "4.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-685",
+          "path": "4.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000657",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 832.4478329999984,
+      "modelMs": 9388,
+      "contextChars": 4870,
+      "error": null,
+      "promptSha256": "eb581b144adb0630352028a63c2aabee29d33e4fbd37d38c11be5ad64eb673f1",
+      "responseSha256": "03565b5379d2354f3fd423f767aa61069afc8f43f1d9fae01c0ccf5925a0dc72",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-199",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-198",
+          "path": "1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-198",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-199",
+          "path": "5.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-41",
+          "path": "2.4.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-199",
+          "path": "7.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-199",
+          "path": "4.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-199",
+          "path": "5.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000607",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 825.5557919999992,
+      "modelMs": 10489,
+      "contextChars": 6017,
+      "error": null,
+      "promptSha256": "27bf0095d0cb1191afff60680de426a81eb48d580c791b884baab8698081a7c0",
+      "responseSha256": "7382843eff329a4aa730f551c9e3399eff74114513a0c22629433e6edb0c6b68",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-191",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-42",
+          "path": "6.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-42",
+          "path": "6.1.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-42",
+          "path": "6.1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-42",
+          "path": "6.1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-191",
+          "path": "5.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9295",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9957",
+          "path": "",
+          "grain": "summary"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000979",
+      "task": "ORD",
+      "type": "child",
+      "variant": "legacy",
+      "correct": false,
+      "retrievalMs": 1075.8357499999984,
+      "modelMs": 7059,
+      "contextChars": 6637,
+      "error": null,
+      "promptSha256": "26e251e076e946fa2bd337e63fe401102a170ca3e030dcae81e93e8d86fdf850",
+      "responseSha256": "9eba5bd0ee9f727d3173a92e81595839fa6cc0b14e4ac9a0d0d0e462ed8f53f3",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-235",
+          "path": "3.5.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-917",
+          "path": "3.9",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1603",
+          "path": "3.9",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7849",
+          "path": "10",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1174",
+          "path": "2.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1044",
+          "path": "3.5",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1027",
+          "path": "6.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1027",
+          "path": "6",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000616",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 790.1293339999975,
+      "modelMs": 7462,
+      "contextChars": 3411,
+      "error": null,
+      "promptSha256": "ae280390230e8c4c036921a9250b45fdabce20ec100bd6ae3a39094ec4bd5b90",
+      "responseSha256": "76ba20b866b3ee26103e8e095ba14d63e4366a15ac8904bff3006a08d60b81cc",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-768",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-768",
+          "path": "3.4",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-768",
+          "path": "3.4.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-768",
+          "path": "3.4.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-546",
+          "path": "5.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-546",
+          "path": "3.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-768",
+          "path": "3",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-768",
+          "path": "3.1.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000884",
+      "task": "ORD",
+      "type": "child",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 922.9257919999945,
+      "modelMs": 6476,
+      "contextChars": 2073,
+      "error": null,
+      "promptSha256": "4425e32d098728ba85a7a4b03101a1feedf44e2df4f3dbdcadba386af7f0a4d3",
+      "responseSha256": "569fb87d06baef2a078e1af5f7de6750c47403c47631bb5902f0fdc5afd09ea1",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-87",
+          "path": "5.2.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-87",
+          "path": "5.2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1870",
+          "path": "4.5",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1870",
+          "path": "4.13",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1870",
+          "path": "4.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1117",
+          "path": "2.3.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-87",
+          "path": "5.2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1117",
+          "path": "2.4.3",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000018",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 285.79929100000004,
+      "modelMs": 6469,
+      "contextChars": 7938,
+      "error": null,
+      "promptSha256": "13c110f2962229b306580ac5bdba7fb64ef98328351ec11bb0b3925fbf83864a",
+      "responseSha256": "f216ad0a4225639cd02789b2b221f38292db49149d9650466185dcb1df102e79",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-634",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-639",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-636",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-635",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-714",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-5709",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000241",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 637.8624159999999,
+      "modelMs": 6138,
+      "contextChars": 2298,
+      "error": null,
+      "promptSha256": "ae02e94bd26b846ee1b7874264555d47b9b7e575d84cfb9bf0795dea81acee80",
+      "responseSha256": "e59af6ec222ac9206492b76a23d17fa423f6530ca59649f77223bb6dbe47138f",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "4.1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "4.2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "4.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "4.2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "4.1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "4.3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "4.3.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-159",
+          "path": "4.6.3",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000636",
+      "task": "ORD",
+      "type": "child",
+      "variant": "hierarchy",
+      "correct": false,
+      "retrievalMs": 3358.331833000004,
+      "modelMs": 27119,
+      "contextChars": 6257,
+      "error": null,
+      "promptSha256": "5d073c5fb58d9871d0b781fb4e92bfad8534164fe05db36833d5c4c7b5048928",
+      "responseSha256": "dccf846caf5e252d8b84691fe962020abe28a8ac2909111dd0c31a39bace3209",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-5235",
+          "path": "4.11",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8806",
+          "path": "1.9",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9046",
+          "path": "4.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8071",
+          "path": "1.9",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9184",
+          "path": "2.22",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9184",
+          "path": "2.19",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9184",
+          "path": "2.24",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6953",
+          "path": "3.12",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000723",
+      "task": "ORD",
+      "type": "child",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 1288.229707999999,
+      "modelMs": 8901,
+      "contextChars": 5118,
+      "error": null,
+      "promptSha256": "52d2eb58357fd6ac70ddfc252863e8e9ba7d323087116a3a7b1d1c929de5e141",
+      "responseSha256": "569fb87d06baef2a078e1af5f7de6750c47403c47631bb5902f0fdc5afd09ea1",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1196",
+          "path": "8",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-4436",
+          "path": "5",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1196",
+          "path": "8.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-4373",
+          "path": "2.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2939",
+          "path": "2.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1888",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1888",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-864",
+          "path": "18",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000724",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": false,
+      "retrievalMs": 1156.3708340000012,
+      "modelMs": 18671,
+      "contextChars": 2791,
+      "error": null,
+      "promptSha256": "7c93d14b895c9151b94d29919c9adb555bd6bc8a12685b3fe12760f2ca02f977",
+      "responseSha256": "540af27669c2c7c8246d914a7c960da3f950d577b278790ec8e414e6083fcf71",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-826",
+          "path": "materials",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1237",
+          "path": "8",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-3837",
+          "path": "2.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-826",
+          "path": "8.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1126",
+          "path": "3.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1237",
+          "path": "8.2.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1237",
+          "path": "8.4.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1237",
+          "path": "8.4.3",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000741",
+      "task": "ORD",
+      "type": "child",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 262.80833300000086,
+      "modelMs": 8963,
+      "contextChars": 7555,
+      "error": null,
+      "promptSha256": "8ac6322b71a2dcb76069d25feb5aca34990753dc30f63bf963dba2bc9f86f4a8",
+      "responseSha256": "01919689bdb40ae02756968fb4cb1080533645e8ef054e438d2ba149c7f60fc4",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-578",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-3995",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1015",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9100",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000813",
+      "task": "ORD",
+      "type": "child",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 365.2505000000019,
+      "modelMs": 7229,
+      "contextChars": 7348,
+      "error": null,
+      "promptSha256": "899f074a970610e65bb0e131a70f0f5c2444ab80597126c10fe0b0703daf5625",
+      "responseSha256": "e59af6ec222ac9206492b76a23d17fa423f6530ca59649f77223bb6dbe47138f",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-8880",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7829",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8395",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-772",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8880",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-001080",
+      "task": "ORD",
+      "type": "child",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 293.60487500000454,
+      "modelMs": 6639,
+      "contextChars": 7975,
+      "error": null,
+      "promptSha256": "26e47726c9b0a2dc369464682c5671435a94406a4a7e11b44e62c4170ef13938",
+      "responseSha256": "52847f1ac592af41092285b559a60724d689f5edb5b7f1d12ad294f389a2b5c7",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-4083",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6871",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-10361",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-5282",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7369",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000523",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": false,
+      "retrievalMs": 1104.7101249999978,
+      "modelMs": 9062,
+      "contextChars": 4329,
+      "error": null,
+      "promptSha256": "3a30320b20b86e8cb3650ba62f71e3eba12ddc137c64f3a36d6da58f7be6dc16",
+      "responseSha256": "edcee8ba91cc2c144515fd0d4ca59480422399fa84d799f46799c27e1b471997",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "2.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "2.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "2.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "8.2",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000243",
+      "task": "ORD",
+      "type": "child",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 301.33737500000007,
+      "modelMs": 6727,
+      "contextChars": 7998,
+      "error": null,
+      "promptSha256": "987638418a976ba6491de9a55fe335fb5267b48637e1206aad3758861aa92261",
+      "responseSha256": "da75e443a750011e95acab5159a61f74e9b5f47af79cea6d296cfb0a694cb23c",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6808",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-5984",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9566",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1392",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000958",
+      "task": "ORD",
+      "type": "child",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 3601.4159170000057,
+      "modelMs": 12269,
+      "contextChars": 7866,
+      "error": null,
+      "promptSha256": "22a219bf9f9467731c942288024325f4b172addfd4ec8710d2b1bf88f2e3ce50",
+      "responseSha256": "6beec3d51888d398fa111176e2416cb6cca0bd76a2aa7838f01e8cfbfbd8b668",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-9184",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9184",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-872",
+          "path": "3",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9184",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-661",
+          "path": "5",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1032",
+          "path": "17.9",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-001051",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 843.2257910000044,
+      "modelMs": 7385,
+      "contextChars": 7063,
+      "error": null,
+      "promptSha256": "dbeef4c33f9a63888ec61249c86ca4e2c2aecd2bc26095b4a5028e7552e4026a",
+      "responseSha256": "bd167d589e5c119e8a12e27e14480c999c3c2cccb2c30664110d143a03490ae9",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-634",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-636",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-639",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-635",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-637",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-642",
+          "path": "4.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-634",
+          "path": "4.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-636",
+          "path": "6.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000590",
+      "task": "ORD",
+      "type": "child",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 1665.6788329999981,
+      "modelMs": 7331,
+      "contextChars": 7685,
+      "error": null,
+      "promptSha256": "0dc2d9cfc6c01bd56c04db0ba0da104e5258bb26e9e511962615950cd4fc6d64",
+      "responseSha256": "258177ea5b8bcb715464a14f5a3655788fd370f1b50cb67d1809c122350a6184",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-5868",
+          "path": "1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-5599",
+          "path": "1.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-4120",
+          "path": "1.15",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-350",
+          "path": "4.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1093",
+          "path": "4.2.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1742",
+          "path": "1.8",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-5837",
+          "path": "2.8",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-3560",
+          "path": "3.5",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000977",
+      "task": "ORD",
+      "type": "child",
+      "variant": "flat",
+      "correct": false,
+      "retrievalMs": 390.47120800000266,
+      "modelMs": 9641,
+      "contextChars": 7631,
+      "error": null,
+      "promptSha256": "96e1710383d5c2f8960ad41e90307f356bf23d656568765fe7c1030fd5744c3a",
+      "responseSha256": "adc524d16ffc838f6b8d94952698aa9ac912acba85409e7810453d2cb2f2f58a",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-1586",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1117",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7395",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-849",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-001084",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 689.4752500000031,
+      "modelMs": 7645,
+      "contextChars": 1534,
+      "error": null,
+      "promptSha256": "56481aa82359831887803ccadee7767da4ff19f6ee1e0956f7c3ef09ae90da16",
+      "responseSha256": "76ce8133bdceef0abd8f8a6a93451987b3f524a4254e576c55e803c5bab097a4",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1100",
+          "path": "3.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1100",
+          "path": "3.7",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1100",
+          "path": "3.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1100",
+          "path": "3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1100",
+          "path": "3.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2110",
+          "path": "11.8",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-4280",
+          "path": "9.8",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1100",
+          "path": "3.2",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000958",
+      "task": "ORD",
+      "type": "child",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 2472.3375830000004,
+      "modelMs": 11147,
+      "contextChars": 7675,
+      "error": null,
+      "promptSha256": "4d7e4c86b476dabda4d10ebeb64a8f2171424c461638f1a19eb75cb8ed2c9915",
+      "responseSha256": "6beec3d51888d398fa111176e2416cb6cca0bd76a2aa7838f01e8cfbfbd8b668",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-9184",
+          "path": "2.25",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1032",
+          "path": "17.9",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9184",
+          "path": "2.23",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9815",
+          "path": "6.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9184",
+          "path": "2.22",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9184",
+          "path": "2.15",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9184",
+          "path": "2.19",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9871",
+          "path": "11.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000244",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 222.21970799999872,
+      "modelMs": 8187,
+      "contextChars": 7743,
+      "error": null,
+      "promptSha256": "553af5efb65931d4dfb12372fbefc2fb74ef87197ace3306c19c189fbbae80d6",
+      "responseSha256": "729d08a041708c07e87acce90283454a3b951390de2274dfd0045d76fe7513ec",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-875",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000751",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 221.54933399999572,
+      "modelMs": 6112,
+      "contextChars": 7738,
+      "error": null,
+      "promptSha256": "b662d2e7700bf79eb353c672f7e2c9b73a72b0478dc4e5569dd491c83508118f",
+      "responseSha256": "aa5123c2b8b1ee5b759e7c8831939dade8581af7a5bffe41d0f1271a4efa03bc",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-400",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-848",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6742",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-844",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-001052",
+      "task": "ORD",
+      "type": "child",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 266.0207080000109,
+      "modelMs": 6061,
+      "contextChars": 7628,
+      "error": null,
+      "promptSha256": "7567d8397f7432d604451c432d373bf741ae542744139f44d3f8c3e670ea5e2e",
+      "responseSha256": "569fb87d06baef2a078e1af5f7de6750c47403c47631bb5902f0fdc5afd09ea1",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-635",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-635",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-641",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-5564",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000523",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": false,
+      "retrievalMs": 1074.3669169999994,
+      "modelMs": 9840,
+      "contextChars": 3983,
+      "error": null,
+      "promptSha256": "e9456d9b1f0f58cc200db8b59f75df1edd46e4958375f1a2d5f803d366a8f59a",
+      "responseSha256": "a9c1a3c3545dee20e4333fc71341c4497475d649217d4e90fc1a7f976525fb61",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "2.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "2.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "2.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1130",
+          "path": "8.2",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000784",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": false,
+      "retrievalMs": 238.42237500000192,
+      "modelMs": 9870,
+      "contextChars": 7771,
+      "error": null,
+      "promptSha256": "bf354547914e3af03edbd7e11bd33699938f46fc96769fe9f1fadd9dd69f8717",
+      "responseSha256": "9824e77d5161bedda4f5f1b5a9743b008c15fd027d3116290f08a643953880fb",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-774",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1504",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000157",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 260.26295799999207,
+      "modelMs": 7771,
+      "contextChars": 7871,
+      "error": null,
+      "promptSha256": "7a23588e5c348de7f2d897f18e5e4ebef54463afe91020ba028f7cbf1adcbbe8",
+      "responseSha256": "458b1b8e009fc036635282aac98cf447e19d41dd7837c436cc57c17bc3d8ed9e",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1127",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-848",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000570",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 183.8882080000003,
+      "modelMs": 7009,
+      "contextChars": 7807,
+      "error": null,
+      "promptSha256": "e75dd53ae5c22b73e8416d5b9aadd63aafa86481e8c39b1d954a65cb8f78585a",
+      "responseSha256": "271969ce1633819cc88f42ca5a3790e89326f09965c61a510a225b3881f4c6d4",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-605",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-687",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2248",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-001084",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 811.7413339999912,
+      "modelMs": 7097,
+      "contextChars": 2742,
+      "error": null,
+      "promptSha256": "d8f572dfe32dd979cb1fb53cbb54c04e706799039c6ebc2e0b69f59d6665e07a",
+      "responseSha256": "76ce8133bdceef0abd8f8a6a93451987b3f524a4254e576c55e803c5bab097a4",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1100",
+          "path": "4.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1100",
+          "path": "4.7",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1100",
+          "path": "4.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1100",
+          "path": "4.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1100",
+          "path": "4.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1100",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2110",
+          "path": "11.8",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-4280",
+          "path": "9.8",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000590",
+      "task": "ORD",
+      "type": "child",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 2034.569416000002,
+      "modelMs": 8420,
+      "contextChars": 7787,
+      "error": null,
+      "promptSha256": "5d7c10986bf6a8d3847a20de2347c0c8be4bd634f8565aecbc5c011b578db751",
+      "responseSha256": "258177ea5b8bcb715464a14f5a3655788fd370f1b50cb67d1809c122350a6184",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1182",
+          "path": "6",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-460",
+          "path": "3",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-5868",
+          "path": "1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-5868",
+          "path": "1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7756",
+          "path": "3",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-10201",
+          "path": "1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2859",
+          "path": "5",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000419",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 310.3772919999974,
+      "modelMs": 7067,
+      "contextChars": 7842,
+      "error": null,
+      "promptSha256": "c16f710c78f0b780821e60547b3dbb9b70446d40c30602e4eee1135d90ddabd8",
+      "responseSha256": "65b0d33d24a4547722ab01ab22651f23a1cf0e46acaea27e99b2042259c01f75",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-98",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6349",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-001051",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 1149.435249999995,
+      "modelMs": 7497,
+      "contextChars": 7926,
+      "error": null,
+      "promptSha256": "46b653f904651fd6537a11f2e6f835d385903572b6144538eeee27cb22299016",
+      "responseSha256": "bd167d589e5c119e8a12e27e14480c999c3c2cccb2c30664110d143a03490ae9",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-634",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-636",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-639",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-635",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-641",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-637",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-634",
+          "path": "5.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000616",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 1266.3375000000015,
+      "modelMs": 6992,
+      "contextChars": 3772,
+      "error": null,
+      "promptSha256": "a2dd8a61d58ec984bcc1298d242908bab940f91985d959da70cdf714afda801a",
+      "responseSha256": "76ba20b866b3ee26103e8e095ba14d63e4366a15ac8904bff3006a08d60b81cc",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-768",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-768",
+          "path": "4.4.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-768",
+          "path": "4.4.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-768",
+          "path": "4.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-546",
+          "path": "4.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-768",
+          "path": "4.1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-768",
+          "path": "4.4",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-546",
+          "path": "6.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000979",
+      "task": "ORD",
+      "type": "child",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 952.1823329999897,
+      "modelMs": 18726,
+      "contextChars": 2026,
+      "error": null,
+      "promptSha256": "daa62a02f9ae7f0ab565ea0d00ebd22212ffdeb9f71a1f007af18dd91d88ae37",
+      "responseSha256": "d3dd93e8a67cb27defd0fc560035d43cd6bb7cb68b7738a4fdc152ee0b5fba87",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-235",
+          "path": "2.5.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1174",
+          "path": "2.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6753",
+          "path": "1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-475",
+          "path": "2.4.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-145",
+          "path": "1.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2710",
+          "path": "8.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-12",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-388",
+          "path": "1.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000241",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 624.6077919999998,
+      "modelMs": 5914,
+      "contextChars": 1932,
+      "error": null,
+      "promptSha256": "b33e0a38d20e6648b5e90057b595a5db629df9701985a5265f6471eedf0b0702",
+      "responseSha256": "e59af6ec222ac9206492b76a23d17fa423f6530ca59649f77223bb6dbe47138f",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "3.2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "3.3",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "3",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "3.1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "3.2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "3.1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "3.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-72",
+          "path": "3.3.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000884",
+      "task": "ORD",
+      "type": "child",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 796.2409170000028,
+      "modelMs": 8914,
+      "contextChars": 1964,
+      "error": null,
+      "promptSha256": "ea3c3ea04bb0793028d3fd872bd1d6d95f9c08d279418505ef4e91319ee25b8d",
+      "responseSha256": "8db8dcdf74c0a552b6175b2e538b5f6dbc23074c56cdf1e5286728dcb863e3a9",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-87",
+          "path": "4.2.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-87",
+          "path": "4.2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1870",
+          "path": "4.13",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1870",
+          "path": "4.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1870",
+          "path": "4.5",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-87",
+          "path": "4.2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1117",
+          "path": "1.3.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1117",
+          "path": "1.4.3",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000607",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 898.8286250000019,
+      "modelMs": 6062,
+      "contextChars": 4470,
+      "error": null,
+      "promptSha256": "d793d8e43d6f74c77b391ae9ca12d0eac43f8a33489868479410735a41528c71",
+      "responseSha256": "7382843eff329a4aa730f551c9e3399eff74114513a0c22629433e6edb0c6b68",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-191",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-42",
+          "path": "6.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-42",
+          "path": "6.1.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-42",
+          "path": "6.1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-42",
+          "path": "6",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-42",
+          "path": "6.1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-191",
+          "path": "4.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9957",
+          "path": "",
+          "grain": "summary"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000657",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": false,
+      "retrievalMs": 1038.972332999998,
+      "modelMs": 12080,
+      "contextChars": 6501,
+      "error": null,
+      "promptSha256": "19298542ce058e4592f2df0fd1688043a7a77773bd80b356b65ed64e4ecfb6f7",
+      "responseSha256": "25f6a4c70a20d96513822f027a6d8b99b5bf738689794211a20081f5717af1b1",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-199",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-198",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-198",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-198",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-199",
+          "path": "5",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-199",
+          "path": "6",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8737",
+          "path": "1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1020",
+          "path": "1",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000591",
+      "task": "ORD",
+      "type": "child",
+      "variant": "legacy",
+      "correct": true,
+      "retrievalMs": 1645.387499999997,
+      "modelMs": 7065,
+      "contextChars": 7750,
+      "error": null,
+      "promptSha256": "a818752460ef2c22ba37a0cdb67f23c64280175a7e1f3763b6ac6fae1216db11",
+      "responseSha256": "02f250b7f5d12c06440e7d2ce625e71e2b9b34d8063f42aec9246e8141271bd3",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-3112",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-3112",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-7117",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2782",
+          "path": "1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-5472",
+          "path": "4",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-241",
+          "path": "10.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-241",
+          "path": "10",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-3795",
+          "path": "1",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000422",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 190.95129200000156,
+      "modelMs": 6030,
+      "contextChars": 7496,
+      "error": null,
+      "promptSha256": "c954102a2f2adc5509ead08f11c5ce6840bd05e5eb4dc27edf0cbdd7e00c5bfb",
+      "responseSha256": "4d82889fa0bcf09923b78fcdd91b711bf74efae3f18f1e4f1de6243469facca7",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-498",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2324",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9001",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000856",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": false,
+      "retrievalMs": 1194.255707999997,
+      "modelMs": 11154,
+      "contextChars": 4703,
+      "error": null,
+      "promptSha256": "39bd4303a0b4e2f68c05c2964584daee32abdd16d7376abce2324f5796223ae1",
+      "responseSha256": "4195aaf78864a19970d52721af7de475096b0054810b394b73ae5ec8617a7e5f",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-516",
+          "path": "2.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-516",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-516",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1053",
+          "path": "2.3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-465",
+          "path": "13.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-465",
+          "path": "4.1.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-465",
+          "path": "13.1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-5688",
+          "path": "",
+          "grain": "summary"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000463",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": false,
+      "retrievalMs": 230.5083749999976,
+      "modelMs": 10101,
+      "contextChars": 7879,
+      "error": null,
+      "promptSha256": "429e28b429035202c20adbce9e582a1c3436634afd73f3f15422c8c7c238fe85",
+      "responseSha256": "92bf747c78e21dd7785d29f694ab25289f4c59c40723cfbc159086a185b21252",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1080",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1080",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1081",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1083",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000397",
+      "task": "ORD",
+      "type": "child",
+      "variant": "legacy",
+      "correct": false,
+      "retrievalMs": 3173.6805000000004,
+      "modelMs": 14577,
+      "contextChars": 7989,
+      "error": null,
+      "promptSha256": "69e8045db5f7b7bc8a02f8efd5a523b64339b0ccb18c896b5c35a1cfa95beba8",
+      "responseSha256": "1196799805ea8aec851eeeef09dd500e82994e67287f394de03b64145253a4d4",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-1347",
+          "path": "1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-497",
+          "path": "5",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2271",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2434",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-496",
+          "path": "6",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-510",
+          "path": "5.1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-450",
+          "path": "2.4",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000847",
+      "task": "ORD",
+      "type": "top",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 846.9417079999985,
+      "modelMs": 8643,
+      "contextChars": 3083,
+      "error": null,
+      "promptSha256": "4cc2e523e77b2acbfadaa73df1e517f36232eb61e629bb9fd120503ff97dcc2d",
+      "responseSha256": "aec375cb2e8833d965a9c41188059af2ec41cedaf29fdcd3062bcad2060c70b8",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "1.1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "1.1.3",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "1.1.7",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "1.3.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "1.3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "1.3",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-208",
+          "path": "1.2.3",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000253",
+      "task": "ORD",
+      "type": "top",
+      "variant": "flat",
+      "correct": true,
+      "retrievalMs": 215.43087500000001,
+      "modelMs": 8362,
+      "contextChars": 7938,
+      "error": null,
+      "promptSha256": "d95f2d8f29fd9b33007a1a56085f9a1ed3f7bac5447a021b40b69141359d494d",
+      "responseSha256": "0f7356f3e4c928cf114bc9adba66d2e66eb07f26d567a8efa76b63b0db37214f",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-569",
+          "path": "",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-869",
+          "path": "",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000636",
+      "task": "ORD",
+      "type": "child",
+      "variant": "legacy",
+      "correct": false,
+      "retrievalMs": 4791.5219170000055,
+      "modelMs": 18492,
+      "contextChars": 7503,
+      "error": null,
+      "promptSha256": "602b368242d37029d74a01b2541472798ec9e945096778419e4d4069703eaac4",
+      "responseSha256": "dccf846caf5e252d8b84691fe962020abe28a8ac2909111dd0c31a39bace3209",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-io:Protocol.io-5235",
+          "path": "4",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-5235",
+          "path": "4.10",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9184",
+          "path": "2",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8806",
+          "path": "1.9",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9046",
+          "path": "4.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-8071",
+          "path": "1.9",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1670",
+          "path": "3",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6267",
+          "path": "4",
+          "grain": "section"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000723",
+      "task": "ORD",
+      "type": "child",
+      "variant": "hierarchy",
+      "correct": true,
+      "retrievalMs": 1186.348791000004,
+      "modelMs": 8904,
+      "contextChars": 3814,
+      "error": null,
+      "promptSha256": "0cefd6f3a9265c7a1148c90a4c1738f8261db366a08c6f4b2b7f1beae4857912",
+      "responseSha256": "569fb87d06baef2a078e1af5f7de6750c47403c47631bb5902f0fdc5afd09ea1",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1196",
+          "path": "7.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-4373",
+          "path": "2.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-2939",
+          "path": "2.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-9173",
+          "path": "9.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-10206",
+          "path": "15.4",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-4436",
+          "path": "5.9",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-6542",
+          "path": "8.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1888",
+          "path": "2.1",
+          "grain": "step"
+        }
+      ]
+    },
+    {
+      "id": "TEST-ORD-000724",
+      "task": "ORD",
+      "type": "top",
+      "variant": "legacy",
+      "correct": false,
+      "retrievalMs": 988.5488750000004,
+      "modelMs": 19376,
+      "contextChars": 3620,
+      "error": null,
+      "promptSha256": "a32f61def149a80d179d95f19b01593543a7687de5dea233b0b61bce1098ee3d",
+      "responseSha256": "25ee81db9330dd390b0ce377dd0d63ee4225ecb1f071ea8eae9ea49c3f622c17",
+      "sourceRefs": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-826",
+          "path": "1",
+          "grain": "section"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-3837",
+          "path": "2.6",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1237",
+          "path": "9.1.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-io:Protocol.io-1126",
+          "path": "3.2",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-826",
+          "path": "",
+          "grain": "summary"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-826",
+          "path": "9.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1237",
+          "path": "9.3.1",
+          "grain": "step"
+        },
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1237",
+          "path": "9.3.3",
+          "grain": "step"
+        }
+      ]
+    }
+  ]
+}

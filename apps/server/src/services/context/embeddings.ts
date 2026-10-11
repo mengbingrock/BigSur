@@ -1,5 +1,7 @@
 /** Rebuildable semantic index over canonical context documents. Original rows
  * remain authoritative. Chunk offsets permit exact reopening of long sources. */
+import { snapshotHierarchy } from "../protocolHierarchy";
+import { chunkProtocol } from "../artifactIndex/chunk";
 import { getDb, type SqlDb } from "../db";
 import {
   embedBatch,
@@ -25,6 +27,13 @@ export function installContextEmbeddings(db: SqlDb): void {
     CREATE TRIGGER IF NOT EXISTS context_vector_account_delete AFTER DELETE ON users BEGIN
       DELETE FROM context_vector_generation WHERE email=old.email;
     END;`);
+  const columns = db.prepare("PRAGMA table_info(context_vectors)").all();
+  if (!columns.some((c) => c.name === "node_id")) {
+    db.exec("ALTER TABLE context_vectors ADD COLUMN node_id TEXT");
+    db.exec(
+      "DELETE FROM context_embedding_state WHERE document_id IN (SELECT id FROM context_documents WHERE kind='run'); DELETE FROM context_vectors WHERE document_id IN (SELECT id FROM context_documents WHERE kind='run')",
+    );
+  }
 }
 export function embeddingChunks(
   text: string,
@@ -83,7 +92,32 @@ export function buildContextEmbeddings(email: string, limit = 20) {
       .all(email, model, Math.max(1, Math.min(limit, 50)));
     let built = 0;
     for (const row of rows) {
-      const chunks = embeddingChunks(String(row.content));
+      const run =
+        row.kind === "run"
+          ? db
+              .prepare(
+                "SELECT snapshot,protocol_name FROM protocol_runs WHERE id=? AND email=?",
+              )
+              .get(row.entity_id, email)
+          : null;
+      const chunks: Array<{
+        start: number;
+        end: number;
+        text: string;
+        nodeId?: string;
+      }> = run
+        ? chunkProtocol({
+            name: String(run.protocol_name),
+            description: "Frozen protocol revision",
+            body: "",
+            hierarchy: snapshotHierarchy(JSON.parse(String(run.snapshot))),
+          }).map((c) => ({
+            start: 0,
+            end: String(row.content).length,
+            text: `${run.protocol_name} — ${c.heading} — ${c.path}\n${c.text}`,
+            nodeId: `${c.grain}:${c.path}`,
+          }))
+        : embeddingChunks(String(row.content));
       const vectors: Float32Array[] = [];
       for (let start = 0; start < chunks.length; start += 32)
         vectors.push(
@@ -114,7 +148,7 @@ export function buildContextEmbeddings(email: string, limit = 20) {
           row.id,
         );
         const insert = db.prepare(
-          "INSERT INTO context_vectors VALUES(?,?,?,?,?,?,?)",
+          "INSERT INTO context_vectors(document_id,chunk_idx,start_offset,end_offset,model,dimensions,vector,node_id) VALUES(?,?,?,?,?,?,?,?)",
         );
         chunks.forEach((c, i) =>
           insert.run(
@@ -125,6 +159,7 @@ export function buildContextEmbeddings(email: string, limit = 20) {
             model,
             vectors[i]!.length,
             vectorToBlob(vectors[i]!),
+            c.nodeId ?? null,
           ),
         );
         db.prepare(
@@ -161,7 +196,7 @@ export async function semanticCandidates(
     throw new Error("Query embedding missing or invalid.");
   const scores = new Map<
     number,
-    { id: number; score: number; offset: number }
+    { id: number; score: number; offset: number; nodeId?: string }
   >();
   // Scan in pages across the entire authorized corpus. No lexical prefilter:
   // a synonymous query can retrieve a document sharing no literal words.
@@ -170,7 +205,7 @@ export async function semanticCandidates(
   for (;;) {
     const rows = db
       .prepare(
-        `SELECT v.document_id,v.chunk_idx,v.start_offset,v.vector FROM context_vectors v JOIN context_documents d ON d.id=v.document_id ${join} WHERE ${where} AND v.model=? AND v.dimensions=? AND (v.document_id>? OR (v.document_id=? AND v.chunk_idx>?)) ORDER BY v.document_id,v.chunk_idx LIMIT 256`,
+        `SELECT v.document_id,v.chunk_idx,v.start_offset,v.vector,v.node_id FROM context_vectors v JOIN context_documents d ON d.id=v.document_id ${join} WHERE ${where} AND v.model=? AND v.dimensions=? AND (v.document_id>? OR (v.document_id=? AND v.chunk_idx>?)) ORDER BY v.document_id,v.chunk_idx LIMIT 256`,
       )
       .all(...args, model, vector.length, afterDoc, afterDoc, afterChunk);
     if (!rows.length) break;
@@ -178,7 +213,12 @@ export async function semanticCandidates(
       const score = cosine(vector, blobToVector(r.vector as Uint8Array));
       const id = Number(r.document_id);
       if (score > (scores.get(id)?.score ?? -Infinity))
-        scores.set(id, { id, score, offset: Number(r.start_offset) });
+        scores.set(id, {
+          id,
+          score,
+          offset: Number(r.start_offset),
+          ...(r.node_id ? { nodeId: String(r.node_id) } : {}),
+        });
     }
     const last = rows.at(-1)!;
     afterDoc = Number(last.document_id);

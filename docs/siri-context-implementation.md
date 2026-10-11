@@ -17,7 +17,7 @@ Named online hosts answer authoritative reads through Device Link. A desktop can
 The context index is separate from the existing protocol/artifact and shared-library indexes:
 
 1. Canonical context documents arrive through the source triggers/backfill.
-2. Long text splits into 1,800-character chunks with 200-character overlap. Each chunk records its document ID and start/end offsets.
+2. Session transcript text splits into 1,800-character chunks with 200-character overlap. Protocol/run source text now uses the BioProBench hierarchy described in `bioprobench-hierarchy-implementation.md`; run vectors carry exact node references.
 3. The existing embedding provider embeds batches of up to 32 chunks. Its default real model is `text-embedding-3-small`; `LABEE_EMBED_MODEL` selects another model. `LABEE_EMBED_PROVIDER=fake` is test-only.
 4. Unit-normalized Float32 vectors are stored as SQLite BLOBs, with model and dimension metadata. A per-document completion record makes builds resumable. Changed/deleted sources invalidate their vectors; a changed model leaves old vectors ineligible until rebuilt.
 5. The agent can call `index.status` and `index.build`. Missing credentials are reported, never treated as a successful semantic build.

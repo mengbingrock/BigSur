@@ -9,8 +9,9 @@
 // Licence is not read from the record, because the records do not carry one:
 // the operator asserts it for the file being ingested, and only files under
 // a licence on the allow-list go in. CC BY is in; NC and SA variants are not.
-import { renderTree, type ProtocolTree, type Section, type Step } from "../protocolTree";
+import { allSteps, renderTree, type ProtocolTree, type Section, type Step } from "../protocolTree";
 import { embedLibraryPending, upsertLibraryProtocol, type LibraryRecord } from "./store";
+import { bioProHierarchy } from "../protocolHierarchy";
 import { resolveEmbedTarget } from "../artifactIndex/embed";
 
 /** Licences the library may carry. Compared case- and punctuation-insensitively. */
@@ -112,23 +113,13 @@ function buildTree(nodes: Map<string, RawNode>): Built[] {
   return [...built.values()].filter((b) => !b.path.includes(".")).sort((x, y) => byPath(x.path, y.path));
 }
 
-/** A node (and everything under it) as a step with sub-steps. Deeper levels
- *  are flattened into the sub-steps, in order, since the tree keeps one. */
+/** Keep every nested sub-step in the display tree. */
 function toStep(b: Built, path: string): Step {
-  const step: Step = { path, text: b.text ?? b.title ?? `Part ${b.path}`, substeps: [] };
-  const walk = (n: Built) => {
-    for (const c of n.children) {
-      const text = c.text ?? c.title;
-      if (text) step.substeps.push({ path: `${path}.${step.substeps.length + 1}`, text, substeps: [] });
-      walk(c);
-    }
-  };
-  walk(b);
-  return step;
+  return { path, text: b.text ?? b.title ?? `Part ${b.path}`, substeps: b.children.map((c, i) => toStep(c, `${path}.${i + 1}`)) };
 }
 
-/** A titled node as a section: its titled children become child sections
- *  (one level), everything else becomes steps. */
+/** A titled node as a display section, preserving nested child sections.
+ * Original source addresses/order are separately retained in hierarchy. */
 function toSection(b: Built, path: string, parentHeading: string, depth: number): Section {
   const title = b.title ?? `Part ${b.path}`;
   const heading = parentHeading ? `${parentHeading} › ${title}` : title;
@@ -136,7 +127,7 @@ function toSection(b: Built, path: string, parentHeading: string, depth: number)
   if (b.text) section.steps.push({ path: `${path}.1`, text: b.text, substeps: [] });
   for (const c of b.children) {
     const group = Boolean(c.title) && c.children.length > 0;
-    if (group && depth < 1) {
+    if (group) {
       section.children.push(toSection(c, `${path}.${section.children.length + 1}`, heading, depth + 1));
     } else {
       section.steps.push(toStep(c, `${path}.${section.steps.length + 1}`));
@@ -185,7 +176,7 @@ export function mapBioProRecord(raw: BioProRecord, opts: { source: string; licen
     }
     procedure.steps.push(toStep(root, `${procedure.path}.${procedure.steps.length + 1}`));
   }
-  const hasSteps = tree.sections.some((s) => s.steps.length > 0 || s.children.some((c) => c.steps.length > 0));
+  const hasSteps = allSteps(tree).length > 0;
   if (!hasSteps) return null;
 
   const title = oneLine(raw.title ?? "") || `Protocol ${raw.id}`;
@@ -206,6 +197,7 @@ export function mapBioProRecord(raw: BioProRecord, opts: { source: string; licen
     method: raw.method ? oneLine(raw.method) : undefined,
     application: raw.application ? oneLine(raw.application) : undefined,
     body: renderTree(tree),
+    hierarchy: bioProHierarchy(raw.hierarchical_protocol ?? {}, raw.input),
   };
 }
 

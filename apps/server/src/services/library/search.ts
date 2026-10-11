@@ -9,7 +9,7 @@ import { getDb } from "../db";
 import { cosine, embedBatch, resolveEmbedTarget } from "../artifactIndex/embed";
 import { ftsExpression, queryGrain, snippetOf, type SearchMode } from "../artifactIndex/index";
 import type { Grain } from "../artifactIndex/chunk";
-import { libraryHeaders, loadLibraryChunks } from "./store";
+import { libraryHeaders, loadLibraryChunks, ensureLibraryHierarchy } from "./store";
 
 export interface LibraryHit {
   id: string;
@@ -55,6 +55,7 @@ interface Scored {
 }
 
 async function scoreCandidates(q: string, email?: string, opts: { grain?: Grain | "any" } = {}): Promise<{ scored: Scored[]; mode: SearchMode } | null> {
+  await ensureLibraryHierarchy();
   const expr = ftsExpression(q);
   if (!expr) return null;
   const db = await getDb();

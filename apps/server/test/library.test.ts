@@ -172,7 +172,8 @@ describe("on the box", () => {
     expect(r.hits[0]).toMatchObject({ id: "protocol-exchange:Protocol-exchange-1", license: "CC BY 4.0" });
     expect(r.hits[0]!.url).toContain("doi.org");
     const step = (await (await api(box, "/api/library/search?q=how%20long%20at%2016,000g")).json()) as { hits: Array<{ path: string; grain: string }> };
-    expect(step.hits[0]).toMatchObject({ grain: "step", path: "3.1" });
+    // Source address stays 2.1; adding a rendered Materials section does not renumber it.
+    expect(step.hits[0]).toMatchObject({ grain: "step", path: "2.1" });
     expect((await api(box, "/api/library/protocol-exchange:Protocol-exchange-1")).status).toBe(200);
     expect((await api(box, "/api/library/nope")).status).toBe(404);
   });

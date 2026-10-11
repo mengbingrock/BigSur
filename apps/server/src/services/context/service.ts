@@ -13,6 +13,14 @@ import type {
 } from "@labee/contracts";
 import { getDb, type SqlDb } from "../db";
 import { getAllSkills, getSkillBySlug } from "../skills";
+import {
+  markdownHierarchy,
+  hierarchyNode,
+  snapshotHierarchy,
+} from "../protocolHierarchy";
+import { getLibraryProtocol } from "../library/store";
+import { searchScoped } from "../library/federate";
+import { reconcile } from "../artifactIndex/index";
 import { getHost, listHosts, requestHostJson } from "../deviceLink/hosts";
 import { isDesktop, boxSessionCookie, proxyServerBase } from "../llmSettings";
 import { stableHostId } from "../deviceLink/client";
@@ -60,6 +68,8 @@ export function validateContextCall(value: unknown): ContextCall {
     "since",
     "until",
     "protocolSlug",
+    "nodeId",
+    "revision",
     "taskId",
   ] as const) {
     if (c[k] !== undefined && (typeof c[k] !== "string" || c[k]!.length > 8192))
@@ -71,7 +81,10 @@ export function validateContextCall(value: unknown): ContextCall {
   }
   if (c.direction !== undefined && !["before", "after"].includes(c.direction))
     throw new ContextError(400, "Invalid direction.");
-  if (c.part !== undefined && !["state", "snapshot", "events"].includes(c.part))
+  if (
+    c.part !== undefined &&
+    !["state", "snapshot", "events", "tree"].includes(c.part)
+  )
     throw new ContextError(400, "Invalid part.");
   for (const k of ["archived", "localOnly", "includeEvents"] as const)
     if (c[k] !== undefined && typeof c[k] !== "boolean")
@@ -279,12 +292,102 @@ export async function retrieveLocal(
   if (c.tool === "protocols.search" || c.tool === "protocols.read") {
     if (host) throw new ContextError(503, "Protocol source is offline.");
     if (c.tool === "protocols.read") {
-      const p = c.protocolSlug ? getSkillBySlug(c.protocolSlug, email) : null;
-      if (!p || p.artifactKind !== "protocol")
+      if (isDesktop() && c.protocolSlug?.startsWith("library:") && !c.localOnly)
+        return retrieveContext(email, { ...c, hostId: "box" });
+      const library = c.protocolSlug?.startsWith("library:")
+        ? await getLibraryProtocol(c.protocolSlug.slice(8))
+        : null;
+      const own =
+        c.protocolSlug && !library
+          ? getSkillBySlug(c.protocolSlug, email)
+          : null;
+      if (!library && (!own || own.artifactKind !== "protocol"))
         throw new ContextError(404, "Protocol not found.");
+      const body = library?.body ?? own!.body;
+      const revision =
+        library?.contentHash ?? createHash("sha256").update(body).digest("hex");
+      if (
+        (c.revision && c.revision !== revision) ||
+        (page && String(page.generation) !== revision)
+      )
+        throw new ContextError(
+          409,
+          "Protocol revision changed; reopen its tree.",
+        );
+      const ref = {
+        protocolSlug: c.protocolSlug,
+        name: library?.title ?? own!.name,
+        revision,
+      };
+      if (c.nodeId || c.part === "tree") {
+        const nodes = library?.hierarchy ?? markdownHierarchy(body);
+        const read = hierarchyNode(
+          nodes,
+          c.nodeId === "summary:" ? undefined : c.nodeId,
+        );
+        if (!read) throw new ContextError(404, "Protocol node not found.");
+        const after = page?.after ?? 0;
+        const pointer = (v: (typeof nodes)[number]) => ({
+          nodeId: v.id,
+          parentId: v.parentId,
+          path: v.path,
+          grain: v.grain,
+          heading: v.heading,
+        });
+        return result(
+          [
+            {
+              ...ref,
+              nodeId: read.node?.id ?? "summary:",
+              parentId: read.node?.parentId ?? null,
+              ...chunk(
+                read.node?.text ?? library?.description ?? own!.description,
+                c.offset,
+              ),
+              ancestors: read.ancestors.map(pointer),
+              children: read.children.slice(after, after + n).map(pointer),
+            },
+          ],
+          {
+            hasMore: after + n < read.children.length,
+            ...(after + n < read.children.length
+              ? {
+                  nextCursor: cursor(email, c, {
+                    after: after + n,
+                    ceiling: read.children.length,
+                    generation: revision,
+                  }),
+                }
+              : {}),
+          },
+        );
+      }
       return result([
-        { protocolSlug: p.slug, name: p.name, ...chunk(p.body, c.offset) },
+        { ...ref, ...chunk(body, c.offset), treeAvailable: true },
       ]);
+    }
+    if (c.query?.trim()) {
+      await reconcile(email);
+      const found = await searchScoped(c.query, email, {
+        scope: "all",
+        kind: "protocol",
+        limit: n,
+      });
+      if (!found?.libraryReachable) cov.complete = false;
+      return result(
+        (found?.hits ?? []).map((h) => ({
+          protocolSlug: h.slug,
+          name: h.name,
+          nodeId: `${h.grain}:${h.path}`,
+          path: h.path,
+          grain: h.grain,
+          heading: h.heading,
+          excerpt: h.snippet,
+          score: h.score,
+          hostId: h.pool === "library" && isDesktop() ? "box" : "local",
+        })),
+        { mode: found?.mode ?? "lexical" },
+      );
     }
     const all = getAllSkills(email)
       .filter(
@@ -575,7 +678,7 @@ export async function retrieveLocal(
         }
         const ranked = new Map<
           number,
-          { id: number; score: number; offset: number }
+          { id: number; score: number; offset: number; nodeId?: string }
         >();
         dense.hits.forEach((h, i) =>
           ranked.set(h.id, { ...h, score: 1 / (60 + i + 1) }),
@@ -587,6 +690,7 @@ export async function retrieveLocal(
             id,
             score: (prev?.score ?? 0) + 1 / (60 + i + 1),
             offset: prev?.offset ?? 0,
+            ...(prev?.nodeId ? { nodeId: prev.nodeId } : {}),
           });
         });
         const sorted = [...ranked.values()].toSorted(
@@ -614,6 +718,7 @@ export async function retrieveLocal(
             archivedAt: r.archived_at ?? json(r.summary).archivedAt ?? null,
             excerpt: String(r.content).slice(hit.offset, hit.offset + 600),
             offset: hit.offset,
+            ...(hit.nodeId ? { nodeId: hit.nodeId, part: "tree" } : {}),
             truncated: String(r.content).length > 600,
             score: hit.score,
             timestamp: r.ts,
@@ -720,6 +825,50 @@ export async function retrieveLocal(
     throw new ContextError(404, "Context source not found for this account.");
   if (run && c.part !== "events") {
     const { snapshot, ...state } = parent;
+    if (c.part === "tree" || c.nodeId) {
+      const snap = JSON.parse(String(snapshot));
+      if (c.revision && c.revision !== snap.hash)
+        throw new ContextError(409, "Run revision changed.");
+      const read = hierarchyNode(
+        snapshotHierarchy(snap),
+        c.nodeId === "summary:" ? undefined : c.nodeId,
+      );
+      if (!read) throw new ContextError(404, "Run protocol node not found.");
+      const after = page?.after ?? 0;
+      const pointer = (v: ReturnType<typeof snapshotHierarchy>[number]) => ({
+        nodeId: v.id,
+        parentId: v.parentId,
+        path: v.path,
+        grain: v.grain,
+        heading: v.heading,
+      });
+      return result(
+        [
+          {
+            hostId: "local",
+            runId: id,
+            revision: snap.hash,
+            nodeId: read.node?.id ?? "summary:",
+            sourceComplete: Boolean(snap.sourceMarkdown),
+            ...chunk(read.node?.text ?? "", c.offset),
+            ancestors: read.ancestors.map(pointer),
+            children: read.children.slice(after, after + n).map(pointer),
+          },
+        ],
+        {
+          hasMore: after + n < read.children.length,
+          ...(after + n < read.children.length
+            ? {
+                nextCursor: cursor(email, c, {
+                  after: after + n,
+                  ceiling: read.children.length,
+                }),
+              }
+            : {}),
+        },
+      );
+    }
+
     return result([
       {
         hostId: "local",
