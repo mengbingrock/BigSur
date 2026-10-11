@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import { Alert, ScrollView, Switch, Text, TextInput, View } from "react-native";
 import { registerForPush } from "~/notifications";
+import { SPEAK_PREF, setSpeakingEnabled } from "~/speak";
 import { useApp } from "~/state/AppContext";
 import { getPref, setPref } from "~/storage";
 import { Button } from "~/ui/Button";
@@ -14,6 +15,7 @@ export default function SettingsScreen() {
   const { target, user, setBase, setHostId, signOut, deleteAccount } = useApp();
   const [base, setBaseInput] = useState(target.base);
   const [readAloudDefault, setReadAloudDefault] = useState(false);
+  const [speakReturns, setSpeakReturns] = useState(true);
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -57,6 +59,7 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     void getPref("labee:readAloud").then((v) => setReadAloudDefault(v === "1"));
+    void getPref(SPEAK_PREF).then((v) => setSpeakReturns(v !== "0"));
   }, []);
 
   const row = { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: t.border, gap: 6 } as const;
@@ -80,6 +83,20 @@ export default function SettingsScreen() {
             <Button kind="secondary" title="Devices" onPress={() => router.push("/devices")} />
             {target.hostId ? <Button kind="ghost" title="Direct" onPress={() => void setHostId("")} /> : null}
           </View>
+        </View>
+        <View style={[row, { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={{ color: t.text }}>Speak answers and questions</Text>
+            <Text style={{ color: t.muted, fontSize: 12 }}>When the app is open, Labee says aloud what a chat answered or asked. On AirPods, turn on Announce Notifications for the locked phone.</Text>
+          </View>
+          <Switch
+            value={speakReturns}
+            onValueChange={(v) => {
+              setSpeakReturns(v);
+              setSpeakingEnabled(v);
+              void setPref(SPEAK_PREF, v ? "1" : "0");
+            }}
+          />
         </View>
         <View style={[row, { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]}>
           <Text style={{ color: t.text }}>Read replies aloud by default</Text>

@@ -10,7 +10,7 @@ import { useEffect } from "react";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { handleNotificationResponses } from "~/notifications";
+import { handleNotificationResponses, handleNotificationsReceived } from "~/notifications";
 import { AppProvider, useApp } from "~/state/AppContext";
 
 /** Notification buttons (answer, reply, done with step) act here; the ones
@@ -21,8 +21,13 @@ function NotificationActions() {
   useEffect(() => {
     if (!ready) return;
     let off = () => {};
+    let offReceived = () => {};
     void handleNotificationResponses(target.base, (path) => router.push(path as never)).then((f) => (off = f));
-    return () => off();
+    void handleNotificationsReceived().then((f) => (offReceived = f));
+    return () => {
+      off();
+      offReceived();
+    };
   }, [ready, target.base, router]);
   return null;
 }
