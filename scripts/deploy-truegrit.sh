@@ -10,11 +10,11 @@
 #   - verifies from outside
 #
 # Usage:  bash scripts/deploy-truegrit.sh
-# Env:    SSH_HOST (default 3.144.175.137)  SSH_KEY (default ~/.ssh/truegrit-default-key.pem)
+# Env:    SSH_HOST (default 18.189.155.100, the Elastic IP)  SSH_KEY (default ~/.ssh/truegrit-default-key.pem)
 #         SKIP_BUILD=1 to reuse apps/server/dist + apps/web/dist
 set -euo pipefail
 
-SSH_HOST="${SSH_HOST:-3.144.175.137}"
+SSH_HOST="${SSH_HOST:-18.189.155.100}"
 SSH_USER="${SSH_USER:-ubuntu}"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/truegrit-default-key.pem}"
 PORT="${LABEE_PORT:-3010}"
