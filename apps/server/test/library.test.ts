@@ -21,13 +21,16 @@ const CORPUS = [
     keywords: " carbohydrate-conjugated vaccines, oxidative release of glycans",
     abstract: "This protocol provides an oxidative method to release glycans from glycoconjugates.",
     input: "\nNaClO (Honeywell)\n\nAcetonitrile (Sigma-Aldrich)\n\nFormic acid (Sigma-Aldrich)\n",
+    // The flat shape the corpus actually uses: dotted keys all at the top,
+    // a dict with a title where a group begins.
     hierarchical_protocol: {
-      "1": { title: "Oxidation Reaction", "1.1": "Add NaClO to the glycoconjugates in\n100 ul PBS.", "1.2": "Shake the mixture at room temperature for 1 min." },
-      "2": {
-        title: "Centrifugation and Cartridge Activation",
-        "2.1": "Centrifugate the mixture at 16,000g for 5 min at 4°C.",
-        "2.2": { title: "Cartridge Activation", "2.2.1": "Activate a Sep-Pak C18 cartridge with 1 ml 50% acetonitrile." },
-      },
+      "1": { title: "Oxidation Reaction" },
+      "1.1": "Add NaClO to the glycoconjugates in\n100 ul PBS.",
+      "1.2": "Shake the mixture at room temperature for 1 min.",
+      "2": { title: "Centrifugation and Cartridge Activation" },
+      "2.1": "Centrifugate the mixture at 16,000g for 5 min at 4°C.",
+      "2.2": { title: "Cartridge Activation" },
+      "2.2.1": "Activate a Sep-Pak C18 cartridge with 1 ml 50% acetonitrile.",
     },
     problem: "Releasing glycans from glycoconjugates cheaply.",
     method: "Oxidative release with hypochlorite.",

@@ -46,49 +46,100 @@ export interface BioProRecord {
 /** Collapse the hard line breaks scraping left mid-sentence. */
 const oneLine = (s: string) => s.replace(/\s*\n\s*/g, " ").replace(/\s+/g, " ").trim();
 
-/** Keys like "2.2.1" in numeric order. */
-function numericKeys(node: Record<string, unknown>): string[] {
-  return Object.keys(node)
-    .filter((k) => /^\d+(\.\d+)*$/.test(k))
-    .sort((a, b) => {
-      const pa = a.split(".").map(Number);
-      const pb = b.split(".").map(Number);
-      for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-        const d = (pa[i] ?? 0) - (pb[i] ?? 0);
-        if (d) return d;
-      }
-      return 0;
-    });
+const isPath = (k: string) => /^\d+(\.\d+)*$/.test(k);
+
+function byPath(a: string, b: string): number {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d) return d;
+  }
+  return 0;
 }
 
-function toSection(node: Record<string, unknown>, path: string, parentHeading: string, depth: number): Section {
-  const title = typeof node.title === "string" && node.title.trim() ? oneLine(node.title) : `Part ${path}`;
+/** One node of the corpus tree: a titled group, a step's text, or both. */
+interface RawNode {
+  title?: string;
+  text?: string;
+}
+
+/**
+ * The corpus writes the tree in two shapes, sometimes mixed: nested, where
+ * "1" is a dict holding "1.1", "1.2"; and flat, where "1.1" and "1.2" sit
+ * beside "1" at the top. Both reduce to one map of dotted path → node.
+ */
+function flattenTree(hp: Record<string, unknown>, prefix = "", out = new Map<string, RawNode>()): Map<string, RawNode> {
+  for (const key of Object.keys(hp)) {
+    if (!isPath(key)) continue;
+    const path = !prefix || key.startsWith(`${prefix}.`) ? key : `${prefix}.${key}`;
+    const v = hp[key];
+    const node = out.get(path) ?? {};
+    if (typeof v === "string") {
+      const text = oneLine(v);
+      if (text) node.text = text;
+    } else if (v && typeof v === "object") {
+      const o = v as Record<string, unknown>;
+      if (typeof o.title === "string" && o.title.trim()) node.title = oneLine(o.title);
+      flattenTree(o, path, out);
+    }
+    if (node.title || node.text) out.set(path, node);
+  }
+  return out;
+}
+
+interface Built extends RawNode {
+  path: string;
+  children: Built[];
+}
+
+/** Hang every node under its parent by path; a missing parent is made up so
+ *  "2.1" with no "2" still has somewhere to go. */
+function buildTree(nodes: Map<string, RawNode>): Built[] {
+  const built = new Map<string, Built>();
+  const get = (path: string): Built => {
+    let b = built.get(path);
+    if (!b) {
+      b = { path, children: [], ...(nodes.get(path) ?? {}) };
+      built.set(path, b);
+      const parent = path.includes(".") ? path.slice(0, path.lastIndexOf(".")) : null;
+      if (parent) get(parent).children.push(b);
+    }
+    return b;
+  };
+  for (const path of [...nodes.keys()].sort(byPath)) get(path);
+  for (const b of built.values()) b.children.sort((x, y) => byPath(x.path, y.path));
+  return [...built.values()].filter((b) => !b.path.includes(".")).sort((x, y) => byPath(x.path, y.path));
+}
+
+/** A node (and everything under it) as a step with sub-steps. Deeper levels
+ *  are flattened into the sub-steps, in order, since the tree keeps one. */
+function toStep(b: Built, path: string): Step {
+  const step: Step = { path, text: b.text ?? b.title ?? `Part ${b.path}`, substeps: [] };
+  const walk = (n: Built) => {
+    for (const c of n.children) {
+      const text = c.text ?? c.title;
+      if (text) step.substeps.push({ path: `${path}.${step.substeps.length + 1}`, text, substeps: [] });
+      walk(c);
+    }
+  };
+  walk(b);
+  return step;
+}
+
+/** A titled node as a section: its titled children become child sections
+ *  (one level), everything else becomes steps. */
+function toSection(b: Built, path: string, parentHeading: string, depth: number): Section {
+  const title = b.title ?? `Part ${b.path}`;
   const heading = parentHeading ? `${parentHeading} › ${title}` : title;
   const section: Section = { path, title, heading, prose: "", steps: [], children: [] };
-  for (const key of numericKeys(node)) {
-    const child = node[key];
-    if (typeof child === "string") {
-      const text = oneLine(child);
-      if (text) section.steps.push({ path: `${path}.${section.steps.length + 1}`, text, substeps: [] });
-    } else if (child && typeof child === "object") {
-      const inner = child as Record<string, unknown>;
-      // A dict with a title is a sub-section; one level deep is what the tree
-      // renders, so deeper nodes fold into steps with their sub-steps.
-      if (depth < 1) {
-        section.children.push(toSection(inner, `${path}.${section.children.length + 1}`, heading, depth + 1));
-      } else {
-        const step: Step = {
-          path: `${path}.${section.steps.length + 1}`,
-          text: typeof inner.title === "string" ? oneLine(inner.title) : `Part ${key}`,
-          substeps: [],
-        };
-        for (const k2 of numericKeys(inner)) {
-          const leaf = inner[k2];
-          const text = typeof leaf === "string" ? oneLine(leaf) : typeof (leaf as { title?: unknown })?.title === "string" ? oneLine(String((leaf as { title: string }).title)) : "";
-          if (text) step.substeps.push({ path: `${step.path}.${step.substeps.length + 1}`, text, substeps: [] });
-        }
-        section.steps.push(step);
-      }
+  if (b.text) section.steps.push({ path: `${path}.1`, text: b.text, substeps: [] });
+  for (const c of b.children) {
+    const group = Boolean(c.title) && c.children.length > 0;
+    if (group && depth < 1) {
+      section.children.push(toSection(c, `${path}.${section.children.length + 1}`, heading, depth + 1));
+    } else {
+      section.steps.push(toStep(c, `${path}.${section.steps.length + 1}`));
     }
   }
   return section;
@@ -119,12 +170,20 @@ export function mapBioProRecord(raw: BioProRecord, opts: { source: string; licen
   if (materials.length) {
     tree.sections.push({ path: "1", title: "Materials", heading: "Materials", prose: materials.map((m) => `- ${m}`).join("\n"), steps: [], children: [] });
   }
-  const hp = raw.hierarchical_protocol ?? {};
-  for (const key of numericKeys(hp)) {
-    const node = hp[key];
-    if (!node || typeof node !== "object") continue;
-    const path = String(tree.sections.length + 1);
-    tree.sections.push(toSection(node as Record<string, unknown>, path, "", 0));
+  // Titled top-level nodes are sections. Bare steps at the top — a protocol
+  // written as a plain numbered list — gather into one "Procedure" section.
+  let procedure: Section | null = null;
+  for (const root of buildTree(flattenTree(raw.hierarchical_protocol ?? {}))) {
+    if (root.title) {
+      tree.sections.push(toSection(root, String(tree.sections.length + 1), "", 0));
+      continue;
+    }
+    if (!procedure) {
+      const path = String(tree.sections.length + 1);
+      procedure = { path, title: "Procedure", heading: "Procedure", prose: "", steps: [], children: [] };
+      tree.sections.push(procedure);
+    }
+    procedure.steps.push(toStep(root, `${procedure.path}.${procedure.steps.length + 1}`));
   }
   const hasSteps = tree.sections.some((s) => s.steps.length > 0 || s.children.some((c) => c.steps.length > 0));
   if (!hasSteps) return null;
