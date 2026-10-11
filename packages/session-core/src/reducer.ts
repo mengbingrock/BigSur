@@ -64,7 +64,10 @@ export function initialState(messages: SessionMessage[] = [], lastSeq = 0): Tran
       ...(m.meta?.stats ? { stats: m.meta.stats as TurnStats } : {}),
       ...(typeof m.meta?.error === "string" ? { error: m.meta.error as string } : {}),
       ...(m.meta?.cancelled ? { cancelled: true } : {}),
-      ...(m.meta?.question
+      // Only an assistant turn can be waiting on an answer; a system line's
+      // meta is the server's own bookkeeping (a Siri return once carried a
+      // `question` here and the app treated the chat as waiting).
+      ...(m.role === "assistant" && m.meta?.question
         ? {
             question: {
               ...(m.meta.question as NonNullable<TranscriptMessage["question"]>),

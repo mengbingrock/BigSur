@@ -16,6 +16,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { parseRunCommand, parseVoiceCommand, RUN_COMMAND_HINTS, type AskUserAnswer, type RunCommand, type TranscriptMessage } from "@labee/session-core";
 import { answerSpoken, createSession, getDiff } from "~/api/sessions";
+import { confirmToLabee, sayToLabee } from "~/api/siri";
 import { afterAdvance, durationWords, peekLine, stepAmountsLine, stepLine, timeLeftLine, whereLine } from "~/runs/voice";
 import { speakingEnabled, spokenQuestion } from "~/speak";
 import { useRun } from "~/hooks/useRun";
@@ -139,15 +140,46 @@ export default function SessionScreen() {
   const live = state.streaming;
   const pendingQuestion = useMemo(() => [...state.messages].reverse().find((m) => m.question && !m.question.answers), [state.messages]);
 
+  // The Siri chat talks to the planner, not to a turn: the sentence comes
+  // back at once and is spoken; a risky plan asks first, and the next "yes"
+  // or "no" answers it.
+  const isSiri = summary?.kind === "siri";
+  const pendingConfirm = useRef<string | null>(null);
+  const sayViaPlanner = useCallback(
+    async (text: string) => {
+      const confirmId = pendingConfirm.current;
+      pendingConfirm.current = null;
+      try {
+        const r = confirmId
+          ? await confirmToLabee(target, confirmId, /^(yes|yeah|yep|ok|okay|do it|go ahead|sure|confirm)\b/i.test(text.trim()))
+          : await sayToLabee(target, text);
+        if (r.status === "confirm" && r.confirmId) pendingConfirm.current = r.confirmId;
+        readAloud.stop();
+        setSaying(r.spoken);
+        readAloud.say(r.spoken);
+      } catch (e) {
+        setHeard(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      } finally {
+        // The planner writes the exchange straight to the chat; pull it in.
+        void stream.reload();
+      }
+    },
+    [target, readAloud.stop, readAloud.say, stream.reload],
+  );
+
   const sendText = useCallback(
     async (text: string, voiceTurn = false) => {
       readAloud.stop();
       setSaying("");
+      if (isSiri) {
+        await sayViaPlanner(text);
+        return;
+      }
       await stream
         .send({ text, voice: voiceTurn, device: "iPhone", ...(skill ? { skillSlugs: [skill] } : {}) })
         .catch((e) => setHeard(`Error: ${e instanceof Error ? e.message : String(e)}`));
     },
-    [stream.send, readAloud.stop, skill],
+    [stream.send, readAloud.stop, skill, isSiri, sayViaPlanner],
   );
 
   /** Speak a Lab mode answer and show it as the caption. */
