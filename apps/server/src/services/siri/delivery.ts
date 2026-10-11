@@ -123,17 +123,44 @@ export async function deliverReturn(evt: SessionEventEnvelope, session: SessionR
     categoryId: error ? "labee.attention" : question ? "labee.question" : "labee.reply",
     interruptionLevel: "time-sensitive",
   };
+  await pushOut(email, push);
+
+  // The exchange that delegated this chat can settle now (planner.ts).
+  if (origin.siriTurnId) {
+    const { settleDelegation } = await import("./planner");
+    await settleDelegation(email, origin.siriTurnId, spoken).catch(() => {});
+  }
+
+  return { idx: row.idx, sessionId: chat.id, title: chat.title, spoken, question, siriTurnId: origin.siriTurnId ?? null, createdAt: row.createdAt };
+}
+
+/** Send a push to the account's phones from wherever this runs: directly on
+ *  the box, through the box's `notify` frame from a Mac. */
+export async function pushOut(email: string, push: PushMessage): Promise<void> {
   try {
     if (isDesktop()) {
-      if (!sendToBox({ t: "mirror", notify: push })) console.warn("[siri] return not pushed: the box is not connected");
+      if (!sendToBox({ t: "mirror", notify: push })) console.warn("[siri] push not sent: the box is not connected");
     } else {
       await sendPush(email, push);
     }
   } catch (e) {
-    console.warn("[siri] return push failed:", e instanceof Error ? e.message : e);
+    console.warn("[siri] push failed:", e instanceof Error ? e.message : e);
   }
+}
 
-  return { idx: row.idx, sessionId: chat.id, title: chat.title, spoken, question, siriTurnId: origin.siriTurnId ?? null, createdAt: row.createdAt };
+/** A planner answer that came after Siri's budget (design §4): the person
+ *  heard "give me a moment", so the answer goes the same way a chat's return
+ *  does — a line in the Siri session, unread, and an announced push. */
+export async function announceLate(email: string, spoken: string, siriTurnId: string): Promise<void> {
+  const siri = await ensureSiriSession(email);
+  await sdb.appendSystemMessage(siri.id, `← ${spoken}`, { kind: "return", sessionId: siri.id, title: "Labee", spoken, unread: true, siriTurnId });
+  await pushOut(email, {
+    title: "Labee",
+    body: spoken,
+    data: { sessionId: siri.id, kind: "done", origin: "siri", siriTurnId },
+    categoryId: "labee.reply",
+    interruptionLevel: "time-sensitive",
+  });
 }
 
 /** Unread returns, newest first, for "Any news from Labee?". */

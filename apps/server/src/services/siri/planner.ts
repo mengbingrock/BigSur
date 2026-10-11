@@ -1,8 +1,19 @@
-// The Siri agent as a planner (docs/siri-agent-design.md §3). One fast
-// model call over the account's state returns a sentence to speak and a
-// closed list of actions; this module validates the plan and carries it
-// out through the service functions the routes already use. No agent
-// loop, no tools handed to a model: the limits live in the executor.
+// The Siri agent as a planner (docs/siri-agent-design.md §3). One model
+// call over the account's state and the current exchange returns a sentence
+// to speak and a closed list of actions; this module validates the plan and
+// carries it out through the service functions the routes already use. No
+// agent loop, no tools handed to a model: the limits live in the executor.
+//
+// Context is an exchange, not a window: a request and everything until it
+// is settled (a confirmation, a clarifying question, a delegated chat's
+// return). The open exchange, if any, goes to the model whole; the last
+// settled one goes as a line. Nothing is inferred from message counts or
+// word counts.
+//
+// Time is never a reason to guess: the model is reached through a warm
+// process (see warm.ts), and when an answer is still not ready inside the
+// budget Siri hears "give me a moment" and the answer is delivered when it
+// comes, through the return path.
 //
 // Runs are box-owned. On a Mac the run actions go to the box over HTTP (as
 // the run routes do); on the box they are local. Chats are always local:
@@ -10,7 +21,7 @@
 import { normalizeQuestions } from "@labee/session-core";
 import { completeText } from "../complete";
 import { auxModel } from "../llm";
-import { boxSessionCookie, isDesktop, proxyServerBase } from "../llmSettings";
+import { boxSessionCookie, getSettings, isDesktop, proxyServerBase } from "../llmSettings";
 import * as rdb from "../runs/db";
 import type { RunRow } from "../runs/db";
 import { answerAmount } from "../runs/amount";
@@ -23,7 +34,8 @@ import { mapSpokenAnswer } from "../sessions/answerMap";
 import { getAllSkills } from "../skills";
 import { quickAnswer } from "./quick";
 import { ensureSiriSession } from "./router";
-import { unreadReturns } from "./delivery";
+import { announceLate, unreadReturns } from "./delivery";
+import { warmPlanner } from "./warm";
 
 // --- state ----------------------------------------------------------------------
 
@@ -56,9 +68,6 @@ export interface SiriState {
   chats: StateChat[];
   protocols: Array<{ slug: string; name: string }>;
   unread: Array<{ title: string; spoken: string }>;
-  /** The last few exchanges in the Siri chat, so "yes", "the first one" and
-   *  "do that" mean something. Oldest first. */
-  recent: Array<{ who: "person" | "labee"; said: string; did?: string[] }>;
 }
 
 const CHATS = 10;
@@ -147,14 +156,74 @@ export async function gatherState(email: string): Promise<SiriState> {
     .filter((k) => k.artifactKind === "protocol")
     .slice(0, PROTOCOLS)
     .map((k) => ({ slug: k.slug, name: k.name }));
-  const recent = (await sdb.listMessages(siri.id))
-    .filter((m) => m.role === "user" || m.role === "assistant")
-    .slice(-8)
-    .map((m) => {
-      const did = Array.isArray(m.meta?.actions) ? (m.meta!.actions as Array<{ do?: string; ok?: boolean }>).map((a) => `${a.do}${a.ok === false ? " (failed)" : ""}`) : [];
-      return { who: m.role === "user" ? ("person" as const) : ("labee" as const), said: m.content.replace(/\s+/g, " ").slice(0, 200), ...(did.length ? { did } : {}) };
-    });
-  return { now: new Date().toISOString(), runs: runPayloads.map(stateRun), chats, protocols, unread: unread.map((u) => ({ title: u.title, spoken: u.spoken })), recent };
+  return { now: new Date().toISOString(), runs: runPayloads.map(stateRun), chats, protocols, unread: unread.map((u) => ({ title: u.title, spoken: u.spoken })) };
+}
+
+// --- the exchange: what the conversation is about right now -----------------------
+
+export interface ExchangeTurn {
+  who: "person" | "labee";
+  said: string;
+  at: string;
+  /** Actions carried out with this line, as "runs.pause" / "chats.new (failed)". */
+  did?: string[];
+}
+
+export type Pending =
+  | { kind: "confirm"; id: string; question: string; plan: Plan; expiresAt: string }
+  | { kind: "clarify"; question: string };
+
+export interface Exchange {
+  id: string;
+  startedAt: string;
+  request: string;
+  turns: ExchangeTurn[];
+  pending: Pending | null;
+  /** Chats working on this exchange; their returns settle it. */
+  delegated: Array<{ sessionId: string; title: string; siriTurnId: string; returned?: boolean }>;
+}
+
+interface Previous {
+  request: string;
+  outcome: string;
+  at: string;
+}
+
+interface Memory {
+  open: Exchange | null;
+  previous: Previous | null;
+}
+
+const CONFIRM_MS = 2 * 60 * 1000;
+
+async function loadMemory(siri: SessionRow): Promise<Memory> {
+  const m = (siri.lastBody?.siri ?? null) as Memory | null;
+  return { open: m?.open ?? null, previous: m?.previous ?? null };
+}
+
+async function saveMemory(siri: SessionRow, mem: Memory): Promise<void> {
+  await sdb.updateSession(siri.id, { lastBody: { ...(siri.lastBody ?? {}), siri: mem } });
+}
+
+/** Close the exchange: it becomes the one line the next request may refer to. */
+function settle(mem: Memory, outcome: string): Memory {
+  const open = mem.open;
+  if (!open) return mem;
+  return { open: null, previous: { request: open.request, outcome: outcome.slice(0, 200), at: new Date().toISOString() } };
+}
+
+/** A delegated chat returned (delivery.ts calls this): the exchange settles
+ *  once nothing else is pending on it. */
+export async function settleDelegation(email: string, siriTurnId: string, outcome: string): Promise<void> {
+  const siri = await ensureSiriSession(email);
+  const mem = await loadMemory(siri);
+  const open = mem.open;
+  if (!open) return;
+  const d = open.delegated.find((x) => x.siriTurnId === siriTurnId);
+  if (!d) return;
+  d.returned = true;
+  if (open.delegated.every((x) => x.returned) && !open.pending) await saveMemory(siri, settle(mem, outcome));
+  else await saveMemory(siri, mem);
 }
 
 // --- the plan -------------------------------------------------------------------
@@ -177,6 +246,8 @@ export interface Plan {
   actions: Action[];
   need: { do: "chats.read"; sessionId: string; last?: number } | null;
   confirm: string | null;
+  /** When an exchange is open: does this phrase continue it (default yes)? */
+  continues: boolean;
 }
 
 const ACTIONS = new Set<Action["do"]>([
@@ -187,50 +258,68 @@ const WRITES = new Set<Action["do"]>(["runs.advance", "runs.back", "runs.pause",
 /** Actions that need a yes first, whatever the model wrote (design §6). */
 const CONFIRMED = new Set<Action["do"]>(["runs.finish"]);
 
-export const SYSTEM_PROMPT = `You are Labee's Siri agent: the voice of a lab assistant app, answering a scientist who spoke to Siri, often with gloves on and the phone locked. You get the current state (runs in progress, recent chats, the person's protocols, unread returns) and what they said. Reply with JSON only.
+export const SYSTEM_PROMPT = `You are Labee's Siri agent: the voice of a lab assistant app, answering a scientist who spoke to Siri, often with gloves on and the phone locked. Each message gives you what they said, the exchange it belongs to, the previous exchange, and the state (runs in progress, recent chats, their protocols, unread returns). Reply with JSON only.
 
-{"say": "<one or two short spoken sentences>", "actions": [<actions>], "need": null | {"do":"chats.read","sessionId":"<id>","last":6}, "confirm": null | "<question to ask before acting>"}
+{"say": "<one or two short spoken sentences>", "actions": [<actions>], "confirm": null | "<question to ask before acting>", "continues": true|false, "need": null | {"do":"chats.read","sessionId":"<id>","last":6}}
 
 Actions (ids must come from the state):
 - {"do":"runs.advance"|"runs.back"|"runs.pause"|"runs.resume"|"runs.finish", "runId":"…"}
 - {"do":"runs.skip","runId":"…","reason":"…"}  {"do":"runs.note","runId":"…","text":"…"}
 - {"do":"runs.timer","runId":"…","seconds":600}  (omit seconds to use the step's own timer)
-- {"do":"runs.amount","runId":"…","material":"TSS"}  (the server answers; your say may say "here it is")
+- {"do":"runs.amount","runId":"…","material":"TSS"}  (the server answers; say "here it is")
 - {"do":"runs.start","protocolSlug":"…"}
 - {"do":"chats.send","sessionId":"…","text":"…"}  {"do":"chats.new","title":"…","text":"…"}
 - {"do":"chats.answer","sessionId":"…","spoken":"…"}  {"do":"chats.stop","sessionId":"…"}
 - {"do":"ask.quick","q":"…"}  (a pure protocol question: the server answers from the protocols)
 
+The exchange:
+- "exchange" is the request being worked on, with everything said about it so far and what is pending: a question Labee asked ("pending"), or chats Labee started for it. A short reply ("yes", "the first one", "do that", "and the second") is about the exchange: resolve it against the exchange and act. If the person agrees to something Labee proposed, do it now, with no new confirm.
+- "continues": true when this phrase belongs to the open exchange, false when it starts something new. Without an open exchange it is false.
+- "previous" is the last settled exchange, for "do that again" or "the other one".
+
 Rules:
-- Act, don't retrieve: a command about a run is a run action; a question beyond the protocols is a chat (chats.new or chats.send), and your say names it: "Started 'compare transfections'. I'll tell you when it answers."
-- Continue an existing chat when the message clearly belongs to it; start a new one when it is a new topic. Never put a message in a chat about something else.
+- Act, don't retrieve: a command about a run is a run action; a question beyond the protocols is a chat (chats.new or chats.send). Continue an existing chat when the message clearly belongs to it; never put a message in a chat about something else.
+- Questions about the runs in progress ("what's running", "which step", "how long left") are answered from the state, in "say", with no action and never a chat.
 - A pure fact from the person's protocols ("how long is the spin", "what temperature") is ask.quick. An amount for the run in progress is runs.amount.
 - Decline what Labee cannot do (messaging people, calendars, the web): say so in one sentence and take no action.
-- If you did not understand (garbled dictation), say "I didn't catch that. Say it again?" with no actions. Silence beats a guess.
-- Questions about the runs in progress ("what's running", "which step", "how long left") are answered from the state, in "say", with no action and never a chat.
-- "confirm" is a short question to ask BEFORE acting, and it always goes together with the "actions" you would then take; a confirm with no actions does nothing. Use it when you would finish a run, start a run of a protocol already in progress, or make more than one write at once. Otherwise null. Marking one step done needs no confirm.
-- "recent" is the conversation so far. A short reply ("yes", "the first one", "do that") answers the last thing Labee said: if Labee asked whether to do something and the person agrees, now do it, with no confirm. If nothing was pending, say so in a few words.
-- "say" is what to say after the actions have run, never a question about whether to run them (that is what "confirm" is for). No markdown, no lists, units in full, names of chats in quotes. Lead with the answer.
-- Use "need" only when the answer depends on a chat's recent content you were not given. At most once.`;
+- If you did not understand, ask one short question in "say" (ending with ?) with no actions. The exchange stays open for the answer. Silence beats a guess.
+- "confirm" is a short question to ask BEFORE acting, and it always goes together with the "actions" you would then take; a confirm with no actions does nothing. Use it when you would finish a run, start a run of a protocol already in progress, or make more than one write at once. Marking one step done needs no confirm.
+- "say" is what to say after the actions have run, never a question about whether to run them. No markdown, no lists, units in full, names of chats in quotes. Lead with the answer. When you delegate, name the chat: "Started 'compare transfections'. I'll tell you when it answers."
+- "need" only when the answer depends on a chat's recent content you were not given. At most once.`;
 
-// On a Mac the completion goes through the Claude CLI, which takes 2–5 s to
-// start before the model answers; 6 s timed out on every phrase on the first
-// device day. The route's own ceiling is 15 s.
-const PLAN_MS = Number(process.env.LABEE_SIRI_PLAN_MS ?? 12000);
+const PLAN_MS = Number(process.env.LABEE_SIRI_PLAN_MS ?? 60_000);
+const WARM = process.env.LABEE_SIRI_WARM !== "0";
+let warmBrokenUntil = 0;
 
-export async function planWith(email: string, text: string, state: SiriState, extra?: Record<string, unknown>): Promise<Plan | null> {
-  // The phrase first: it is what the model must answer, and anything quoted
-  // in the state (a chat's last line) is context, not instruction.
-  const user = JSON.stringify({ said: text, state, ...(extra ? { more: extra } : {}) });
-  let raw: string;
-  try {
-    raw = await Promise.race([
-      completeText({ email, system: SYSTEM_PROMPT, user, effort: "low", timeoutMs: PLAN_MS, anthropicModel: process.env.LABEE_SIRI_MODEL || "haiku", openaiModel: auxModel("openai") }),
-      new Promise<string>((_, reject) => setTimeout(() => reject(new Error("planner timeout")), PLAN_MS)),
-    ]);
-  } catch {
-    return null;
+/** One model answer for one message. The warm process when it is available,
+ *  the one-shot completion otherwise. */
+async function askModel(email: string, text: string): Promise<string> {
+  const model = process.env.LABEE_SIRI_MODEL || "haiku";
+  if (WARM && Date.now() > warmBrokenUntil) {
+    const settings = await getSettings(email).catch(() => null);
+    if (settings?.provider !== "openai") {
+      try {
+        return await warmPlanner(email, SYSTEM_PROMPT, model).ask(text);
+      } catch (e) {
+        console.warn("[siri] warm planner unavailable, using one-shot:", e instanceof Error ? e.message : e);
+        warmBrokenUntil = Date.now() + 5 * 60 * 1000;
+      }
+    }
   }
+  return completeText({ email, system: SYSTEM_PROMPT, user: text, effort: "low", timeoutMs: PLAN_MS, anthropicModel: model, openaiModel: auxModel("openai") });
+}
+
+interface PlanContext {
+  said: string;
+  exchange: { request: string; turns: ExchangeTurn[]; pending: string | null; delegated: string[] } | null;
+  previous: Previous | null;
+  state: SiriState;
+  more?: Record<string, unknown>;
+}
+
+export async function planWith(email: string, ctx: PlanContext): Promise<Plan | null> {
+  // The phrase first: it is what the model must answer; the rest is context.
+  const raw = await askModel(email, JSON.stringify(ctx));
   const m = raw.match(/\{[\s\S]*\}/);
   if (!m) return null;
   try {
@@ -245,10 +334,15 @@ function normalise(j: Record<string, unknown>): Plan | null {
   if (!say) return null;
   const actions = Array.isArray(j.actions) ? (j.actions as Action[]) : [];
   const need = j.need && typeof j.need === "object" && (j.need as { do?: string }).do === "chats.read" ? (j.need as Plan["need"]) : null;
-  // A confirm with nothing to confirm would ask and then do nothing on yes
-  // (the first device day): the question becomes the answer instead.
-  const confirm = typeof j.confirm === "string" && j.confirm.trim() && actions.length > 0 ? j.confirm.trim() : null;
-  return { say, actions, need, confirm };
+  const confirm = typeof j.confirm === "string" && j.confirm.trim() ? j.confirm.trim() : null;
+  return { say, actions, need, confirm, continues: j.continues === true };
+}
+
+/** A confirm with nothing to confirm would ask and then do nothing on yes
+ *  (the first device day, and haiku still does it): it is a proposal
+ *  without the actions, so the plan is sent back once for them. */
+function proposalWithoutActions(plan: Plan): string | null {
+  return plan.confirm && plan.actions.length === 0 ? `confirm without actions: include the actions you would take for "${plan.confirm}"` : null;
 }
 
 export interface Rejection {
@@ -427,18 +521,18 @@ export async function executePlan(
     try {
       if (a.do.startsWith("runs.")) {
         if (a.do === "runs.start") {
+          const { getSkillBySlug } = await import("../skills");
+          const name = getSkillBySlug(a.protocolSlug, email)?.name ?? a.protocolSlug;
           if (boxed()) {
             const { stableHostId } = await import("../deviceLink/client");
             await boxCall("POST", "/api/runs", { protocolSlug: a.protocolSlug, hostId: stableHostId() });
           } else {
-            const { getSkillBySlug } = await import("../skills");
             const { parseProtocol } = await import("../runs/parse");
             const skill = getSkillBySlug(a.protocolSlug, email);
             if (!skill || skill.artifactKind !== "protocol") throw new RunError(404, "Protocol not found.");
             const s = await sdb.createSession({ email, title: skill.name, lastBody: { skillSlugs: [skill.slug] } });
             await runs.createRun({ email, sessionId: s.id, hostId: null, protocolSlug: skill.slug, protocolName: skill.name, snapshot: parseProtocol(skill.body) });
           }
-          const name = (await import("../skills")).getSkillBySlug(a.protocolSlug, email)?.name ?? a.protocolSlug;
           out.push({ action: a, ok: true, said: `Started ${name}.` });
         } else {
           const r = await runAction(email, a as Extract<Action, { runId: string }>, opts.device);
@@ -491,32 +585,10 @@ export async function executePlan(
   return out;
 }
 
-// --- the exchange ---------------------------------------------------------------
-
-export interface SayResult {
-  status: "answered" | "working" | "confirm";
-  spoken: string;
-  siriTurnId: string;
-  confirmId?: string;
-  actions: Executed[];
-  via: "plan" | "fallback" | "confirm";
-}
-
-interface Pending {
-  email: string;
-  plan: Plan;
-  state: SiriState;
-  text: string;
-  device: string;
-  expires: number;
-}
-const pending = new Map<string, Pending>();
-const CONFIRM_MS = 60_000;
-
 /** Fold the executor's findings into the sentence: an amount it looked up,
  *  a quick answer, an action that failed. After a confirmation, or when the
  *  plan's sentence is itself a question, what was done is said instead. */
-function finalSentence(plan: Plan, executed: Executed[], confirmed = false): string {
+export function finalSentence(plan: Plan, executed: Executed[], confirmed = false): string {
   const found = executed.filter((e) => e.ok && e.result).map((e) => e.result!);
   const failed = executed.filter((e) => !e.ok);
   const done = executed.filter((e) => e.ok && e.said).map((e) => e.said!);
@@ -530,74 +602,180 @@ function finalSentence(plan: Plan, executed: Executed[], confirmed = false): str
   return say;
 }
 
-/** The whole exchange: log the phrase, plan, validate, confirm or execute, log the reply. */
-export async function sayToLabee(email: string, text: string, opts: { device?: string; confirmId?: string; yes?: boolean } = {}): Promise<SayResult> {
+// --- the exchange, end to end -----------------------------------------------------
+
+export interface SayResult {
+  status: "answered" | "working" | "confirm";
+  spoken: string;
+  siriTurnId: string;
+  confirmId?: string;
+  actions: Executed[];
+  via: "plan" | "confirm" | "late" | "failed";
+}
+
+/** A plain yes or no, with at most a courtesy or a "leave it" after it.
+ *  Anything with more in it ("yes, but only the first one") goes to the
+ *  model with the pending question in view. */
+const YES = /^\s*(yes|yeah|yep|yup|ok|okay|sure|do it|go ahead|please do|confirm|affirmative)\b[\s,.!]*(please|thanks|thank you|do it|go ahead)?[.!\s]*$/i;
+const NO =
+  /^\s*(no|nope|don't|do not|cancel|never ?mind|negative)\b[\s,.!]*(leave it|skip it|forget it|not now|don't|please|thanks|thank you)?[.!\s]*$|^\s*(leave it|forget it|never ?mind|cancel that)\b[.!\s]*$/i;
+
+/** Budget for the spoken answer: past it, Siri hears "give me a moment" and
+ *  the answer comes through the return path. */
+const SPOKEN_BUDGET_MS = Number(process.env.LABEE_SIRI_SPOKEN_MS ?? 10_000);
+
+/** The whole exchange: log the phrase, resolve it against the open exchange,
+ *  plan, validate, confirm or execute, log the reply. */
+export async function sayToLabee(
+  email: string,
+  text: string,
+  opts: { device?: string; confirmId?: string; yes?: boolean; budgetMs?: number } = {},
+): Promise<SayResult> {
   const device = opts.device ?? "Siri";
+  const budget = opts.budgetMs ?? SPOKEN_BUDGET_MS;
   const siri = await ensureSiriSession(email);
-
-  // A yes (or no) to a question asked a moment ago.
-  if (opts.confirmId) {
-    const p = pending.get(opts.confirmId);
-    pending.delete(opts.confirmId);
-    if (!p || p.email !== email || p.expires < Date.now()) {
-      return { status: "answered", spoken: "That's expired. Say it again?", siriTurnId: sdb.newId("siri"), actions: [], via: "confirm" };
-    }
-    const siriTurnId = sdb.newId("siri");
-    // The yes or no is part of the conversation too.
-    await sdb.appendMessage(siri.id, null, "user", text || (opts.yes ? "Yes." : "No."), { siriTurnId, device, confirmId: opts.confirmId });
-    if (!opts.yes) {
-      await sdb.appendMessage(siri.id, null, "assistant", "Okay, leaving it.", { siriTurnId, device, kind: "say" });
-      return { status: "answered", spoken: "Okay, leaving it.", siriTurnId, actions: [], via: "confirm" };
-    }
-    const executed = await executePlan(email, p.plan, { siriTurnId, device, said: p.text });
-    const spoken = finalSentence(p.plan, executed, true);
-    await sdb.appendMessage(siri.id, null, "assistant", spoken, { siriTurnId, device, kind: "say", actions: executed.map((e) => ({ do: e.action.do, ok: e.ok })) });
-    return { status: executed.some((e) => e.delegated) ? "working" : "answered", spoken, siriTurnId, actions: executed, via: "confirm" };
-  }
-
+  let mem = await loadMemory(siri);
   const siriTurnId = sdb.newId("siri");
-  await sdb.appendMessage(siri.id, null, "user", text, { siriTurnId, device });
   const t0 = Date.now();
-  const state = await gatherState(email);
-  let plan = await planWith(email, text, state);
-  // A second look only when there is time for it inside the route's ceiling.
-  if (plan?.need && Date.now() - t0 > 7000) plan.need = null;
-  if (plan?.need) {
-    const s = state.chats.find((c) => c.id === plan!.need!.sessionId);
-    const msgs = s ? (await sdb.listMessages(s.id)).filter((m) => m.role !== "system").slice(-(plan.need.last ?? 6)) : [];
-    plan = await planWith(email, text, state, { chat: s?.title, messages: msgs.map((m) => ({ role: m.role, text: m.content.slice(0, 700) })) });
-    if (plan) plan.need = null;
-  }
-  const rejected = plan ? validatePlan(plan, state) : { reason: "no plan" };
-  if (!plan || rejected) {
-    const words = text.split(/\s+/).filter(Boolean).length;
-    // A plan that named things the state does not hold, or a phrase too short
-    // to be a request: say so rather than open a chat about it. A chat is
-    // only for a real request the planner could not handle in time.
-    if (plan || words <= 4) {
-      const spoken = plan ? "I couldn't act on that. Say it again?" : "I didn't catch that. Say it again?";
-      console.warn(`[siri] ${plan ? `plan rejected (${rejected?.reason})` : "no plan"}; asking again`);
-      await sdb.appendMessage(siri.id, null, "assistant", spoken, { siriTurnId, device, kind: "say", via: "unclear" });
-      return { status: "answered", spoken, siriTurnId, actions: [], via: "fallback" };
+  const now = () => new Date().toISOString();
+
+  // What was said, in the chat and in the exchange.
+  const said = text || (opts.yes === true ? "Yes." : opts.yes === false ? "No." : "");
+  await sdb.appendMessage(siri.id, null, "user", said, { siriTurnId, device, ...(opts.confirmId ? { confirmId: opts.confirmId } : {}) });
+
+  const reply = async (spoken: string, meta: Record<string, unknown>, status: SayResult["status"], extra: Partial<SayResult> = {}): Promise<SayResult> => {
+    await sdb.appendMessage(siri.id, null, "assistant", spoken, { siriTurnId, device, kind: "say", ...meta });
+    await saveMemory(siri, mem);
+    return { status, spoken, siriTurnId, actions: [], via: "plan", ...extra };
+  };
+  const note = (who: ExchangeTurn["who"], line: string, did?: string[]) => {
+    if (!mem.open) return;
+    mem.open.turns.push({ who, said: line.slice(0, 300), at: now(), ...(did?.length ? { did } : {}) });
+  };
+  note("person", said);
+
+  // A pending confirmation answered plainly needs no model: yes does it, no drops it.
+  const pending = mem.open?.pending;
+  if (pending?.kind === "confirm") {
+    const expired = new Date(pending.expiresAt).getTime() < Date.now();
+    const byId = opts.confirmId ? opts.confirmId === pending.id : true;
+    const decided = opts.yes !== undefined ? opts.yes : YES.test(said) ? true : NO.test(said) ? false : null;
+    if (expired) {
+      mem.open!.pending = null;
+      // fall through: the model decides what to make of it, with the exchange in view
+    } else if (byId && decided !== null) {
+      mem.open!.pending = null;
+      if (!decided) {
+        mem = settle(mem, "left it");
+        return reply("Okay, leaving it.", { via: "confirm" }, "answered", { via: "confirm" });
+      }
+      return await carryOut(pending.plan, true);
     }
-    console.warn(`[siri] plan rejected (${rejected?.reason}); falling back to a new chat`);
-    const s = await sdb.createSession({ email, title: text.length > 48 ? `${text.slice(0, 48)}…` : text });
-    const r = await runner.startTurn(email, s.id, { text, device, voice: true, origin: { kind: "siri", siriTurnId, said: text } });
-    const spoken = r.ok ? `I've started a chat called "${s.title}". I'll tell you when it answers.` : `I couldn't start a chat: ${r.message}`;
-    await sdb.appendMessage(siri.id, null, "assistant", spoken, { siriTurnId, device, kind: "say", via: "fallback" });
-    return { status: r.ok ? "working" : "answered", spoken, siriTurnId, actions: [], via: "fallback" };
+  } else if (opts.confirmId) {
+    return reply("That's expired. Say it again?", { via: "confirm" }, "answered", { via: "confirm" });
   }
 
-  const question = needsConfirmation(plan, state);
-  if (question) {
-    const confirmId = sdb.newId("confirm");
-    pending.set(confirmId, { email, plan, state, text, device, expires: Date.now() + CONFIRM_MS });
-    await sdb.appendMessage(siri.id, null, "assistant", question, { siriTurnId, device, kind: "confirm", confirmId });
-    return { status: "confirm", spoken: question, siriTurnId, confirmId, actions: [], via: "plan" };
+  async function carryOut(plan: Plan, confirmed: boolean): Promise<SayResult> {
+    const executed = await executePlan(email, plan, { siriTurnId, device, said: mem.open?.request ?? said });
+    const spoken = finalSentence(plan, executed, confirmed);
+    const did = executed.map((e) => `${e.action.do}${e.ok ? "" : " (failed)"}`);
+    note("labee", spoken, did);
+    const delegated = executed.filter((e) => e.delegated).map((e) => ({ ...e.delegated!, siriTurnId }));
+    if (mem.open) {
+      mem.open.delegated.push(...delegated);
+      const asksBack = /\?\s*$/.test(spoken) && executed.length === 0;
+      if (asksBack) mem.open.pending = { kind: "clarify", question: spoken };
+      else if (delegated.length === 0) mem = settle(mem, spoken);
+    }
+    return reply(spoken, { actions: executed.map((e) => ({ do: e.action.do, ok: e.ok, ...(e.error ? { error: e.error } : {}) })) }, delegated.length ? "working" : "answered", {
+      actions: executed,
+      via: confirmed ? "confirm" : "plan",
+    });
   }
 
-  const executed = await executePlan(email, plan, { siriTurnId, device, said: text });
-  const spoken = finalSentence(plan, executed);
-  await sdb.appendMessage(siri.id, null, "assistant", spoken, { siriTurnId, device, kind: "say", actions: executed.map((e) => ({ do: e.action.do, ok: e.ok, ...(e.error ? { error: e.error } : {}) })) });
-  return { status: executed.some((e) => e.delegated) ? "working" : "answered", spoken, siriTurnId, actions: executed, via: "plan" };
+  // The plan, with the exchange in view.
+  const state = await gatherState(email);
+  const ctx = (more?: Record<string, unknown>): PlanContext => ({
+    said,
+    exchange: mem.open
+      ? {
+          request: mem.open.request,
+          turns: mem.open.turns.slice(-8),
+          pending: mem.open.pending ? mem.open.pending.question : null,
+          delegated: mem.open.delegated.map((d) => `"${d.title}"${d.returned ? " (answered)" : " (working)"}`),
+        }
+      : null,
+    previous: mem.previous,
+    state,
+    ...(more ? { more } : {}),
+  });
+
+  const settlePlan = async (plan: Plan | null): Promise<{ plan: Plan | null; reason?: string }> => {
+    if (!plan) return { plan: null, reason: "no plan" };
+    if (plan.need) {
+      const need = plan.need;
+      const s = state.chats.find((c) => c.id === need.sessionId);
+      const msgs = s ? (await sdb.listMessages(s.id)).filter((m) => m.role !== "system").slice(-(need.last ?? 6)) : [];
+      const second = await planWith(email, ctx({ chat: s?.title, messages: msgs.map((m) => ({ role: m.role, text: m.content.slice(0, 700) })) }));
+      if (!second) return { plan: null, reason: "no plan after need" };
+      second.need = null;
+      plan = second;
+    }
+    const rejected = validatePlan(plan, state) ?? (proposalWithoutActions(plan) ? { reason: proposalWithoutActions(plan)! } : null);
+    if (!rejected) return { plan };
+    // Once more, told what was wrong; the second answer stands.
+    const again = await planWith(email, ctx({ yourLastPlanWasRejected: rejected.reason, useOnlyIdsFromTheState: true }));
+    if (!again) return { plan: null, reason: rejected.reason };
+    again.need = null;
+    // A proposal that still has no actions is spoken as what it is: a question.
+    if (proposalWithoutActions(again)) again.confirm = null;
+    const r2 = validatePlan(again, state);
+    return r2 ? { plan: null, reason: r2.reason } : { plan: again };
+  };
+
+  // Open or continue the exchange around this phrase.
+  const work = (async () => {
+    const first = await planWith(email, ctx());
+    if (first && mem.open && !first.continues && !pending) mem = settle(mem, mem.open.turns.filter((t) => t.who === "labee").slice(-1)[0]?.said ?? "moved on");
+    if (!mem.open) {
+      mem.open = { id: sdb.newId("exch"), startedAt: now(), request: said, turns: [{ who: "person", said: said.slice(0, 300), at: now() }], pending: null, delegated: [] };
+    }
+    return settlePlan(first);
+  })();
+
+  const timer = new Promise<"late">((resolve) => setTimeout(() => resolve("late"), Math.max(1000, budget - (Date.now() - t0))));
+  const outcome = await Promise.race([work, timer]);
+
+  if (outcome === "late") {
+    // Siri hears something now; the answer follows through the return path.
+    const spoken = "Give me a moment. I'll tell you.";
+    const r = await reply(spoken, { via: "late" }, "working", { via: "late" });
+    void work
+      .then(async ({ plan, reason }) => {
+        const result = plan ? await decide(plan) : await failed(reason);
+        await announceLate(email, result.spoken, siriTurnId);
+      })
+      .catch((e) => console.warn("[siri] late answer failed:", e instanceof Error ? e.message : e));
+    return r;
+  }
+  return outcome.plan ? decide(outcome.plan) : failed(outcome.reason);
+
+  async function decide(plan: Plan): Promise<SayResult> {
+    const question = needsConfirmation(plan, state);
+    if (question) {
+      const id = sdb.newId("confirm");
+      mem.open!.pending = { kind: "confirm", id, question, plan, expiresAt: new Date(Date.now() + CONFIRM_MS).toISOString() };
+      note("labee", question);
+      return reply(question, { kind: "confirm", confirmId: id }, "confirm", { confirmId: id });
+    }
+    return carryOut(plan, false);
+  }
+
+  async function failed(reason?: string): Promise<SayResult> {
+    // The model did not give a usable plan. Say so; never guess, never open a chat.
+    console.warn(`[siri] no usable plan (${reason ?? "unknown"})`);
+    const spoken = reason && !/^no plan/.test(reason) ? "I couldn't do that. Say it again?" : "Something went wrong on my side. Say it again?";
+    note("labee", spoken);
+    return reply(spoken, { via: "failed", ...(reason ? { reason } : {}) }, "answered", { via: "failed" });
+  }
 }
