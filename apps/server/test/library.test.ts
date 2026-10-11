@@ -177,6 +177,28 @@ describe("on the box", () => {
     expect((await api(box, "/api/library/nope")).status).toBe(404);
   });
 
+  it("lists the library by shelf: a count per category, then a page of titles", async () => {
+    const shelves = (await (await api(box, "/api/library/categories")).json()) as { total: number; categories: Array<{ name: string; count: number }> };
+    expect(shelves.total).toBe(2);
+    expect(shelves.categories).toEqual(
+      expect.arrayContaining([
+        { name: "Cell Biology & Culture", count: 1 },
+        { name: "Biochemical & Molecular Functional Analysis", count: 1 },
+      ]),
+    );
+    const shelf = (await (await api(box, "/api/library/list?category=Cell%20Biology%20%26%20Culture")).json()) as {
+      total: number;
+      protocols: Array<{ id: string; title: string; license: string; category?: string }>;
+    };
+    expect(shelf.total).toBe(1);
+    expect(shelf.protocols[0]).toMatchObject({ id: "protocol-io:Protocol.io-0", license: "CC BY 4.0", category: "Cell Biology & Culture" });
+    const all = (await (await api(box, "/api/library/list?limit=1")).json()) as { total: number; protocols: unknown[] };
+    expect(all.total).toBe(2);
+    expect(all.protocols).toHaveLength(1);
+    const none = (await (await api(box, "/api/library/list?category=Uncategorised")).json()) as { total: number };
+    expect(none.total).toBe(0);
+  });
+
   it("searches the person's own protocols, the library, or both fused", async () => {
     const mine = (await (await api(box, "/api/skills/search?kind=protocol&q=CO2&scope=mine")).json()) as { hits: Array<{ pool: string; slug: string }> };
     expect(mine.hits.map((h) => h.pool)).toEqual(["mine"]);
@@ -263,6 +285,13 @@ describe("from a desktop", () => {
     };
     expect(lib.libraryReachable).toBe(true);
     expect(lib.hits[0]).toMatchObject({ pool: "library", slug: "library:protocol-exchange:Protocol-exchange-1" });
+  });
+
+  it("forwards the shelves to the box", async () => {
+    const shelves = (await (await api(desktop, "/api/library/categories")).json()) as { total: number };
+    expect(shelves.total).toBe(2);
+    const shelf = (await (await api(desktop, "/api/library/list?category=Cell%20Biology%20%26%20Culture")).json()) as { total: number };
+    expect(shelf.total).toBe(1);
   });
 
   it("saves a library protocol into the desktop's own folder", async () => {

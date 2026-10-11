@@ -9,7 +9,7 @@ import { Effect } from "effect";
 import { HttpRouter } from "effect/unstable/http";
 import { attempt, bodyJson, error, json, requestUrl, sessionUser } from "../httpKit";
 import { isDesktop, remoteLabeeSession } from "../services/llmSettings";
-import { libraryStatus, type LibraryStatus } from "../services/library/store";
+import { libraryCategories, libraryStatus, listLibrary, type LibraryStatus } from "../services/library/store";
 import { libraryPassages, searchLibrary } from "../services/library/search";
 import { fetchLibraryProtocol, importLibraryProtocol } from "../services/library/importToMine";
 
@@ -37,6 +37,44 @@ export const libraryStatusRoute = HttpRouter.add(
       return r ? yield* json(r) : yield* error("The library on labee.online is not reachable from this Mac.", 503);
     }
     return yield* attempt(() => libraryStatus());
+  }),
+);
+
+/** GET /api/library/categories — the library's shelves: each category and how many it holds. */
+export const libraryCategoriesRoute = HttpRouter.add(
+  "GET",
+  "/api/library/categories",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    if (isDesktop()) {
+      const r = yield* Effect.promise(() => fromBox<unknown>("/api/library/categories"));
+      return r ? yield* json(r) : yield* error("The library on labee.online is not reachable from this Mac.", 503);
+    }
+    return yield* attempt(() => libraryCategories());
+  }),
+);
+
+/** GET /api/library/list?category=&limit=&offset= — one shelf's titles, a page at a time. */
+export const libraryListRoute = HttpRouter.add(
+  "GET",
+  "/api/library/list",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Authentication required.", 401);
+    const url = yield* requestUrl;
+    const category = url.searchParams.get("category") ?? undefined;
+    const limitParam = Number(url.searchParams.get("limit"));
+    const offsetParam = Number(url.searchParams.get("offset"));
+    const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 50;
+    const offset = Number.isFinite(offsetParam) && offsetParam > 0 ? offsetParam : 0;
+    if (isDesktop()) {
+      const qs = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+      if (category) qs.set("category", category);
+      const r = yield* Effect.promise(() => fromBox<unknown>(`/api/library/list?${qs}`));
+      return r ? yield* json(r) : yield* error("The library on labee.online is not reachable from this Mac.", 503);
+    }
+    return yield* attempt(() => listLibrary({ category, limit, offset }));
   }),
 );
 
@@ -109,6 +147,8 @@ export const libraryGetRoute = HttpRouter.add(
 
 export const libraryRoutes = [
   libraryStatusRoute,
+  libraryCategoriesRoute,
+  libraryListRoute,
   librarySearchRoute,
   libraryPassagesRoute,
   libraryImportRoute,

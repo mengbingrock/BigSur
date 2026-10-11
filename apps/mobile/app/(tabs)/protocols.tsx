@@ -1,7 +1,9 @@
-// The protocol library on a phone: browse what you own, search it, or ask a
-// question and get an answer drawn only from your own protocols, with the
-// passages it used. Reads whichever machine is selected under Settings ›
-// Devices, so these are the protocols on that Mac.
+// The protocol library on a phone. It opens on a menu — your own protocols
+// and the shared library on labee.online, each with its count and its
+// shelves (categories) — and a shelf opens to its titles. Typing searches
+// across whichever pool is chosen; a question is answered from the same, with
+// the passages it used. Own protocols are read from whichever machine is
+// selected under Settings › Devices.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
@@ -10,11 +12,15 @@ import {
   indexStatus,
   isLibrarySlug,
   libraryIdOf,
+  libraryShelves,
+  listLibrary,
   listProtocols,
   searchProtocols,
   whereLabel,
   type AskResult,
   type IndexStatus,
+  type LibraryListing,
+  type LibraryShelf,
   type Protocol,
   type Scope,
   type SearchHit,
@@ -26,6 +32,10 @@ import { Screen } from "~/ui/Screen";
 import { useTheme } from "~/ui/theme";
 
 const UNCATEGORISED = "Uncategorised";
+const SHELF_PAGE = 100;
+
+/** Where the browser is: the menu of both pools, or one shelf of one pool. */
+type Browse = { kind: "menu" } | { kind: "shelf"; pool: "mine" | "library"; name: string };
 
 export default function ProtocolsScreen() {
   const t = useTheme();
@@ -44,6 +54,14 @@ export default function ProtocolsScreen() {
   const [answer, setAnswer] = useState<AskResult | null>(null);
   const [asking, setAsking] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [browse, setBrowse] = useState<Browse>({ kind: "menu" });
+  // The library's shelves, as the box counts them; null until fetched, and
+  // left null when the box cannot be reached, which the menu then says.
+  const [shelves, setShelves] = useState<{ total: number; categories: LibraryShelf[] } | null>(null);
+  const [shelvesErr, setShelvesErr] = useState<string | null>(null);
+  // The open library shelf's titles, a page at a time.
+  const [shelf, setShelf] = useState<{ name: string; total: number; items: LibraryListing[] } | null>(null);
+  const [shelfLoading, setShelfLoading] = useState(false);
   // Only the newest search may write results: a slow earlier one must not
   // overwrite what the user is looking at now.
   const searchSeq = useRef(0);
@@ -56,11 +74,50 @@ export default function ProtocolsScreen() {
       setErr(e instanceof Error ? e.message : String(e));
     }
   }, [target]);
+  const loadShelves = useCallback(async () => {
+    try {
+      setShelves(await libraryShelves(target));
+      setShelvesErr(null);
+    } catch (e) {
+      setShelves(null);
+      setShelvesErr(e instanceof Error ? e.message : String(e));
+    }
+  }, [target]);
   useFocusEffect(
     useCallback(() => {
       void load();
-    }, [load]),
+      void loadShelves();
+    }, [load, loadShelves]),
   );
+
+  // A library shelf is read from the box when opened, and again for each
+  // further page. Own shelves need no fetch: they are a filter over `all`.
+  const openShelf = async (pool: "mine" | "library", name: string) => {
+    setBrowse({ kind: "shelf", pool, name });
+    if (pool !== "library") return;
+    setShelf({ name, total: 0, items: [] });
+    setShelfLoading(true);
+    try {
+      const r = await listLibrary(target, name === UNCATEGORISED ? UNCATEGORISED : name, SHELF_PAGE, 0);
+      setShelf({ name, total: r.total, items: r.protocols });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setShelfLoading(false);
+    }
+  };
+  const moreShelf = async () => {
+    if (!shelf || shelfLoading || shelf.items.length >= shelf.total) return;
+    setShelfLoading(true);
+    try {
+      const r = await listLibrary(target, shelf.name, SHELF_PAGE, shelf.items.length);
+      setShelf((s) => (s && s.name === shelf.name ? { ...s, total: r.total, items: [...s.items, ...r.protocols] } : s));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setShelfLoading(false);
+    }
+  };
 
   // Search as you type, once typing settles.
   useEffect(() => {
@@ -139,6 +196,43 @@ export default function ProtocolsScreen() {
   // A library hit opens the same screen, which reads it from the library.
   const open = (slug: string) =>
     router.push(`/protocol/${encodeURIComponent(isLibrarySlug(slug) ? `library:${libraryIdOf(slug)}` : slug)}`);
+
+  const LibraryRow = ({ p }: { p: LibraryListing }) => (
+    <Pressable
+      onPress={() => open(`library:${p.id}`)}
+      style={{ paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: t.border, gap: 3 }}
+    >
+      <Text numberOfLines={1} style={{ color: t.text, fontSize: 15, fontWeight: "600" }}>{p.title}</Text>
+      <Text style={{ color: t.muted, fontSize: 11 }}>
+        Library · {p.source}{p.license ? ` · ${p.license}` : ""}
+      </Text>
+      {p.description ? <Text numberOfLines={2} style={{ color: t.muted, fontSize: 12 }}>{p.description}</Text> : null}
+    </Pressable>
+  );
+
+  /** One line of the menu: a shelf's name and how many it holds. */
+  const ShelfRow = ({ pool, name, count }: { pool: "mine" | "library"; name: string; count: number }) => (
+    <Pressable
+      onPress={() => void openShelf(pool, name)}
+      accessibilityRole="button"
+      style={{ flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: t.border }}
+    >
+      <Text numberOfLines={1} style={{ color: t.text, fontSize: 15, flex: 1 }}>{name}</Text>
+      <Text style={{ color: t.muted, fontSize: 13, marginLeft: 12 }}>{count}</Text>
+      <Text style={{ color: t.muted, fontSize: 18, marginLeft: 8 }}>›</Text>
+    </Pressable>
+  );
+
+  /** A pool's heading on the menu: its name and its total. */
+  const PoolHeader = ({ title, total, sub }: { title: string; total: number | null; sub?: string }) => (
+    <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8, gap: 2 }}>
+      <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
+        <Text style={{ color: t.text, fontSize: 17, fontWeight: "700" }}>{title}</Text>
+        <Text style={{ color: t.accent, fontSize: 17, fontWeight: "700" }}>{total === null ? "—" : total.toLocaleString()}</Text>
+      </View>
+      {sub ? <Text style={{ color: t.muted, fontSize: 12 }}>{sub}</Text> : null}
+    </View>
+  );
 
   const Row = ({ p, sub }: { p: Protocol; sub?: string }) => (
     <Pressable
@@ -267,24 +361,52 @@ export default function ProtocolsScreen() {
               return p ? <Row key={h.slug} p={p} sub={[whereLabel(h), h.snippet || p.description].filter(Boolean).join(" — ")} /> : null;
             })
           )
-        ) : (
-          groups.map(([category, items]) => (
-            <View key={category}>
-              <Text style={{ color: t.muted, fontSize: 12, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 6 }}>
-                {category.toUpperCase()} · {items.length}
+        ) : browse.kind === "menu" ? (
+          <>
+            <PoolHeader title="My protocols" total={all.length} sub="On the selected machine" />
+            {groups.map(([category, items]) => (
+              <ShelfRow key={`mine:${category}`} pool="mine" name={category} count={items.length} />
+            ))}
+            {all.length === 0 && !err ? (
+              <Text style={{ color: t.muted, paddingHorizontal: 16, paddingVertical: 12, fontSize: 13 }}>
+                No protocols on this machine yet.
               </Text>
-              {items.map((p) => (
-                <Row key={p.slug} p={p} />
-              ))}
-            </View>
-          ))
-        )}
+            ) : null}
 
-        {!hits && all.length === 0 && !err ? (
-          <Text style={{ color: t.muted, padding: 24, textAlign: "center" }}>
-            No protocols on this machine yet.
-          </Text>
-        ) : null}
+            <PoolHeader title="Online library" total={shelves ? shelves.total : null} sub="Shared on labee.online" />
+            {shelves ? (
+              shelves.categories.map((c) => <ShelfRow key={`library:${c.name}`} pool="library" name={c.name} count={c.count} />)
+            ) : (
+              <Text style={{ color: t.muted, paddingHorizontal: 16, paddingVertical: 12, fontSize: 13 }}>
+                {shelvesErr ? "The library on labee.online could not be reached." : "Loading…"}
+              </Text>
+            )}
+          </>
+        ) : (
+          <>
+            <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingTop: 12, paddingBottom: 4, gap: 8 }}>
+              <Button kind="ghost" title="‹ All" onPress={() => { setBrowse({ kind: "menu" }); setShelf(null); }} />
+              <View style={{ flex: 1 }}>
+                <Text numberOfLines={1} style={{ color: t.text, fontSize: 17, fontWeight: "700" }}>{browse.name}</Text>
+                <Text style={{ color: t.muted, fontSize: 12 }}>
+                  {browse.pool === "mine"
+                    ? `My protocols · ${groups.find(([c]) => c === browse.name)?.[1].length ?? 0}`
+                    : `Online library · ${shelf && shelf.name === browse.name ? shelf.total.toLocaleString() : "…"}`}
+                </Text>
+              </View>
+            </View>
+            {browse.pool === "mine"
+              ? (groups.find(([c]) => c === browse.name)?.[1] ?? []).map((p) => <Row key={p.slug} p={p} />)
+              : (shelf?.items ?? []).map((p) => <LibraryRow key={p.id} p={p} />)}
+            {browse.pool === "library" && shelf && shelf.items.length < shelf.total ? (
+              <View style={{ padding: 16, alignItems: "center" }}>
+                <Button kind="ghost" title={shelfLoading ? "Loading…" : `Show more (${shelf.items.length.toLocaleString()} of ${shelf.total.toLocaleString()})`} onPress={moreShelf} disabled={shelfLoading} />
+              </View>
+            ) : shelfLoading ? (
+              <ActivityIndicator color={t.muted} style={{ padding: 16 }} />
+            ) : null}
+          </>
+        )}
         <View style={{ height: 32 }} />
       </ScrollView>
     </Screen>

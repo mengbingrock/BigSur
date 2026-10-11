@@ -152,3 +152,30 @@ export const lintProtocol = (t: Target, slug: string) =>
 
 export const reviewProtocol = (t: Target, slug: string) =>
   apiSend<{ findings: ReviewFinding[]; steps: number; available: boolean }>(t, "POST", `/api/skills/${encodeURIComponent(slug)}/review`);
+
+/** One shelf of the shared library: a category and how many protocols it holds. */
+export interface LibraryShelf {
+  name: string;
+  count: number;
+}
+
+/** A library protocol as the shelf lists it — header only, no body. */
+export interface LibraryListing {
+  id: string;
+  title: string;
+  description: string;
+  source: string;
+  sourceUrl: string;
+  license: string;
+  category?: string;
+  domains: string[];
+}
+
+export const libraryShelves = (t: Target) =>
+  apiGet<{ total: number; categories: LibraryShelf[] }>(t, "/api/library/categories");
+
+export const listLibrary = (t: Target, category: string | undefined, limit = 100, offset = 0) => {
+  const qs = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (category) qs.set("category", category);
+  return apiGet<{ total: number; protocols: LibraryListing[] }>(t, `/api/library/list?${qs}`);
+};

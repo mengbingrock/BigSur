@@ -265,3 +265,54 @@ export async function libraryHeaders(ids: ReadonlyArray<string>): Promise<Map<st
   }
   return out;
 }
+
+export interface LibraryCategoryCount {
+  /** Category as the corpus classified it; "Uncategorised" when it had none. */
+  name: string;
+  count: number;
+}
+
+/** How many library protocols each category holds, biggest first. */
+export async function libraryCategories(): Promise<{ total: number; categories: LibraryCategoryCount[] }> {
+  const db = await getDb();
+  const rows = db
+    .prepare("SELECT COALESCE(NULLIF(TRIM(category), ''), 'Uncategorised') AS name, COUNT(*) AS n FROM library_protocols GROUP BY 1 ORDER BY n DESC, name")
+    .all() as Array<{ name: string; n: number }>;
+  const categories = rows.map((r) => ({ name: String(r.name), count: Number(r.n) }));
+  return { total: categories.reduce((s, c) => s + c.count, 0), categories };
+}
+
+export interface LibraryListing {
+  total: number;
+  protocols: Array<Pick<LibraryRow, "id" | "title" | "description" | "source" | "sourceUrl" | "license" | "category" | "domains">>;
+}
+
+/** Library protocols in one category (or all), by title, a page at a time. */
+export async function listLibrary(opts: { category?: string | undefined; limit?: number | undefined; offset?: number | undefined } = {}): Promise<LibraryListing> {
+  const db = await getDb();
+  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+  const offset = Math.max(opts.offset ?? 0, 0);
+  const where = opts.category
+    ? opts.category === "Uncategorised"
+      ? "WHERE category IS NULL OR TRIM(category) = ''"
+      : "WHERE category = ?"
+    : "";
+  const args = opts.category && opts.category !== "Uncategorised" ? [opts.category] : [];
+  const total = (db.prepare(`SELECT COUNT(*) AS n FROM library_protocols ${where}`).get(...args) as { n: number }).n;
+  const rows = db
+    .prepare(`SELECT id, title, description, source, source_url, license, category, domains FROM library_protocols ${where} ORDER BY title LIMIT ? OFFSET ?`)
+    .all(...args, limit, offset) as Array<Record<string, unknown>>;
+  return {
+    total: Number(total),
+    protocols: rows.map((r) => ({
+      id: String(r.id),
+      title: String(r.title ?? ""),
+      description: String(r.description ?? ""),
+      source: String(r.source ?? ""),
+      sourceUrl: String(r.source_url ?? ""),
+      license: String(r.license ?? ""),
+      category: r.category ? String(r.category) : undefined,
+      domains: parseList(r.domains),
+    })),
+  };
+}
