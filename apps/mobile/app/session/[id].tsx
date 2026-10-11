@@ -15,8 +15,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { parseRunCommand, parseVoiceCommand, RUN_COMMAND_HINTS, type AskUserAnswer, type RunCommand, type TranscriptMessage } from "@labee/session-core";
-import { createSession, getDiff } from "~/api/sessions";
+import { answerSpoken, createSession, getDiff } from "~/api/sessions";
 import { afterAdvance, durationWords, peekLine, stepAmountsLine, stepLine, timeLeftLine, whereLine } from "~/runs/voice";
+import { speakingEnabled, spokenQuestion } from "~/speak";
 import { useRun } from "~/hooks/useRun";
 import { useSessionStream } from "~/hooks/useSessionStream";
 import { usePushToTalk } from "~/hooks/usePushToTalk";
@@ -94,6 +95,38 @@ export default function SessionScreen() {
       offEnd();
     };
   }, [stream.onDelta, stream.onTurnEnd, readAloud.feed, readAloud.flush]);
+
+  // A question from the agent is spoken as it arrives, and in Voice mode the
+  // mic opens for the answer once it has been said: ask, listen, answer, with
+  // nothing to tap. Outside Voice mode it is still spoken when speaking is on.
+  const voiceOpenRef = useRef(voiceOpen);
+  voiceOpenRef.current = voiceOpen;
+  const onVoiceTapRef = useRef<() => Promise<void>>(async () => {});
+  useEffect(() => {
+    const off = stream.onQuestion((_turn, questions) => {
+      const q = questions[0];
+      if (!q) return;
+      const text = spokenQuestion(q.question, q.options.map((o) => o.label));
+      void (async () => {
+        const listen = voiceOpenRef.current;
+        if (!listen && !readAloud.enabled && !(await speakingEnabled())) return;
+        readAloud.stop();
+        setSaying(text);
+        try {
+          const Speech = await import("expo-speech");
+          Speech.speak(text, {
+            rate: 1.0,
+            onDone: () => {
+              if (voiceOpenRef.current) void onVoiceTapRef.current();
+            },
+          });
+        } catch {
+          // no voice: the question card is on screen
+        }
+      })();
+    });
+    return off;
+  }, [stream.onQuestion, readAloud.enabled, readAloud.stop]);
 
   // A run line in the transcript means the run changed somewhere (Siri, the
   // Mac): pull the fresh state so the step bar agrees with the chat.
@@ -237,11 +270,22 @@ export default function SessionScreen() {
           await sendText(text, true);
           return;
         case "send":
-          if (pendingQuestion) return; // the question card consumes the transcript via voiceText
+          if (pendingQuestion && id) {
+            // Spoken while the agent waits on a question: map the words onto
+            // its options on the server and answer, with no tap. The card
+            // still fills in from `heard` for anyone looking at the screen.
+            try {
+              const r = await answerSpoken(target, id, text);
+              reply(r.matched === false ? `Sent "${text}" as your answer.` : `Okay, going with "${text}".`);
+            } catch (e) {
+              setHeard(`Error: ${e instanceof Error ? e.message : String(e)}`);
+            }
+            return;
+          }
           await sendText(cmd.text, true);
       }
     },
-    [noteMode, run, pendingQuestion, readAloud, sendText, state.messages, stream, reply, runCommand],
+    [noteMode, run, pendingQuestion, readAloud, sendText, state.messages, stream, reply, runCommand, target, id],
   );
 
   const onPttStart = useCallback(() => {
@@ -264,6 +308,7 @@ export default function SessionScreen() {
     readAloud.stop();
     await handleTranscript(await ptt.listen());
   }, [ptt.state, ptt.stop, ptt.listen, readAloud.stop, handleTranscript]);
+  onVoiceTapRef.current = onVoiceTap;
 
   // Opened from the Action Button or Control Center: listen straight away,
   // once the session (and its run, if any) has loaded.

@@ -56,6 +56,29 @@ async function registerCategories(): Promise<void> {
   }
 }
 
+/** A push that lands while the app is open is spoken by the phone (the
+ *  device day: a return from a chat that only buzzed). iOS shows it as a
+ *  banner too. Siri cannot speak unprompted; Announce Notifications on
+ *  AirPods covers the locked phone, this covers the phone in hand. */
+export async function handleNotificationsReceived(): Promise<() => void> {
+  if (Platform.OS === "web") return () => {};
+  try {
+    const Notifications = await import("expo-notifications");
+    const { speakAloud } = await import("~/speak");
+    const sub = Notifications.addNotificationReceivedListener((n) => {
+      const content = n.request.content;
+      const data = (content.data ?? {}) as PushData & { origin?: string };
+      const spoken = ["question", "done", "error", "timer"].includes(String(data.kind ?? "")) || data.origin === "siri";
+      if (!spoken) return;
+      const title = content.title ? `${content.title}: ` : "";
+      void speakAloud(`${title}${content.body ?? ""}`);
+    });
+    return () => sub.remove();
+  } catch {
+    return () => {};
+  }
+}
+
 /** Target for a push that names the Mac holding the session. */
 function targetFor(base: string, hostId?: string): Target {
   return hostId ? { base, hostId } : { base };
