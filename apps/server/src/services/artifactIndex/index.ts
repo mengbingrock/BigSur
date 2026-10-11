@@ -503,9 +503,9 @@ export async function search(
   query: string,
   email?: string,
   opts?: { kind?: "skill" | "protocol"; limit?: number; grain?: Grain | "any" },
-): Promise<{ mode: SearchMode; hits: RetrievalHit[] } | null> {
+): Promise<{ mode: SearchMode; hits: RetrievalHit[]; total: number } | null> {
   const q = query.trim();
-  if (!q) return { mode: "lexical", hits: [] };
+  if (!q) return { mode: "lexical", hits: [], total: 0 };
   const result = await scoreChunks(q, email, { ...(opts?.kind ? { kind: opts.kind } : {}), ...(opts?.grain ? { grain: opts.grain } : {}) });
   if (!result) return null;
   const { scored, mode, visible } = result;
@@ -559,6 +559,7 @@ export async function search(
 
   return {
     mode,
+    total: hits.length,
     hits: hits.sort((a, b) => b.score - a.score).slice(0, Math.min(Math.max(opts?.limit ?? 20, 1), 100)),
   };
 }

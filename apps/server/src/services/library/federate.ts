@@ -43,7 +43,7 @@ export interface UnifiedHit {
 }
 
 /** Library hits from wherever the library is. Null when unreachable. */
-export async function libraryHits(q: string, opts: { limit: number; email?: string }): Promise<{ mode: SearchMode; hits: LibraryHit[] } | null> {
+export async function libraryHits(q: string, opts: { limit: number; email?: string }): Promise<{ mode: SearchMode; hits: LibraryHit[]; total?: number } | null> {
   if (!isDesktop()) {
     return (await searchLibrary(q, { limit: opts.limit, ...(opts.email ? { email: opts.email } : {}) })) ?? { mode: "lexical", hits: [] };
   }
@@ -54,7 +54,7 @@ export async function libraryHits(q: string, opts: { limit: number; email?: stri
       headers: { accept: "application/json", cookie: remote.cookie },
     });
     if (!res.ok) return null;
-    return (await res.json()) as { mode: SearchMode; hits: LibraryHit[] };
+    return (await res.json()) as { mode: SearchMode; hits: LibraryHit[]; total?: number };
   } catch {
     return null;
   }
@@ -133,16 +133,18 @@ export async function searchScoped(
   q: string,
   email: string | undefined,
   opts: { scope: Scope; kind?: "skill" | "protocol"; limit?: number },
-): Promise<{ mode: SearchMode; hits: UnifiedHit[]; libraryReachable: boolean } | null> {
+): Promise<{ mode: SearchMode; hits: UnifiedHit[]; libraryReachable: boolean; total?: number } | null> {
   const limit = Math.min(Math.max(opts.limit ?? 20, 1), 100);
 
   let mine: UnifiedHit[] | null = null;
+  let mineTotal = 0;
   let mode: SearchMode = "lexical";
   if (opts.scope !== "library") {
     const r = await search(q, email, { ...(opts.kind ? { kind: opts.kind } : {}), limit });
     if (opts.scope === "mine" && !r) return null;
     if (r) {
       mode = r.mode;
+      mineTotal = r.total;
       const skills = new Map(getAllSkills(email).map((s) => [s.slug, s]));
       mine = r.hits.map((h) => {
         const s = skills.get(h.slug);
@@ -152,11 +154,11 @@ export async function searchScoped(
       mine = [];
     }
   }
-  if (opts.scope === "mine") return { mode, hits: mine!, libraryReachable: true };
+  if (opts.scope === "mine") return { mode, hits: mine!, total: mineTotal, libraryReachable: true };
 
   const lib = await libraryHits(q, { limit, ...(email ? { email } : {}) });
   const library = (lib?.hits ?? []).map(fromLibrary);
-  if (opts.scope === "library") return { mode: lib?.mode ?? "lexical", hits: library, libraryReachable: lib !== null };
+  if (opts.scope === "library") return { mode: lib?.mode ?? "lexical", hits: library, ...(lib?.total !== undefined ? { total: lib.total } : {}), libraryReachable: lib !== null };
 
   // all: fuse, then let a saved copy stand for its original.
   const shadowed = new Set((mine ?? []).map((h) => h.shadows).filter((x): x is string => Boolean(x)));

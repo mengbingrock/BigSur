@@ -130,8 +130,15 @@ export const listProtocols = async (t: Target): Promise<Protocol[]> => {
 export const getProtocol = (t: Target, slug: string) =>
   apiGet<{ skill: Protocol }>(t, `/api/skills/${encodeURIComponent(slug)}`);
 
+export interface SearchResult {
+  mode: "semantic" | "lexical";
+  hits: SearchHit[];
+  total?: number;
+  libraryReachable?: boolean;
+}
+
 export const searchProtocols = (t: Target, q: string, scope: Scope = "mine", limit = 30) =>
-  apiGet<{ mode: "semantic" | "lexical"; hits: SearchHit[]; libraryReachable?: boolean }>(
+  apiGet<SearchResult>(
     t,
     `/api/skills/search?kind=protocol&scope=${scope}&limit=${limit}&q=${encodeURIComponent(q)}`,
   );

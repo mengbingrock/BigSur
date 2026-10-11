@@ -214,6 +214,14 @@ describe("on the box", () => {
     expect(new Set(all.hits.map((h) => h.pool))).toEqual(new Set(["mine", "library"]));
   });
 
+  it("reports the library match count before the result limit", async () => {
+    const full = (await (await api(box, "/api/skills/search?kind=protocol&q=protocol&scope=library&limit=100")).json()) as { total: number; hits: unknown[] };
+    const limited = (await (await api(box, "/api/skills/search?kind=protocol&q=protocol&scope=library&limit=1")).json()) as { total: number; hits: unknown[] };
+    expect(full.total).toBe(2);
+    expect(limited.total).toBe(full.total);
+    expect(limited.hits).toHaveLength(1);
+  });
+
   it("saves a library protocol into the person's own, with provenance, and the copy then shadows the original", async () => {
     const saved = await api(box, "/api/library/import", { method: "POST", body: JSON.stringify({ id: "protocol-io:Protocol.io-0" }) });
     expect(saved.status).toBe(200);
@@ -282,8 +290,10 @@ describe("from a desktop", () => {
     const lib = (await (await api(desktop, "/api/skills/search?kind=protocol&q=glycans%20hypochlorite&scope=library")).json()) as {
       hits: Array<{ pool: string; slug: string }>;
       libraryReachable: boolean;
+      total: number;
     };
     expect(lib.libraryReachable).toBe(true);
+    expect(lib.total).toBe(1);
     expect(lib.hits[0]).toMatchObject({ pool: "library", slug: "library:protocol-exchange:Protocol-exchange-1" });
   });
 

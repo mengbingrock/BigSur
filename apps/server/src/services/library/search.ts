@@ -94,9 +94,9 @@ async function scoreCandidates(q: string, email?: string, opts: { grain?: Grain 
 export async function searchLibrary(
   query: string,
   opts: { limit?: number; email?: string; grain?: Grain | "any" } = {},
-): Promise<{ mode: SearchMode; hits: LibraryHit[] } | null> {
+): Promise<{ mode: SearchMode; hits: LibraryHit[]; total: number } | null> {
   const q = query.trim();
-  if (!q) return { mode: "lexical", hits: [] };
+  if (!q) return { mode: "lexical", hits: [], total: 0 };
   const result = await scoreCandidates(q, opts.email, opts.grain ? { grain: opts.grain } : {});
   if (!result) return null;
   const want = opts.grain ?? queryGrain(q);
@@ -134,7 +134,7 @@ export async function searchLibrary(
       grain: shown.grain,
     });
   }
-  return { mode: result.mode, hits: hits.sort((a, b) => b.score - a.score).slice(0, Math.min(Math.max(opts.limit ?? 20, 1), 100)) };
+  return { mode: result.mode, total: hits.length, hits: hits.sort((a, b) => b.score - a.score).slice(0, Math.min(Math.max(opts.limit ?? 20, 1), 100)) };
 }
 
 /** Top library chunks for a question, for Ask. */

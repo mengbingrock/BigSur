@@ -24,6 +24,7 @@ import {
   type Protocol,
   type Scope,
   type SearchHit,
+  type SearchResult,
 } from "~/api/protocols";
 import { useApp } from "~/state/AppContext";
 import { Button } from "~/ui/Button";
@@ -51,6 +52,7 @@ export default function ProtocolsScreen() {
   const [mode, setMode] = useState<"semantic" | "lexical" | null>(null);
   const [index, setIndex] = useState<IndexStatus | null>(null);
   const [searching, setSearching] = useState(false);
+  const [counts, setCounts] = useState<{ mine: string; library: string } | null>(null);
   const [answer, setAnswer] = useState<AskResult | null>(null);
   const [asking, setAsking] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -65,6 +67,7 @@ export default function ProtocolsScreen() {
   // Only the newest search may write results: a slow earlier one must not
   // overwrite what the user is looking at now.
   const searchSeq = useRef(0);
+  const searchCache = useRef<{ key: string; requests: Partial<Record<Scope, Promise<SearchResult>>> }>({ key: "", requests: {} });
 
   const load = useCallback(async () => {
     try {
@@ -122,28 +125,59 @@ export default function ProtocolsScreen() {
   // Search as you type, once typing settles.
   useEffect(() => {
     const query = q.trim();
+    const seq = ++searchSeq.current;
+    const key = JSON.stringify([target, query]);
+    if (searchCache.current.key !== key) {
+      searchCache.current = { key, requests: {} };
+      setCounts(null);
+      setHits(null);
+    }
     if (!query) {
       setHits(null);
       setSearching(false);
       return;
     }
-    const seq = ++searchSeq.current;
     setSearching(true);
+    let cancelled = false;
+    // Fetch both pools so each chip has its own count. Reuse these requests
+    // when switching chips; only Both needs the server's fused ranking.
+    const request = (s: Scope) =>
+      searchCache.current.requests[s] ??= searchProtocols(target, query, s);
     const id = setTimeout(async () => {
+      for (const pool of ["mine", "library"] as const) {
+        void request(pool).then((r) => {
+          if (cancelled || seq !== searchSeq.current) return;
+          const count = r.libraryReachable === false ? "—" :
+            (r.total ?? r.hits.length).toLocaleString() +
+            (r.total === undefined && r.hits.length >= 30 ? "+" : "");
+          setCounts((c) => ({ ...(c ?? { mine: "…", library: "…" }), [pool]: count }));
+          if (pool === "library") setLibraryReachable(r.libraryReachable !== false);
+        }, () => {
+          if (cancelled || seq !== searchSeq.current) return;
+          setCounts((c) => ({ ...(c ?? { mine: "…", library: "…" }), [pool]: "—" }));
+          if (pool === "library") setLibraryReachable(false);
+        });
+      }
       try {
-        const r = await searchProtocols(target, query, scope);
-        if (seq === searchSeq.current) {
+        const r = await request(scope);
+        if (!cancelled && seq === searchSeq.current) {
           setHits(r.hits);
           setMode(r.mode);
-          setLibraryReachable(r.libraryReachable !== false);
+          setErr(null);
         }
       } catch (e) {
-        if (seq === searchSeq.current) setErr(e instanceof Error ? e.message : String(e));
+        if (!cancelled && seq === searchSeq.current) {
+          setHits(null);
+          setErr(e instanceof Error ? e.message : String(e));
+        }
       } finally {
-        if (seq === searchSeq.current) setSearching(false);
+        if (!cancelled && seq === searchSeq.current) setSearching(false);
       }
     }, 300);
-    return () => clearTimeout(id);
+    return () => {
+      clearTimeout(id);
+      cancelled = true;
+    };
   }, [q, scope, target]);
 
   // Search quality depends on the embedding pass finishing, so say so while it
@@ -263,7 +297,7 @@ export default function ProtocolsScreen() {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           {(["mine", "library", "all"] as Scope[]).map((s) => (
             <Pressable key={s} onPress={() => setScope(s)} hitSlop={6}>
-              <Chip label={s === "mine" ? "Mine" : s === "library" ? "Library" : "Both"} tone={scope === s ? "accent" : "muted"} />
+              <Chip label={s === "all" ? "Both" : `${s === "mine" ? "Mine" : "Library"}${q.trim() ? `(${counts?.[s] ?? "…"})` : ""}`} tone={scope === s ? "accent" : "muted"} />
             </Pressable>
           ))}
         </View>

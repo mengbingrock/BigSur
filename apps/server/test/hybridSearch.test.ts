@@ -148,6 +148,15 @@ describe("without any embedding credential", () => {
     expect(r.hits[0]?.heading).toBe("Procedure");
   });
 
+  it("reports the personal match count before limiting displayed results", async () => {
+    const query = "/api/skills/search?kind=protocol&q=minutes&scope=mine";
+    const full = (await (await api(server, cookie, `${query}&limit=100`)).json()) as { total: number; hits: Hit[] };
+    const limited = (await (await api(server, cookie, `${query}&limit=1`)).json()) as { total: number; hits: Hit[] };
+    expect(full.total).toBeGreaterThan(1);
+    expect(limited.total).toBe(full.total);
+    expect(limited.hits).toHaveLength(1);
+  });
+
   it("finds a protocol by a word only its summary has", async () => {
     const r = await search(server, cookie, "viability");
     expect(r.hits[0]?.slug).toContain("celltiter-glo-3d-assay");
