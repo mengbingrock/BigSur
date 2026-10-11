@@ -7,7 +7,11 @@ import { defineConfig } from "tsdown";
 // client beside it). The embedded SQLite drivers are runtime builtins and
 // must stay external.
 export default defineConfig({
-  entry: ["src/bin.ts"],
+  // The ingest script ships beside the server so an operator can run it on
+  // the box with the box's node and env: `node ingestLibrary.mjs --file …`.
+  // Named, so both land at the dist root (`dist/bin.mjs`, `dist/ingestLibrary.mjs`)
+  // instead of under their source folders — everything downstream expects bin.mjs there.
+  entry: { bin: "src/bin.ts", ingestLibrary: "scripts/ingestLibrary.ts" },
   format: "esm",
   outDir: "dist",
   platform: "node",
