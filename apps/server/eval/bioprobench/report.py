@@ -10,25 +10,31 @@ import re
 import sqlite3
 import statistics
 import sys
+from evidence import append_evidence
 
 p = argparse.ArgumentParser()
 p.add_argument('--out', required=True)
 p.add_argument('--report', required=True)
 p.add_argument('--source', required=True)
 p.add_argument('--base', help='Original corpus index directory for follow-up evaluations')
+p.add_argument('--baseline-report', help='Stored report with identical corpus, tasks, model and sample IDs for a development comparison')
 a = p.parse_args()
 root = Path(a.out)
 manifest = json.loads((root / 'manifest.json').read_text())
 summary = json.loads((root / 'summary.json').read_text())
 summary['callFailures'] = summary.pop('transportErrors', summary.get('callFailures', 0))
 rows = [json.loads(f.read_text()) for f in (root / 'responses').glob('*.json')]
+for row in rows:
+    # Reconstruct exact serialization for older checkpoints without measurements.
+    _, sizes = append_evidence('', row['passages'])
+    row.update(sizes)
 
 sys.path.insert(0, str(Path(a.source) / 'skills/evaluate-protocol-outputs/scripts'))
 from normalize import normalize_record, canonical_task
 from ordering import validate_pair
 from generation import as_text, token_overlap
 variants = sorted(summary['metrics'])
-primary = 'expanded' if 'expanded' in variants else 'hierarchy'
+primary = next((v for v in ('paper-context', 'expanded', 'hierarchy') if v in variants), variants[0])
 index_root = Path(a.base) if a.base else root
 
 def score(row):
@@ -84,9 +90,28 @@ for task in manifest['selection']:
     common[task] = {'scored': len(valid), 'excluded': len(ids)-len(valid), 'metric': 'token_f1' if task == 'GEN' else 'accuracy', 'scores': {v: sum(score(by[(task, v, i)]) for i in valid) / len(valid) if valid else None for v in variants}}
 
 performance = {}
+def input_tokens(row):
+    # Provider counts cover the whole CLI request, including system overhead,
+    # questions and cached input. They are not evidence-only token counts.
+    usage = row.get('modelUsage', {})
+    if not usage:
+        return None
+    return sum(u.get('inputTokens', 0) + u.get('cacheReadInputTokens', 0) + u.get('cacheCreationInputTokens', 0) for u in usage.values())
+
 for variant in variants:
     selected = [r for r in rows if r['variant'] == variant]
-    performance[variant] = {'indexBytes': (index_root / f'{variant if variant != "expanded" else "hierarchy"}.sqlite').stat().st_size, 'medianRetrievalMs': statistics.median(r['retrievalMs'] for r in selected), 'medianModelMs': statistics.median(r['elapsedMs'] for r in selected), 'meanContextChars': statistics.mean(r['contextChars'] for r in selected), 'meanPassages': statistics.mean(len(r['passages']) for r in selected)}
+    files = manifest.get('indexFiles', {}).get(variant, [f'{variant if variant != "expanded" else "hierarchy"}.sqlite'])
+    performance[variant] = {'indexBytes': sum((index_root / f).stat().st_size for f in files), 'medianRetrievalMs': statistics.median(r['retrievalMs'] for r in selected), 'medianModelMs': statistics.median(r['elapsedMs'] for r in selected), 'meanContextChars': statistics.mean(r['contextChars'] for r in selected), 'meanPassages': statistics.mean(len(r['passages']) for r in selected)}
+    performance[variant]['byTask'] = {task: {
+        'meanSerializedContextChars': statistics.mean(r.get('serializedContextChars', r['contextChars']) for r in selected if r['task'] == task),
+        'meanPassages': statistics.mean(len(r['passages']) for r in selected if r['task'] == task),
+        'medianModelMs': statistics.median(r['elapsedMs'] for r in selected if r['task'] == task),
+    } for task in manifest['selection']}
+    for task, stats in performance[variant]['byTask'].items():
+        counts = [n for r in selected if r['task'] == task and (n := input_tokens(r)) is not None]
+        stats['meanProviderTotalInputTokens'] = statistics.mean(counts) if counts else None
+        stats['providerTokenUsageSamples'] = len(counts)
+        stats['tokenCountScope'] = 'Whole CLI request including system/question/cache; evidence-only token count unavailable'
 
 # Match both protocol and subsection titles. Record source identity separately
 # from retrieval success; unresolved exact titles are not proven missing sources.
@@ -109,7 +134,10 @@ for r in rows:
 
 failure_breakdown = {v: {task: {'providerBiologyRefusals': sum('[bio]' in str(r.get('error', '')) for r in rows if r['variant'] == v and r['task'] == task), 'otherCallFailures': sum(bool(r.get('error')) and '[bio]' not in str(r['error']) for r in rows if r['variant'] == v and r['task'] == task)} for task in manifest['selection']} for v in variants}
 report = {**manifest, **summary, 'failureBreakdown': failure_breakdown, 'allQuestionScores': {task: {variant: sum(score(r) for r in rows if r['task'] == task and r['variant'] == variant) / len(manifest['selection'][task]['selected']) for variant in variants} for task in manifest['selection']}, 'commonScorable': common, 'comparisons': comparisons, 'performance': performance, 'orderingCoverageMethod': coverage_method, 'orderingCorpusCoverage': coverage,
-          'cases': [{'id': r['sample']['id'], 'task': r['task'], 'type': r['sample']['type'], 'variant': r['variant'], 'correct': correct(r) if r['task'] != 'GEN' else None, 'score': score(r), 'retrievalMs': r['retrievalMs'], 'modelMs': r['elapsedMs'], 'contextChars': r['contextChars'], 'error': ('provider biology safeguard refusal' if '[bio]' in str(r.get('error', '')) else ('model call failed; see local checkpoint' if r.get('error') else None)), 'promptSha256': r['promptSha256'], 'resolvedProtocolId': r.get('resolvedProtocolId'), 'modelUsage': r.get('modelUsage', {}), 'responseSha256': hashlib.sha256(r['generated_response'].encode()).hexdigest(), 'sourceRefs': [{'protocolId': s['protocol_id'], 'path': s['path'], 'grain': s['grain']} for s in r['passages']]} for r in rows]}
+          'cases': [{'id': r['sample']['id'], 'task': r['task'], 'type': r['sample']['type'], 'variant': r['variant'], 'correct': correct(r) if r['task'] != 'GEN' else None, 'score': score(r), 'retrievalMs': r['retrievalMs'], 'modelMs': r['elapsedMs'], 'contextChars': r['contextChars'], 'serializedContextChars': r.get('serializedContextChars'), 'serializedContextBytes': r.get('serializedContextBytes'), 'contextProfile': r.get('contextProfile'), 'error': ('provider biology safeguard refusal' if '[bio]' in str(r.get('error', '')) else ('model call failed; see local checkpoint' if r.get('error') else None)), 'promptSha256': r['promptSha256'], 'resolvedProtocolId': r.get('resolvedProtocolId'), 'modelUsage': r.get('modelUsage', {}), 'responseSha256': hashlib.sha256(r['generated_response'].encode()).hexdigest(), 'sourceRefs': [{'protocolId': s['protocol_id'], 'path': s['path'], 'grain': s['grain'], **({ 'startChar': s['startChar'], 'endChar': s['endChar'] } if 'startChar' in s else {})} for s in r['passages']]} for r in rows]}
+if a.baseline_report:
+    from compareReports import compare_report
+    report['storedBaselineComparison'] = compare_report(report, a.baseline_report)
 # Keep metadata readable and each audit case on one line for reviewable diffs.
 metadata = json.dumps({k: v for k, v in report.items() if k != 'cases'}, indent=2)
 case_lines = ',\n'.join('    ' + json.dumps(c, separators=(',', ':')) for c in report['cases'])

@@ -5,6 +5,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { Database } from "bun:sqlite";
+import { canonicalProtocolText } from "./contextProfiles";
 const arg = (name: string, fallback?: string) =>
   process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : fallback;
 const source = arg("--source");
@@ -63,7 +64,7 @@ const counts: Record<string, number> = { flat: 0, legacy: 0, hierarchy: 0 };
 for (const record of corpus.records) {
   const protocol = { ...record, name: record.title };
   // All variants see the same source content and purpose fields.
-  const flatText = `${record.title}\n${record.description}\n${record.body}`;
+  const flatText = canonicalProtocolText(record);
   const flat = [];
   for (let start = 0; start < flatText.length; ) {
     const end = Math.min(start + 1800, flatText.length);

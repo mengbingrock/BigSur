@@ -4,10 +4,7 @@ This is an isolated, controlled index ablation using the upstream BioProBench PQ
 
 ## Reproduce
 
-Requires Bun, Python 3, Git, and an authenticated Claude CLI. Download the upstream repository and the two public source-corpus files into an external working directory. For the recorded run, the upstream commit is `cf00fecd62583b98350cc48e26a29c92d3f21e5d`; exact dataset SHA-256 checksums are in the report. Download URLs:
-
-- `https://huggingface.co/datasets/BioProBench/BioProBench/resolve/main/Protocol-exchange.json`
-- `https://huggingface.co/datasets/BioProBench/BioProBench/resolve/main/Protocol-io.json`
+Requires Bun, Python 3, Git, and an authenticated Claude CLI. Clone the upstream repository into an external working directory. For the recorded run, the upstream commit is `cf00fecd62583b98350cc48e26a29c92d3f21e5d`; exact dataset SHA-256 checksums are in the report. The current loader requires all three pinned raw collections in `sources.json`, including Bio-protocol from the verified mirror. Download them with `python3 apps/server/eval/bioprobench/fetchCorpus.py --out /path/to/bioprobench`. See [corpus repair](../../../../docs/bioprobench-corpus-repair.md) for provenance and coverage limits. Earlier results below used the historical two-file corpus unless explicitly labeled as repaired.
 
 Run from the Labee worktree:
 
@@ -19,7 +16,7 @@ python3 apps/server/eval/bioprobench/report.py --source /path/to/bioprobench --o
 
 `prepare.ts` builds three indexes from the same source records: fixed 1,800-character/200-overlap windows, the multi-grain chunker/parser from commit `96384e2`, and the new BioProBench hierarchy. It uses the production lexical query expression and the same BM25 field weights for all three. Ranking here deliberately omits production grain bonuses and dense scores to isolate representation differences. Raw BioProCorpus source paths/text enter the hierarchy index; display Markdown enters the other two indexes. Corpus-only purpose metadata may enter indexes. Test questions, choices, answers, correct step orders, and generated reference protocols never enter an index.
 
-The deterministic sample is proportional to task subtype and selected by a fixed SHA-256 ordering before retrieval. All variants use at most eight passages and an 8,000-character serialized evidence budget. Whole retrieved fragments must fit the budget; evidence is not cropped mid-instruction. Each prediction starts a fresh CLI session with no tools. Official question prompts are used, with retrieved evidence appended; gold fields are retained only in local records for scoring. Refusals, failures, and successful calls are checkpointed and never silently retried on resume.
+The deterministic sample is proportional to task subtype and selected by a fixed SHA-256 ordering before retrieval. These three variants use at most eight passages and an 8,000-character serialized evidence budget. Whole retrieved fragments must fit the budget; evidence is not cropped mid-instruction. Each prediction starts a fresh CLI session with no tools. Official question prompts are used, with retrieved evidence appended; gold fields are retained only in local records for scoring. Refusals, failures, and successful calls are checkpointed and never silently retried on resume.
 
 The official `evaluate-protocol-outputs` skill scores PQA exact match/Brier and ORD exact match/Kendall tau. It excludes unparseable rows from its denominators; report total/scored/failed counts and additionally count failures as incorrect for all-question comparisons. Paired confidence intervals and McNemar tests are descriptive for this small pilot. Model randomness is not controlled; the `haiku` alias may change over time. The test corpus is only the currently downloadable subset; it does not contain every protocol referenced by the tests.
 
@@ -77,3 +74,38 @@ That check exercises old history, archived sessions, a named protocol's paramete
 For the recorded post-hoc **title-precedence-only** correction, `prepareExpanded.ts --reuse /path/to/original-run` reuses questions and saved predictions whose resolution is unchanged. It rebuilds evidence only when the resolved protocol changes. This shortcut assumes the same expansion algorithm and indexes; it is not a generic cache for arbitrary retrieval changes. Corpus/test checksums must match, and `run.py` still rejects mismatched model/prompt checkpoints. Use a new output directory and no `--reuse` when changing any other retrieval behavior. Original results and corrected follow-up results are both retained.
 
 After these experiments, production defaults expand only confidently identified protocols; broad/ambiguous queries retain ranked chunks, with explicit context expansion available to the router. The `expanded` benchmark variant deliberately evaluates unconditional expansion and must not be labeled a direct measurement of that final conditional policy.
+
+## Separate paper-context mode
+
+`preparePaperContext.ts` builds two additional indexes and the `paper-context`
+variant. It reads the task label directly: PQA/ERR use 2,000-character chunks,
+400 overlap, top 5; ORD/GEN use 5,000-character chunks, 1,000 overlap, top 3.
+Whole ranked chunks reach the model without an 8,000-character cap. BM25,
+official question prompts, source corpus and frozen IDs stay fixed.
+
+```sh
+bun run apps/server/eval/bioprobench/preparePaperContext.ts \
+  --source /path/to/bioprobench --out /tmp/biopro-paper-context \
+  --selection docs/bioprobench-corpus-followup-evaluation.json
+python3 apps/server/eval/bioprobench/run.py \
+  --source /path/to/bioprobench --out /tmp/biopro-paper-context \
+  --model claude-opus-5-5 --workers 4 --live
+python3 apps/server/eval/bioprobench/report.py \
+  --source /path/to/bioprobench --out /tmp/biopro-paper-context \
+  --baseline-report docs/bioprobench-corpus-followup-evaluation.json \
+  --report /tmp/biopro-paper-context/report.json
+```
+
+Use an empty output directory to prepare; rerun only `run.py` to resume model
+calls. `--selection` accepts a baseline manifest or report and requires exact
+corpus audits, task checksums and question identities. `--baseline-report` also
+checks model and complete per-case coverage. No baseline predictions are rerun.
+
+The paper does not disclose the exact splitter implementation. Our reconstruction
+uses fixed Unicode-code-point windows and the same canonical source string as
+the flat baseline. Indexes retain half-open source offsets; reports retain source
+IDs, offsets, profiles and revision/checksum metadata. The runner measures actual
+serialized context characters/UTF-8 bytes and keeps provider token usage; those
+tokens include the entire CLI request, not just retrieved evidence. This mode
+does not implement the paper's dense/hybrid ranker or task-specific model choice.
+See [implementation and results](../../../../docs/bioprobench-paper-context.md).

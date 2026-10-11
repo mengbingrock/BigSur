@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { Database } from "bun:sqlite";
 import { ftsExpression } from "../../src/services/artifactIndex/index";
 import { loadCorpus } from "./corpus";
+import { taskQuery } from "./contextProfiles";
 import { expandProtocolEvidence, normalizeProtocolTitle, resolveProtocolIdentity } from "../../src/services/protocolRetrieval";
 const get = (flag: string, fallback = "") => process.argv.includes(flag) ? process.argv[process.argv.indexOf(flag) + 1]! : fallback;
 const base = get("--base"), source = get("--source"), out = get("--out");
@@ -78,7 +79,7 @@ for (const task of development ? ["ORD"] : ["PQA", "ORD", "ERR", "GEN"]) {
   for (const sample of selected) {
     // Exactly the official visible fields; never corrected text for an incorrect
     // ERR case, reference order, error_description or GEN reference output.
-    const query = task === "PQA" ? sample.question : task === "ORD" ? `${sample.question} ${sample.wrong_steps.join(" ")}` : task === "ERR" ? `${sample.is_correct ? sample.corrected_text : sample.corrupted_text} ${JSON.stringify(sample.context)}` : `${sample.instruction} ${sample.input}`;
+    const query = taskQuery(task, sample);
     const identity = resolveProtocolIdentity(query, headers);
     const expression = ftsExpression(query);
     for (const variant of variants) {

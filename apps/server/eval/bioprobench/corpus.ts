@@ -12,7 +12,7 @@ export interface SourceSpec {
   license: string; expectedRawRecords: number;
 }
 export interface Alias { protocolId: string; title: string; normalized: string; nodeId: string | null; path: string; }
-export function sourceAliases(record: { id: string; title: string; hierarchy?: readonly { id: string; path: string; grain: string; heading: string }[] }): Alias[] {
+export function sourceAliases(record: { id: string; title: string; hierarchy?: readonly { id: string; path: string; grain: string; heading: string }[] | undefined }): Alias[] {
   return [{ protocolId: record.id, title: record.title, normalized: normalizeProtocolTitle(record.title), nodeId: null, path: "" },
     ...(record.hierarchy ?? []).filter((n) => n.grain === "section" && n.heading && n.path !== "materials").map((n) => {
       const title = n.heading.split(" › ").at(-1)!;

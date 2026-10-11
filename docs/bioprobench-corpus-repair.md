@@ -156,3 +156,7 @@ Next: obtain the authors' source-to-question mapping and remaining original
 source files, then use source-ID coverage to distinguish ingestion gaps from
 retrieval misses. Evaluate a fresh, source-linked split before tuning retrieval
 further on these already analyzed questions.
+
+The separate [paper-context follow-up](bioprobench-paper-context.md) evaluates the
+paper's task-specific chunk lengths, overlaps and top-k counts on the same repaired
+corpus and frozen 96 questions, holding BM25 ranking fixed.

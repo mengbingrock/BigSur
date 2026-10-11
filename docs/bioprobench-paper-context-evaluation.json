@@ -1,0 +1,2316 @@
+{
+  "date": "2026-10-11T23:28:55.776Z",
+  "upstreamRevision": "cf00fecd62583b98350cc48e26a29c92d3f21e5d",
+  "protocols": 14361,
+  "sourceAudit": [
+    {
+      "file": "Protocol-exchange.json",
+      "source": "Protocol-exchange",
+      "url": "https://huggingface.co/datasets/bowenxian/BioProBench/resolve/c9ae37cac1b789eda6f3ffa62047fce92c286fbb/Protocol-exchange.json",
+      "revision": "c9ae37cac1b789eda6f3ffa62047fce92c286fbb",
+      "sha256": "5ed3b7f1120af7442b06e50a14c4dc654dfe096fbb7db93e834433f2b43806e9",
+      "license": "CC BY-NC 4.0; isolated benchmark only",
+      "expectedRawRecords": 933,
+      "accepted": 933,
+      "rejected": [],
+      "duplicates": [],
+      "revisions": []
+    },
+    {
+      "file": "Protocol-io.json",
+      "source": "Protocol-io",
+      "url": "https://huggingface.co/datasets/bowenxian/BioProBench/resolve/c9ae37cac1b789eda6f3ffa62047fce92c286fbb/Protocol-io.json",
+      "revision": "c9ae37cac1b789eda6f3ffa62047fce92c286fbb",
+      "sha256": "9f0e6cdeebce322a1282c29637399e5e5012b2a68e4bf88fda21d617ccef98a3",
+      "license": "CC BY-NC 4.0; isolated benchmark only",
+      "expectedRawRecords": 9585,
+      "accepted": 9271,
+      "rejected": [
+        {
+          "id": "Protocol-io:Protocol.io-37",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-203",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-216",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-220",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-358",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-610",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-774",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-982",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-1265",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-1292",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-1376",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-1691",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-1939",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-2012",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-2013",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-2051",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-2075",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-2219",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-2227",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-2232",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-2605",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-2795",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-2796",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-2798",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-2886",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-2912",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-2935",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-2985",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-3008",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-3034",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-3061",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-3066",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-3865",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4087",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4090",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4104",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4110",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4115",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4116",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4117",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4123",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4147",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4149",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4151",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4177",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4191",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4195",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4221",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4226",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4227",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4254",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4258",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4259",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4269",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4275",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4286",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4308",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4323",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4324",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4328",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4329",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4330",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4347",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4350",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4351",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4364",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4366",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4397",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4399",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4418",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4447",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4520",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4531",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4548",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4573",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4648",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4659",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4680",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4718",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4812",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4816",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4817",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4834",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4851",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9748",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9753",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9782",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-4970",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5058",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5066",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5072",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5110",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5113",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5127",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5194",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5198",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5293",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5304",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5334",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5345",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5360",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5364",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5388",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5422",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5484",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5539",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5584",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5648",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5652",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5758",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5852",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5888",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-5943",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-6009",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-6278",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-6305",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-6687",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-6690",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-6877",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-7320",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-7323",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-7326",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-7327",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-7447",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-7550",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-7634",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-7836",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-7901",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-7957",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-7960",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-7976",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-7981",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-8372",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-8433",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-8480",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-8631",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-8873",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-8999",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9033",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9035",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9102",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9170",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9185",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9204",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9323",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9400",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9748",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9753",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9782",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9748",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9753",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9782",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9824",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9870",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9914",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-9991",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-10001",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-10018",
+          "reason": "no usable procedure steps"
+        },
+        {
+          "id": "Protocol-io:Protocol.io-10253",
+          "reason": "no usable procedure steps"
+        }
+      ],
+      "duplicates": [
+        "Protocol-io:Protocol.io-9701",
+        "Protocol-io:Protocol.io-9703",
+        "Protocol-io:Protocol.io-9704",
+        "Protocol-io:Protocol.io-9705",
+        "Protocol-io:Protocol.io-9707",
+        "Protocol-io:Protocol.io-9709",
+        "Protocol-io:Protocol.io-9710",
+        "Protocol-io:Protocol.io-9711",
+        "Protocol-io:Protocol.io-9712",
+        "Protocol-io:Protocol.io-9715",
+        "Protocol-io:Protocol.io-9716",
+        "Protocol-io:Protocol.io-9717",
+        "Protocol-io:Protocol.io-9718",
+        "Protocol-io:Protocol.io-9721",
+        "Protocol-io:Protocol.io-9722",
+        "Protocol-io:Protocol.io-9726",
+        "Protocol-io:Protocol.io-9727",
+        "Protocol-io:Protocol.io-9729",
+        "Protocol-io:Protocol.io-9730",
+        "Protocol-io:Protocol.io-9732",
+        "Protocol-io:Protocol.io-9733",
+        "Protocol-io:Protocol.io-9734",
+        "Protocol-io:Protocol.io-9735",
+        "Protocol-io:Protocol.io-9736",
+        "Protocol-io:Protocol.io-9737",
+        "Protocol-io:Protocol.io-9738",
+        "Protocol-io:Protocol.io-9740",
+        "Protocol-io:Protocol.io-9741",
+        "Protocol-io:Protocol.io-9742",
+        "Protocol-io:Protocol.io-9744",
+        "Protocol-io:Protocol.io-9745",
+        "Protocol-io:Protocol.io-9746",
+        "Protocol-io:Protocol.io-9747",
+        "Protocol-io:Protocol.io-9750",
+        "Protocol-io:Protocol.io-9752",
+        "Protocol-io:Protocol.io-9755",
+        "Protocol-io:Protocol.io-9756",
+        "Protocol-io:Protocol.io-9757",
+        "Protocol-io:Protocol.io-9759",
+        "Protocol-io:Protocol.io-9761",
+        "Protocol-io:Protocol.io-9762",
+        "Protocol-io:Protocol.io-9763",
+        "Protocol-io:Protocol.io-9764",
+        "Protocol-io:Protocol.io-9765",
+        "Protocol-io:Protocol.io-9766",
+        "Protocol-io:Protocol.io-9767",
+        "Protocol-io:Protocol.io-9768",
+        "Protocol-io:Protocol.io-9770",
+        "Protocol-io:Protocol.io-9771",
+        "Protocol-io:Protocol.io-9772",
+        "Protocol-io:Protocol.io-9776",
+        "Protocol-io:Protocol.io-9777",
+        "Protocol-io:Protocol.io-9778",
+        "Protocol-io:Protocol.io-9779",
+        "Protocol-io:Protocol.io-9780",
+        "Protocol-io:Protocol.io-9781",
+        "Protocol-io:Protocol.io-9783",
+        "Protocol-io:Protocol.io-9784",
+        "Protocol-io:Protocol.io-9785",
+        "Protocol-io:Protocol.io-9788",
+        "Protocol-io:Protocol.io-9789",
+        "Protocol-io:Protocol.io-9790",
+        "Protocol-io:Protocol.io-9791",
+        "Protocol-io:Protocol.io-9792",
+        "Protocol-io:Protocol.io-9793",
+        "Protocol-io:Protocol.io-9796",
+        "Protocol-io:Protocol.io-9797",
+        "Protocol-io:Protocol.io-9798",
+        "Protocol-io:Protocol.io-9700",
+        "Protocol-io:Protocol.io-9701",
+        "Protocol-io:Protocol.io-9702",
+        "Protocol-io:Protocol.io-9703",
+        "Protocol-io:Protocol.io-9705",
+        "Protocol-io:Protocol.io-9707",
+        "Protocol-io:Protocol.io-9709",
+        "Protocol-io:Protocol.io-9710",
+        "Protocol-io:Protocol.io-9711",
+        "Protocol-io:Protocol.io-9712",
+        "Protocol-io:Protocol.io-9713",
+        "Protocol-io:Protocol.io-9714",
+        "Protocol-io:Protocol.io-9715",
+        "Protocol-io:Protocol.io-9716",
+        "Protocol-io:Protocol.io-9717",
+        "Protocol-io:Protocol.io-9718",
+        "Protocol-io:Protocol.io-9719",
+        "Protocol-io:Protocol.io-9720",
+        "Protocol-io:Protocol.io-9721",
+        "Protocol-io:Protocol.io-9722",
+        "Protocol-io:Protocol.io-9725",
+        "Protocol-io:Protocol.io-9726",
+        "Protocol-io:Protocol.io-9729",
+        "Protocol-io:Protocol.io-9730",
+        "Protocol-io:Protocol.io-9731",
+        "Protocol-io:Protocol.io-9733",
+        "Protocol-io:Protocol.io-9734",
+        "Protocol-io:Protocol.io-9735",
+        "Protocol-io:Protocol.io-9737",
+        "Protocol-io:Protocol.io-9738",
+        "Protocol-io:Protocol.io-9740",
+        "Protocol-io:Protocol.io-9741",
+        "Protocol-io:Protocol.io-9742",
+        "Protocol-io:Protocol.io-9744",
+        "Protocol-io:Protocol.io-9745",
+        "Protocol-io:Protocol.io-9747",
+        "Protocol-io:Protocol.io-4901",
+        "Protocol-io:Protocol.io-4902",
+        "Protocol-io:Protocol.io-4905",
+        "Protocol-io:Protocol.io-4906",
+        "Protocol-io:Protocol.io-4912",
+        "Protocol-io:Protocol.io-4917",
+        "Protocol-io:Protocol.io-4920",
+        "Protocol-io:Protocol.io-4921",
+        "Protocol-io:Protocol.io-4928",
+        "Protocol-io:Protocol.io-4930",
+        "Protocol-io:Protocol.io-4931",
+        "Protocol-io:Protocol.io-4933",
+        "Protocol-io:Protocol.io-4937",
+        "Protocol-io:Protocol.io-4940",
+        "Protocol-io:Protocol.io-4946",
+        "Protocol-io:Protocol.io-4947",
+        "Protocol-io:Protocol.io-4950",
+        "Protocol-io:Protocol.io-9750",
+        "Protocol-io:Protocol.io-9751",
+        "Protocol-io:Protocol.io-9755",
+        "Protocol-io:Protocol.io-9756",
+        "Protocol-io:Protocol.io-9757",
+        "Protocol-io:Protocol.io-9758",
+        "Protocol-io:Protocol.io-9759",
+        "Protocol-io:Protocol.io-9761",
+        "Protocol-io:Protocol.io-9762",
+        "Protocol-io:Protocol.io-9763",
+        "Protocol-io:Protocol.io-9764",
+        "Protocol-io:Protocol.io-9765",
+        "Protocol-io:Protocol.io-9766",
+        "Protocol-io:Protocol.io-9767",
+        "Protocol-io:Protocol.io-9770",
+        "Protocol-io:Protocol.io-9771",
+        "Protocol-io:Protocol.io-9772",
+        "Protocol-io:Protocol.io-9774",
+        "Protocol-io:Protocol.io-9775",
+        "Protocol-io:Protocol.io-9776",
+        "Protocol-io:Protocol.io-9777",
+        "Protocol-io:Protocol.io-9778",
+        "Protocol-io:Protocol.io-9779",
+        "Protocol-io:Protocol.io-9781",
+        "Protocol-io:Protocol.io-9785",
+        "Protocol-io:Protocol.io-9787",
+        "Protocol-io:Protocol.io-9788",
+        "Protocol-io:Protocol.io-9790",
+        "Protocol-io:Protocol.io-9791",
+        "Protocol-io:Protocol.io-9792",
+        "Protocol-io:Protocol.io-9793",
+        "Protocol-io:Protocol.io-9796",
+        "Protocol-io:Protocol.io-9797",
+        "Protocol-io:Protocol.io-9799"
+      ],
+      "revisions": [
+        {
+          "originalId": "Protocol-io:Protocol.io-9700",
+          "indexedId": "Protocol-io:Protocol.io-9700:revision:02efb07845c0bb5a91b9798746d9f0bdcf49c39625f3b31af102fcc3dd86b7c1"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9702",
+          "indexedId": "Protocol-io:Protocol.io-9702:revision:3ff5761092c88e43a47666a6521ede2b4795c1a18a8f0f996bdf42375b0e0c6f"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9713",
+          "indexedId": "Protocol-io:Protocol.io-9713:revision:98f6e776211fc936b87d94b627c0694c15a83fadb8324c1d9790f789251a0d6e"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9714",
+          "indexedId": "Protocol-io:Protocol.io-9714:revision:20e20518c95562e095e041cfcc65164e5e041ff6e3d5625c89f28dca2ed7f448"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9719",
+          "indexedId": "Protocol-io:Protocol.io-9719:revision:fc7f3d581d559e23f359cf822ce5905e27263da1e9b1080caf81084fd52d415c"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9720",
+          "indexedId": "Protocol-io:Protocol.io-9720:revision:0abe5032bd6dbef22533109b76937aaab8b854dd71a5aa6fb1e315f640fe7561"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9724",
+          "indexedId": "Protocol-io:Protocol.io-9724:revision:d7c809cc929dc8071efde2c08baa303a4212ce3d605ae56947fc9e0f032ee35e"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9725",
+          "indexedId": "Protocol-io:Protocol.io-9725:revision:4531e2f20dd0590634deba50cc93c8f0f32d178c2e69fd74a9b4f7cad34c6421"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9731",
+          "indexedId": "Protocol-io:Protocol.io-9731:revision:6e2fadba5d9770aa10d1998e10ae2b22289688f17c37ba052e4404c2e491027c"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9739",
+          "indexedId": "Protocol-io:Protocol.io-9739:revision:68a4a378534d2d1b06d2085fda8ec0940a7f71e2d342be268a0f049abe70d296"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9743",
+          "indexedId": "Protocol-io:Protocol.io-9743:revision:edb09fda8249b71933968d8646bd6d8f329bbc49485ba92a49f7cc7fa0bd9348"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9751",
+          "indexedId": "Protocol-io:Protocol.io-9751:revision:d619d97c67f1d1156a9cc5163b5ad3c1318a391fba6bfa03bc8a88c1cc79460f"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9758",
+          "indexedId": "Protocol-io:Protocol.io-9758:revision:3b6ef7282dbaf8bcf1dc26b19cb0af30c45992b0fcfc1de59d737cab0f4a9f8b"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9769",
+          "indexedId": "Protocol-io:Protocol.io-9769:revision:478cb7377c4375dfd686172ae0770413b1132094c5b4f42b35629c6b75b6ae24"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9774",
+          "indexedId": "Protocol-io:Protocol.io-9774:revision:2a4a1c6050189adbdf1404c15601dd064172ae3695d735dfdde6ee8e5affcbf7"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9775",
+          "indexedId": "Protocol-io:Protocol.io-9775:revision:9601bd9f83d1e2d533ce4f66be174d0b1e1c8730f6732c81e91b8cd591c4b7ee"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9786",
+          "indexedId": "Protocol-io:Protocol.io-9786:revision:07f0b5c8c6ca192f8de90820b0f6a84387232f622c522182a43e9e624fe0835d"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9787",
+          "indexedId": "Protocol-io:Protocol.io-9787:revision:a54c3b1d2d9ae50fa8b5a4efb13253e444ab62ce840aa6cffd178b9836b186a9"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9799",
+          "indexedId": "Protocol-io:Protocol.io-9799:revision:dad1072eb90dfee17402b61538ef640fe364696fa6a112e4d7329a12a9df6c08"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9704",
+          "indexedId": "Protocol-io:Protocol.io-9704:revision:b8ce3f4777320a14b2ab820316023d05aeeb30d5ad9ca2a150cf648d1ed2366c"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9724",
+          "indexedId": "Protocol-io:Protocol.io-9724:revision:7924ec794003d4b3bdd18995daa998051d846ff00f48e75cd97b8d3690cd5490"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9727",
+          "indexedId": "Protocol-io:Protocol.io-9727:revision:53af4a16157c5ae75ecfa48f82d44d0aaa00ad48bfa953268d33b4cbf504b6ff"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9732",
+          "indexedId": "Protocol-io:Protocol.io-9732:revision:bca1fa59dd1ba6e080a8eb63da3d4ef40e823785600914b967265f2ce24e41a9"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9736",
+          "indexedId": "Protocol-io:Protocol.io-9736:revision:5ca5ad51ec02c4522e24555733fa77567baa2ba39a231d2f7993109339ac379f"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9739",
+          "indexedId": "Protocol-io:Protocol.io-9739:revision:7ac1c185d8eb8c361650a811464d2de143d5c73dc1d9b57adc1391ed89ecb9b5"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9743",
+          "indexedId": "Protocol-io:Protocol.io-9743:revision:14235139922fc214959b0ef70746013d95e45197a0f0974d739fe63baf65a9e7"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9746",
+          "indexedId": "Protocol-io:Protocol.io-9746:revision:5eb1762b98f4a532aff32c08c50c40ae06535a0d7a190fd91865e929b740ec83"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-4908",
+          "indexedId": "Protocol-io:Protocol.io-4908:revision:ee0d170249cdec30f29ec0a395caf70e5e97823ce3636bce972e99d2e26124bb"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-4913",
+          "indexedId": "Protocol-io:Protocol.io-4913:revision:cb155486c812b90ecd3d31b39c79d7653293c258e84eb4418f476234858e08ef"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-4916",
+          "indexedId": "Protocol-io:Protocol.io-4916:revision:d6ae9c847e171d3218688d72a36c12795526d1e8d7c1323539577bcd1fa4a97c"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-4918",
+          "indexedId": "Protocol-io:Protocol.io-4918:revision:171989d133162ff307f549fc31c491f04e9c3ce25b256c00ad422b056d9fc457"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-4924",
+          "indexedId": "Protocol-io:Protocol.io-4924:revision:7327ee44889720dbc9e14196fa7ebf8909fbbd5f5e84b7156e2f6c3e9ce59d7e"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-4927",
+          "indexedId": "Protocol-io:Protocol.io-4927:revision:1f4e8d011ec6128e3ffb5f761b07922a9ce69a906c2657dfff20f9d6a7b0269d"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-4932",
+          "indexedId": "Protocol-io:Protocol.io-4932:revision:bf6e9abdf9495875a6d74915fcbb2d2ed450ab0371d4d9f1c16c76ed410faa39"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-4938",
+          "indexedId": "Protocol-io:Protocol.io-4938:revision:1749f63601209a8fba570fbb23b43da6162eb1f633f5fb3e3c0d7159cc80ef1a"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-4939",
+          "indexedId": "Protocol-io:Protocol.io-4939:revision:2d714dacd7d3bcba1ad47ed9a873c65ee09ed117b39236774f8d16793dc1da97"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-4941",
+          "indexedId": "Protocol-io:Protocol.io-4941:revision:a3780cd1758669cac7b27c8dccf64d7ab96372b02cecdb465c761544579f92e1"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-4945",
+          "indexedId": "Protocol-io:Protocol.io-4945:revision:28912c16333a5adcca8737b13679b67b5afa5d14b8436a9bf1eae1514ed2735f"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-4948",
+          "indexedId": "Protocol-io:Protocol.io-4948:revision:e913dd3f0d20cafb4cb9ca51ca8c3b5ef60917f881ded2de3d9f48331c80faa2"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-4949",
+          "indexedId": "Protocol-io:Protocol.io-4949:revision:8a3900452bbb301016cae77ae54354af7ad5c68355ba9d9429131dfb1d676ab4"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9752",
+          "indexedId": "Protocol-io:Protocol.io-9752:revision:e0f500c0b03042afc730bca8cb37ef361aafc6fe17dfe01ae116fdef956ebe70"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9768",
+          "indexedId": "Protocol-io:Protocol.io-9768:revision:9a54901e3b13920a4fb1e4b9b0876edd3edc9c78a31c7d8558bc6f03ff5c060a"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9769",
+          "indexedId": "Protocol-io:Protocol.io-9769:revision:0a1e8119b5240903607b80a4077a160e6e9c877c312edd6caa536c01c1fa2a88"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9780",
+          "indexedId": "Protocol-io:Protocol.io-9780:revision:8784aa49524a7e30ba7f90d676e8caa9294bf099b30cc7756cd9ef56ce970c8e"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9783",
+          "indexedId": "Protocol-io:Protocol.io-9783:revision:b3aaf82699b995469d39f7bb4a5f451bbf538442365655e5587e3a8c340cbd76"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9784",
+          "indexedId": "Protocol-io:Protocol.io-9784:revision:379090a107cc2855af20c32c82c9f3fc9a738a3d30c1a66bdb9f12e826a422a5"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9786",
+          "indexedId": "Protocol-io:Protocol.io-9786:revision:c6fab51c44a541440cfa7211aeb565b3117873432dca71e84244462c37e3d615"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9789",
+          "indexedId": "Protocol-io:Protocol.io-9789:revision:3d86433123b4f6dea9a30a0f1345c66f7aba70821237b694e6d9c00ea1952de9"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9798",
+          "indexedId": "Protocol-io:Protocol.io-9798:revision:273f62a4ace078f083041c8a87b6301e6e2a151a608882bffb7abc4c67072b95"
+        },
+        {
+          "originalId": "Protocol-io:Protocol.io-9800",
+          "indexedId": "Protocol-io:Protocol.io-9800:revision:a58d63a0be2813eb7fabf073122b650ffc7e5ca334ef0ee1582c82f134a7622a"
+        }
+      ]
+    },
+    {
+      "file": "Bio-protocol.json",
+      "source": "Bio-protocol",
+      "url": "https://huggingface.co/datasets/bowenxian/BioProBench/resolve/c9ae37cac1b789eda6f3ffa62047fce92c286fbb/Bio-protocol.json",
+      "revision": "c9ae37cac1b789eda6f3ffa62047fce92c286fbb",
+      "sha256": "f67a78bd536e670a68d800950af3e9e2b2b0a0ffbe3d55c6534fa5c48af6e760",
+      "license": "CC BY-NC 4.0; isolated benchmark only",
+      "expectedRawRecords": 4157,
+      "accepted": 4157,
+      "rejected": [],
+      "duplicates": [],
+      "revisions": []
+    }
+  ],
+  "checksums": {
+    "Protocol-exchange.json": "5ed3b7f1120af7442b06e50a14c4dc654dfe096fbb7db93e834433f2b43806e9",
+    "Protocol-io.json": "9f0e6cdeebce322a1282c29637399e5e5012b2a68e4bf88fda21d617ccef98a3",
+    "Bio-protocol.json": "f67a78bd536e670a68d800950af3e9e2b2b0a0ffbe3d55c6534fa5c48af6e760",
+    "PQA_test.json": "118f62764c385e7ae68ff4d03302c5353ca9082769c1c89980952a7278028044",
+    "ORD_test.json": "91d3e6641d6d05b23032529a86345b7d581774231d122898d42ccbbd57d1a6fb",
+    "ERR_test.json": "371fad1216ca589a97088c5a7ceb7e2c5c40cd0c88e2224a149ac5a9eaae939e",
+    "GEN_test.json": "2e438a6524815a078e979cd9cc777e9aec1ec84ae5f3130990e8b8f62b0c8428"
+  },
+  "selection": {
+    "PQA": {
+      "available": 1200,
+      "selected": [
+        {
+          "id": "TEST-PQA-000122",
+          "type": "operation"
+        },
+        {
+          "id": "TEST-PQA-000686",
+          "type": "operation"
+        },
+        {
+          "id": "TEST-PQA-000023",
+          "type": "operation"
+        },
+        {
+          "id": "TEST-PQA-000245",
+          "type": "operation"
+        },
+        {
+          "id": "TEST-PQA-000626",
+          "type": "operation"
+        },
+        {
+          "id": "TEST-PQA-000011",
+          "type": "operation"
+        },
+        {
+          "id": "TEST-PQA-000482",
+          "type": "operation"
+        },
+        {
+          "id": "TEST-PQA-000407",
+          "type": "operation"
+        },
+        {
+          "id": "TEST-PQA-000006",
+          "type": "parameter"
+        },
+        {
+          "id": "TEST-PQA-000711",
+          "type": "parameter"
+        },
+        {
+          "id": "TEST-PQA-000078",
+          "type": "parameter"
+        },
+        {
+          "id": "TEST-PQA-000702",
+          "type": "parameter"
+        },
+        {
+          "id": "TEST-PQA-000717",
+          "type": "parameter"
+        },
+        {
+          "id": "TEST-PQA-000621",
+          "type": "parameter"
+        },
+        {
+          "id": "TEST-PQA-000666",
+          "type": "parameter"
+        },
+        {
+          "id": "TEST-PQA-000585",
+          "type": "parameter"
+        },
+        {
+          "id": "TEST-PQA-000493",
+          "type": "reagent"
+        },
+        {
+          "id": "TEST-PQA-000370",
+          "type": "reagent"
+        },
+        {
+          "id": "TEST-PQA-000763",
+          "type": "reagent"
+        },
+        {
+          "id": "TEST-PQA-001084",
+          "type": "reagent"
+        },
+        {
+          "id": "TEST-PQA-000226",
+          "type": "reagent"
+        },
+        {
+          "id": "TEST-PQA-000046",
+          "type": "reagent"
+        },
+        {
+          "id": "TEST-PQA-000313",
+          "type": "reagent"
+        },
+        {
+          "id": "TEST-PQA-000850",
+          "type": "reagent"
+        }
+      ]
+    },
+    "ORD": {
+      "available": 1161,
+      "selected": [
+        {
+          "id": "TEST-ORD-000543",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000798",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000900",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000218",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000070",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000489",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000189",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000356",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000513",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-001153",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-001086",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-001100",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000640",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000561",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000976",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000854",
+          "type": "child"
+        },
+        {
+          "id": "TEST-ORD-000556",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000778",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000841",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-001012",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000538",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000121",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000576",
+          "type": "top"
+        },
+        {
+          "id": "TEST-ORD-000313",
+          "type": "top"
+        }
+      ]
+    },
+    "ERR": {
+      "available": 1200,
+      "selected": [
+        {
+          "id": "TEST-ERR-001054",
+          "type": "correct",
+          "is_correct": true
+        },
+        {
+          "id": "TEST-ERR-000243",
+          "type": "correct",
+          "is_correct": true
+        },
+        {
+          "id": "TEST-ERR-000947",
+          "type": "correct",
+          "is_correct": true
+        },
+        {
+          "id": "TEST-ERR-000610",
+          "type": "correct",
+          "is_correct": true
+        },
+        {
+          "id": "TEST-ERR-000569",
+          "type": "correct",
+          "is_correct": true
+        },
+        {
+          "id": "TEST-ERR-000887",
+          "type": "correct",
+          "is_correct": true
+        },
+        {
+          "id": "TEST-ERR-000809",
+          "type": "correct",
+          "is_correct": true
+        },
+        {
+          "id": "TEST-ERR-000052",
+          "type": "correct",
+          "is_correct": true
+        },
+        {
+          "id": "TEST-ERR-000989",
+          "type": "correct",
+          "is_correct": true
+        },
+        {
+          "id": "TEST-ERR-000771",
+          "type": "correct",
+          "is_correct": true
+        },
+        {
+          "id": "TEST-ERR-000063",
+          "type": "correct",
+          "is_correct": true
+        },
+        {
+          "id": "TEST-ERR-000917",
+          "type": "correct",
+          "is_correct": true
+        },
+        {
+          "id": "TEST-ERR-000836",
+          "type": "operation",
+          "is_correct": false
+        },
+        {
+          "id": "TEST-ERR-000644",
+          "type": "operation",
+          "is_correct": false
+        },
+        {
+          "id": "TEST-ERR-000752",
+          "type": "operation",
+          "is_correct": false
+        },
+        {
+          "id": "TEST-ERR-000842",
+          "type": "operation",
+          "is_correct": false
+        },
+        {
+          "id": "TEST-ERR-000534",
+          "type": "parameter",
+          "is_correct": false
+        },
+        {
+          "id": "TEST-ERR-001062",
+          "type": "parameter",
+          "is_correct": false
+        },
+        {
+          "id": "TEST-ERR-001068",
+          "type": "parameter",
+          "is_correct": false
+        },
+        {
+          "id": "TEST-ERR-000594",
+          "type": "parameter",
+          "is_correct": false
+        },
+        {
+          "id": "TEST-ERR-000811",
+          "type": "reagent",
+          "is_correct": false
+        },
+        {
+          "id": "TEST-ERR-000913",
+          "type": "reagent",
+          "is_correct": false
+        },
+        {
+          "id": "TEST-ERR-000619",
+          "type": "reagent",
+          "is_correct": false
+        },
+        {
+          "id": "TEST-ERR-000109",
+          "type": "reagent",
+          "is_correct": false
+        }
+      ]
+    },
+    "GEN": {
+      "available": 772,
+      "selected": [
+        {
+          "id": "TEST-GEN-000752",
+          "type": "difficulty"
+        },
+        {
+          "id": "TEST-GEN-000707",
+          "type": "difficulty"
+        },
+        {
+          "id": "TEST-GEN-000739",
+          "type": "difficulty"
+        },
+        {
+          "id": "TEST-GEN-000194",
+          "type": "easy"
+        },
+        {
+          "id": "TEST-GEN-000438",
+          "type": "easy"
+        },
+        {
+          "id": "TEST-GEN-000210",
+          "type": "easy"
+        },
+        {
+          "id": "TEST-GEN-000009",
+          "type": "easy"
+        },
+        {
+          "id": "TEST-GEN-000487",
+          "type": "easy"
+        },
+        {
+          "id": "TEST-GEN-000455",
+          "type": "easy"
+        },
+        {
+          "id": "TEST-GEN-000180",
+          "type": "easy"
+        },
+        {
+          "id": "TEST-GEN-000351",
+          "type": "easy"
+        },
+        {
+          "id": "TEST-GEN-000493",
+          "type": "easy"
+        },
+        {
+          "id": "TEST-GEN-000294",
+          "type": "easy"
+        },
+        {
+          "id": "TEST-GEN-000359",
+          "type": "easy"
+        },
+        {
+          "id": "TEST-GEN-000215",
+          "type": "easy"
+        },
+        {
+          "id": "TEST-GEN-000181",
+          "type": "easy"
+        },
+        {
+          "id": "TEST-GEN-000257",
+          "type": "easy"
+        },
+        {
+          "id": "TEST-GEN-000126",
+          "type": "easy"
+        },
+        {
+          "id": "TEST-GEN-000588",
+          "type": "standard"
+        },
+        {
+          "id": "TEST-GEN-000498",
+          "type": "standard"
+        },
+        {
+          "id": "TEST-GEN-000538",
+          "type": "standard"
+        },
+        {
+          "id": "TEST-GEN-000609",
+          "type": "standard"
+        },
+        {
+          "id": "TEST-GEN-000665",
+          "type": "standard"
+        },
+        {
+          "id": "TEST-GEN-000625",
+          "type": "standard"
+        }
+      ]
+    }
+  },
+  "variants": [
+    "paper-context"
+  ],
+  "model": "claude-opus-5-5",
+  "counts": {
+    "small": 56957,
+    "large": 26046
+  },
+  "indexFiles": {
+    "paper-context": [
+      "paper-small.sqlite",
+      "paper-large.sqlite"
+    ]
+  },
+  "contextProfiles": {
+    "small": {
+      "chunkChars": 2000,
+      "overlapChars": 400,
+      "topK": 5
+    },
+    "large": {
+      "chunkChars": 5000,
+      "overlapChars": 1000,
+      "topK": 3
+    }
+  },
+  "taskProfiles": {
+    "PQA": "small",
+    "ORD": "large",
+    "ERR": "small",
+    "GEN": "large"
+  },
+  "contextPolicyVersion": "paper-context-v1",
+  "contextPolicySource": "https://raw.githubusercontent.com/mlresearch/v306/main/assets/liu26cu/liu26cu.pdf#page=15",
+  "assumptions": "Fixed Unicode-code-point windows, half-open offsets into title + newline + description + newline + body (same canonical text as flat baseline). Exact splitter unspecified in paper. Whole ranked chunks including overlap; no merging, summarization, identity routing or character cap. Metadata uses unchanged runner serialization.",
+  "retrieval": "BM25 only, same FTS tokenizer and heading/text weights as flat, 300 candidates. PQA/ERR: 2000 characters, 400 overlap, top 5; ORD/GEN: 5000 characters, 1000 overlap, top 3. Dense/hybrid retrieval deferred.",
+  "split": "Frozen previous sample IDs; development context-policy comparison, not a fresh holdout",
+  "scope": "Context-policy reconstruction only, not original ProAgent replication. Same verified corpus and task files as baseline; no reference answers enter indexes or retrieval queries.",
+  "frozenSelectionSha256": "95061f875e67772f9e7b40de5c68ea2234f26d1c77defd5599eeaf87da91b601",
+  "cliVersion": "2.1.296 (Claude Code)",
+  "totalPredictions": 96,
+  "newCalls": 96,
+  "reusedPredictions": 0,
+  "callFailures": 17,
+  "metrics": {
+    "paper-context": {
+      "ERR": {
+        "skill": "evaluate-protocol-outputs",
+        "version": "2.0.0",
+        "task": "protocol-error-detection",
+        "samples": {
+          "total": 24,
+          "scored": 19,
+          "failed": 5,
+          "failure_rate": 0.20833333333333334
+        },
+        "metrics": {
+          "accuracy": 0.7368421052631579,
+          "precision": 0.7,
+          "recall": 0.7777777777777778,
+          "f1": 0.7368421052631577
+        },
+        "config": {
+          "positive_class": "has_error=true",
+          "profile": "bioprobench",
+          "parser": "profile-defined",
+          "fields": null
+        }
+      },
+      "GEN": {
+        "skill": "evaluate-protocol-outputs",
+        "version": "2.0.0",
+        "task": "protocol-generation",
+        "samples": {
+          "total": 24,
+          "scored": 24,
+          "failed": 0,
+          "failure_rate": 0.0
+        },
+        "metrics": {
+          "exact_match": 0.0,
+          "token_precision": 0.20231586981416852,
+          "token_recall": 0.5394720307418293,
+          "token_f1": 0.24926747646586253
+        },
+        "config": {
+          "metrics_mode": "core",
+          "profile": "bioprobench",
+          "parser": "profile-defined",
+          "fields": null
+        }
+      },
+      "ORD": {
+        "skill": "evaluate-protocol-outputs",
+        "version": "2.0.0",
+        "task": "step-ordering",
+        "samples": {
+          "total": 24,
+          "scored": 20,
+          "failed": 4,
+          "failure_rate": 0.16666666666666666
+        },
+        "metrics": {
+          "exact_match": 0.6,
+          "kendall_tau": 0.820627802690583
+        },
+        "config": {
+          "profile": "bioprobench",
+          "parser": "profile-defined",
+          "fields": null
+        }
+      },
+      "PQA": {
+        "skill": "evaluate-protocol-outputs",
+        "version": "2.0.0",
+        "task": "question-answering",
+        "samples": {
+          "total": 24,
+          "scored": 22,
+          "failed": 2,
+          "failure_rate": 0.08333333333333333
+        },
+        "metrics": {
+          "accuracy": 0.8181818181818182,
+          "brier_score": 0.10754999999999999
+        },
+        "config": {
+          "brier_samples": 22,
+          "profile": "bioprobench",
+          "parser": "profile-defined",
+          "fields": null
+        }
+      }
+    }
+  },
+  "failureBreakdown": {
+    "paper-context": {
+      "PQA": {
+        "providerBiologyRefusals": 2,
+        "otherCallFailures": 0
+      },
+      "ORD": {
+        "providerBiologyRefusals": 4,
+        "otherCallFailures": 0
+      },
+      "ERR": {
+        "providerBiologyRefusals": 5,
+        "otherCallFailures": 0
+      },
+      "GEN": {
+        "providerBiologyRefusals": 6,
+        "otherCallFailures": 0
+      }
+    }
+  },
+  "allQuestionScores": {
+    "PQA": {
+      "paper-context": 0.75
+    },
+    "ORD": {
+      "paper-context": 0.5
+    },
+    "ERR": {
+      "paper-context": 0.5833333333333334
+    },
+    "GEN": {
+      "paper-context": 0.24926747646586248
+    }
+  },
+  "commonScorable": {
+    "PQA": {
+      "scored": 22,
+      "excluded": 2,
+      "metric": "accuracy",
+      "scores": {
+        "paper-context": 0.8181818181818182
+      }
+    },
+    "ORD": {
+      "scored": 20,
+      "excluded": 4,
+      "metric": "accuracy",
+      "scores": {
+        "paper-context": 0.6
+      }
+    },
+    "ERR": {
+      "scored": 19,
+      "excluded": 5,
+      "metric": "accuracy",
+      "scores": {
+        "paper-context": 0.7368421052631579
+      }
+    },
+    "GEN": {
+      "scored": 18,
+      "excluded": 6,
+      "metric": "token_f1",
+      "scores": {
+        "paper-context": 0.3323566352878166
+      }
+    }
+  },
+  "comparisons": {
+    "PQA": {},
+    "ORD": {},
+    "ERR": {},
+    "GEN": {}
+  },
+  "performance": {
+    "paper-context": {
+      "indexBytes": 423354368,
+      "medianRetrievalMs": 341.2223330000015,
+      "medianModelMs": 8457.0,
+      "meanContextChars": 11647.697916666666,
+      "meanPassages": 4,
+      "byTask": {
+        "PQA": {
+          "meanSerializedContextChars": 9773.291666666666,
+          "meanPassages": 5,
+          "medianModelMs": 7268.0,
+          "meanProviderTotalInputTokens": 186476.83333333334,
+          "providerTokenUsageSamples": 24,
+          "tokenCountScope": "Whole CLI request including system/question/cache; evidence-only token count unavailable"
+        },
+        "ORD": {
+          "meanSerializedContextChars": 13031.125,
+          "meanPassages": 3,
+          "medianModelMs": 7712.0,
+          "meanProviderTotalInputTokens": 209559.875,
+          "providerTokenUsageSamples": 24,
+          "tokenCountScope": "Whole CLI request including system/question/cache; evidence-only token count unavailable"
+        },
+        "ERR": {
+          "meanSerializedContextChars": 10002.666666666666,
+          "meanPassages": 5,
+          "medianModelMs": 8730.5,
+          "meanProviderTotalInputTokens": 216845.16666666666,
+          "providerTokenUsageSamples": 24,
+          "tokenCountScope": "Whole CLI request including system/question/cache; evidence-only token count unavailable"
+        },
+        "GEN": {
+          "meanSerializedContextChars": 13783.708333333334,
+          "meanPassages": 3,
+          "medianModelMs": 14723.0,
+          "meanProviderTotalInputTokens": 216612.125,
+          "providerTokenUsageSamples": 24,
+          "tokenCountScope": "Whole CLI request including system/question/cache; evidence-only token count unavailable"
+        }
+      }
+    }
+  },
+  "orderingCoverageMethod": "Exact normalized root or section title; unresolved availability is unknown",
+  "orderingCorpusCoverage": {
+    "TEST-ORD-000900": {
+      "titleParsed": true,
+      "status": "matched-title",
+      "sourceAvailable": true,
+      "matchKind": "section",
+      "ambiguous": false,
+      "protocolIds": [
+        "Bio-protocol:Bio-protocol-2009"
+      ],
+      "matches": [
+        {
+          "protocolId": "Bio-protocol:Bio-protocol-2009",
+          "nodeId": "section:4",
+          "path": "4"
+        }
+      ],
+      "retrievedTarget": {
+        "paper-context": true
+      }
+    },
+    "TEST-ORD-000189": {
+      "titleParsed": true,
+      "status": "unresolved",
+      "sourceAvailable": null,
+      "matchKind": null,
+      "ambiguous": false,
+      "protocolIds": [],
+      "matches": [],
+      "retrievedTarget": {
+        "paper-context": null
+      }
+    },
+    "TEST-ORD-000561": {
+      "titleParsed": true,
+      "status": "unresolved",
+      "sourceAvailable": null,
+      "matchKind": null,
+      "ambiguous": false,
+      "protocolIds": [],
+      "matches": [],
+      "retrievedTarget": {
+        "paper-context": null
+      }
+    },
+    "TEST-ORD-000218": {
+      "titleParsed": true,
+      "status": "unresolved",
+      "sourceAvailable": null,
+      "matchKind": null,
+      "ambiguous": false,
+      "protocolIds": [],
+      "matches": [],
+      "retrievedTarget": {
+        "paper-context": null
+      }
+    },
+    "TEST-ORD-000798": {
+      "titleParsed": true,
+      "status": "unresolved",
+      "sourceAvailable": null,
+      "matchKind": null,
+      "ambiguous": false,
+      "protocolIds": [],
+      "matches": [],
+      "retrievedTarget": {
+        "paper-context": null
+      }
+    },
+    "TEST-ORD-000576": {
+      "titleParsed": true,
+      "status": "unresolved",
+      "sourceAvailable": null,
+      "matchKind": null,
+      "ambiguous": false,
+      "protocolIds": [],
+      "matches": [],
+      "retrievedTarget": {
+        "paper-context": null
+      }
+    },
+    "TEST-ORD-000976": {
+      "titleParsed": true,
+      "status": "matched-title",
+      "sourceAvailable": true,
+      "matchKind": "section",
+      "ambiguous": false,
+      "protocolIds": [
+        "Bio-protocol:Bio-protocol-2150"
+      ],
+      "matches": [
+        {
+          "protocolId": "Bio-protocol:Bio-protocol-2150",
+          "nodeId": "section:6.2",
+          "path": "6.2"
+        }
+      ],
+      "retrievedTarget": {
+        "paper-context": true
+      }
+    },
+    "TEST-ORD-000556": {
+      "titleParsed": true,
+      "status": "unresolved",
+      "sourceAvailable": null,
+      "matchKind": null,
+      "ambiguous": false,
+      "protocolIds": [],
+      "matches": [],
+      "retrievedTarget": {
+        "paper-context": null
+      }
+    },
+    "TEST-ORD-000121": {
+      "titleParsed": true,
+      "status": "unresolved",
+      "sourceAvailable": null,
+      "matchKind": null,
+      "ambiguous": false,
+      "protocolIds": [],
+      "matches": [],
+      "retrievedTarget": {
+        "paper-context": null
+      }
+    },
+    "TEST-ORD-001100": {
+      "titleParsed": true,
+      "status": "unresolved",
+      "sourceAvailable": null,
+      "matchKind": null,
+      "ambiguous": false,
+      "protocolIds": [],
+      "matches": [],
+      "retrievedTarget": {
+        "paper-context": null
+      }
+    },
+    "TEST-ORD-001012": {
+      "titleParsed": true,
+      "status": "unresolved",
+      "sourceAvailable": null,
+      "matchKind": null,
+      "ambiguous": false,
+      "protocolIds": [],
+      "matches": [],
+      "retrievedTarget": {
+        "paper-context": null
+      }
+    },
+    "TEST-ORD-001086": {
+      "titleParsed": true,
+      "status": "matched-title",
+      "sourceAvailable": true,
+      "matchKind": "section",
+      "ambiguous": false,
+      "protocolIds": [
+        "Protocol-exchange:Protocol-exchange-1100"
+      ],
+      "matches": [
+        {
+          "protocolId": "Protocol-exchange:Protocol-exchange-1100",
+          "nodeId": "section:1.1",
+          "path": "1.1"
+        }
+      ],
+      "retrievedTarget": {
+        "paper-context": true
+      }
+    },
+    "TEST-ORD-000854": {
+      "titleParsed": true,
+      "status": "matched-title",
+      "sourceAvailable": true,
+      "matchKind": "section",
+      "ambiguous": false,
+      "protocolIds": [
+        "Bio-protocol:Bio-protocol-3117"
+      ],
+      "matches": [
+        {
+          "protocolId": "Bio-protocol:Bio-protocol-3117",
+          "nodeId": "section:3",
+          "path": "3"
+        }
+      ],
+      "retrievedTarget": {
+        "paper-context": true
+      }
+    },
+    "TEST-ORD-000356": {
+      "titleParsed": true,
+      "status": "unresolved",
+      "sourceAvailable": null,
+      "matchKind": null,
+      "ambiguous": false,
+      "protocolIds": [],
+      "matches": [],
+      "retrievedTarget": {
+        "paper-context": null
+      }
+    },
+    "TEST-ORD-000070": {
+      "titleParsed": true,
+      "status": "matched-title",
+      "sourceAvailable": true,
+      "matchKind": "section",
+      "ambiguous": false,
+      "protocolIds": [
+        "Bio-protocol:Bio-protocol-658"
+      ],
+      "matches": [
+        {
+          "protocolId": "Bio-protocol:Bio-protocol-658",
+          "nodeId": "section:3",
+          "path": "3"
+        }
+      ],
+      "retrievedTarget": {
+        "paper-context": true
+      }
+    },
+    "TEST-ORD-000841": {
+      "titleParsed": true,
+      "status": "unresolved",
+      "sourceAvailable": null,
+      "matchKind": null,
+      "ambiguous": false,
+      "protocolIds": [],
+      "matches": [],
+      "retrievedTarget": {
+        "paper-context": null
+      }
+    },
+    "TEST-ORD-000640": {
+      "titleParsed": true,
+      "status": "unresolved",
+      "sourceAvailable": null,
+      "matchKind": null,
+      "ambiguous": false,
+      "protocolIds": [],
+      "matches": [],
+      "retrievedTarget": {
+        "paper-context": null
+      }
+    },
+    "TEST-ORD-000513": {
+      "titleParsed": true,
+      "status": "matched-title",
+      "sourceAvailable": true,
+      "matchKind": "section",
+      "ambiguous": false,
+      "protocolIds": [
+        "Bio-protocol:Bio-protocol-1737"
+      ],
+      "matches": [
+        {
+          "protocolId": "Bio-protocol:Bio-protocol-1737",
+          "nodeId": "section:1",
+          "path": "1"
+        }
+      ],
+      "retrievedTarget": {
+        "paper-context": true
+      }
+    },
+    "TEST-ORD-000543": {
+      "titleParsed": true,
+      "status": "unresolved",
+      "sourceAvailable": null,
+      "matchKind": null,
+      "ambiguous": false,
+      "protocolIds": [],
+      "matches": [],
+      "retrievedTarget": {
+        "paper-context": null
+      }
+    },
+    "TEST-ORD-000778": {
+      "titleParsed": true,
+      "status": "unresolved",
+      "sourceAvailable": null,
+      "matchKind": null,
+      "ambiguous": false,
+      "protocolIds": [],
+      "matches": [],
+      "retrievedTarget": {
+        "paper-context": null
+      }
+    },
+    "TEST-ORD-001153": {
+      "titleParsed": true,
+      "status": "matched-title",
+      "sourceAvailable": true,
+      "matchKind": "section",
+      "ambiguous": true,
+      "protocolIds": [
+        "Bio-protocol:Bio-protocol-1097",
+        "Bio-protocol:Bio-protocol-937"
+      ],
+      "matches": [
+        {
+          "protocolId": "Bio-protocol:Bio-protocol-937",
+          "nodeId": "section:1.3",
+          "path": "1.3"
+        },
+        {
+          "protocolId": "Bio-protocol:Bio-protocol-1097",
+          "nodeId": "section:1.3",
+          "path": "1.3"
+        }
+      ],
+      "retrievedTarget": {
+        "paper-context": true
+      }
+    },
+    "TEST-ORD-000538": {
+      "titleParsed": true,
+      "status": "unresolved",
+      "sourceAvailable": null,
+      "matchKind": null,
+      "ambiguous": false,
+      "protocolIds": [],
+      "matches": [],
+      "retrievedTarget": {
+        "paper-context": null
+      }
+    },
+    "TEST-ORD-000489": {
+      "titleParsed": true,
+      "status": "unresolved",
+      "sourceAvailable": null,
+      "matchKind": null,
+      "ambiguous": false,
+      "protocolIds": [],
+      "matches": [],
+      "retrievedTarget": {
+        "paper-context": null
+      }
+    },
+    "TEST-ORD-000313": {
+      "titleParsed": true,
+      "status": "unresolved",
+      "sourceAvailable": null,
+      "matchKind": null,
+      "ambiguous": false,
+      "protocolIds": [],
+      "matches": [],
+      "retrievedTarget": {
+        "paper-context": null
+      }
+    }
+  },
+  "storedBaselineComparison": {
+    "baselineReportSha256": "95061f875e67772f9e7b40de5c68ea2234f26d1c77defd5599eeaf87da91b601",
+    "scope": "Single draws on previously analyzed development samples; baseline predictions stored, not rerun. Call failures score zero. No causal or fresh-holdout claim.",
+    "tasks": {
+      "PQA": {
+        "flat": {
+          "total": 24,
+          "paperContextScore": 0.75,
+          "baselineScore": 0.75,
+          "pairedDelta": 0.0,
+          "wins": 1,
+          "losses": 1,
+          "ties": 22,
+          "metric": "all-selected accuracy"
+        },
+        "hierarchy": {
+          "total": 24,
+          "paperContextScore": 0.75,
+          "baselineScore": 0.7083333333333334,
+          "pairedDelta": 0.041666666666666664,
+          "wins": 1,
+          "losses": 0,
+          "ties": 23,
+          "metric": "all-selected accuracy"
+        },
+        "expanded": {
+          "total": 24,
+          "paperContextScore": 0.75,
+          "baselineScore": 0.6666666666666666,
+          "pairedDelta": 0.08333333333333333,
+          "wins": 2,
+          "losses": 0,
+          "ties": 22,
+          "metric": "all-selected accuracy"
+        }
+      },
+      "ORD": {
+        "flat": {
+          "total": 24,
+          "paperContextScore": 0.5,
+          "baselineScore": 0.4166666666666667,
+          "pairedDelta": 0.08333333333333333,
+          "wins": 2,
+          "losses": 0,
+          "ties": 22,
+          "metric": "all-selected accuracy"
+        },
+        "hierarchy": {
+          "total": 24,
+          "paperContextScore": 0.5,
+          "baselineScore": 0.4166666666666667,
+          "pairedDelta": 0.08333333333333333,
+          "wins": 2,
+          "losses": 0,
+          "ties": 22,
+          "metric": "all-selected accuracy"
+        },
+        "expanded": {
+          "total": 24,
+          "paperContextScore": 0.5,
+          "baselineScore": 0.4166666666666667,
+          "pairedDelta": 0.08333333333333333,
+          "wins": 2,
+          "losses": 0,
+          "ties": 22,
+          "metric": "all-selected accuracy"
+        }
+      },
+      "ERR": {
+        "flat": {
+          "total": 24,
+          "paperContextScore": 0.5833333333333334,
+          "baselineScore": 0.5833333333333334,
+          "pairedDelta": 0.0,
+          "wins": 1,
+          "losses": 1,
+          "ties": 22,
+          "metric": "all-selected accuracy"
+        },
+        "hierarchy": {
+          "total": 24,
+          "paperContextScore": 0.5833333333333334,
+          "baselineScore": 0.6666666666666666,
+          "pairedDelta": -0.08333333333333333,
+          "wins": 0,
+          "losses": 2,
+          "ties": 22,
+          "metric": "all-selected accuracy"
+        },
+        "expanded": {
+          "total": 24,
+          "paperContextScore": 0.5833333333333334,
+          "baselineScore": 0.7083333333333334,
+          "pairedDelta": -0.125,
+          "wins": 1,
+          "losses": 4,
+          "ties": 19,
+          "metric": "all-selected accuracy"
+        }
+      },
+      "GEN": {
+        "flat": {
+          "total": 24,
+          "paperContextScore": 0.24926747646586248,
+          "baselineScore": 0.2407343397102087,
+          "pairedDelta": 0.008533136755653772,
+          "wins": 8,
+          "losses": 11,
+          "ties": 5,
+          "metric": "token_f1"
+        },
+        "hierarchy": {
+          "total": 24,
+          "paperContextScore": 0.24926747646586248,
+          "baselineScore": 0.2299365638498142,
+          "pairedDelta": 0.019330912616048274,
+          "wins": 11,
+          "losses": 8,
+          "ties": 5,
+          "metric": "token_f1"
+        },
+        "expanded": {
+          "total": 24,
+          "paperContextScore": 0.24926747646586248,
+          "baselineScore": 0.24278655187987624,
+          "pairedDelta": 0.006480924585986236,
+          "wins": 9,
+          "losses": 9,
+          "ties": 6,
+          "metric": "token_f1"
+        }
+      }
+    }
+  },
+  "cases": [
+    {"id":"TEST-GEN-000588","task":"GEN","type":"standard","variant":"paper-context","correct":null,"score":0.5114155251141552,"retrievalMs":445.83879100000195,"modelMs":15447,"contextChars":14621,"serializedContextChars":14621,"serializedContextBytes":14687,"contextProfile":"large","error":null,"promptSha256":"b5e07de7db00ab89625a238f1e0d22ff2c7090949618a30a8b951d292cc0f16c","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":1108,"cacheReadInputTokens":162004,"cacheCreationInputTokens":13963,"webSearchRequests":0,"costUSD":0.1662728,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":381,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"497072d8ae4056d1acbfc4f9f17a2e68212546658d6e458dccb8fef06d7ea815","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-106","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Bio-protocol:Bio-protocol-106","path":"","grain":"section","startChar":4000,"endChar":7948},{"protocolId":"Bio-protocol:Bio-protocol-4041","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-PQA-000482","task":"PQA","type":"operation","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":146.11999999999898,"modelMs":9699,"contextChars":8384,"serializedContextChars":8384,"serializedContextBytes":8411,"contextProfile":"small","error":null,"promptSha256":"7160744088467048f4b7e43ff2079b7cf2aa18239261fe887cef40cdc791aa09","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":127,"cacheReadInputTokens":0,"cacheCreationInputTokens":172582,"webSearchRequests":0,"costUSD":1.383204,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"b5a2dc6d3fb63864e3008b4cc4c312e2431c3828dbdbcfe5495f48b5422788ae","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-23","path":"","grain":"section","startChar":12800,"endChar":14800},{"protocolId":"Protocol-exchange:Protocol-exchange-1041","path":"","grain":"section","startChar":8000,"endChar":10000},{"protocolId":"Protocol-io:Protocol.io-10208","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Protocol-exchange:Protocol-exchange-757","path":"","grain":"section","startChar":8000,"endChar":8679},{"protocolId":"Protocol-io:Protocol.io-9471","path":"","grain":"section","startChar":0,"endChar":888}]},
+    {"id":"TEST-ERR-000842","task":"ERR","type":"operation","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":468.0561669999952,"modelMs":9443,"contextChars":9903,"serializedContextChars":9903,"serializedContextBytes":9939,"contextProfile":"small","error":null,"promptSha256":"bb940d9c3903cf29c903f085e543282db55fa33c2823d5cc77630f6e88f158cd","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":487,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11353,"webSearchRequests":0,"costUSD":0.1329728,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":466,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"35dc9400a573baf3e661f7b5b1501d826dcead2db49396ca7792b1c9aeab7853","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-1377","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Protocol-io:Protocol.io-120","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Bio-protocol:Bio-protocol-2040","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Protocol-io:Protocol.io-1465","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Bio-protocol:Bio-protocol-60","path":"","grain":"section","startChar":6400,"endChar":7486}]},
+    {"id":"TEST-ERR-001068","task":"ERR","type":"parameter","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":341.64483299999847,"modelMs":8864,"contextChars":9984,"serializedContextChars":9984,"serializedContextBytes":10027,"contextProfile":"small","error":null,"promptSha256":"c9aa412b19ed83b1ee7bd9fefa152b6ceb80f1fe7422488ccc7f1b7a5dcc78e7","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":45,"cacheReadInputTokens":0,"cacheCreationInputTokens":173634,"webSearchRequests":0,"costUSD":1.38998,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":24,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"35dc9400a573baf3e661f7b5b1501d826dcead2db49396ca7792b1c9aeab7853","sourceRefs":[{"protocolId":"Protocol-exchange:Protocol-exchange-143","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Protocol-exchange:Protocol-exchange-143","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Bio-protocol:Bio-protocol-918","path":"","grain":"section","startChar":8000,"endChar":10000},{"protocolId":"Bio-protocol:Bio-protocol-918","path":"","grain":"section","startChar":9600,"endChar":10791},{"protocolId":"Protocol-exchange:Protocol-exchange-85","path":"","grain":"section","startChar":3200,"endChar":5200}]},
+    {"id":"TEST-PQA-000011","task":"PQA","type":"operation","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":154.66204199999993,"modelMs":6821,"contextChars":10262,"serializedContextChars":10262,"serializedContextBytes":10296,"contextProfile":"small","error":"provider biology safeguard refusal","promptSha256":"ac49b87937790263c959d7b8ec12ad3488e2b36357dcbb5aff2b19529ff103ea","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":0,"cacheReadInputTokens":324008,"cacheCreationInputTokens":22847,"webSearchRequests":0,"costUSD":0.24759360000000002,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-3932","path":"","grain":"section","startChar":1600,"endChar":3253},{"protocolId":"Protocol-io:Protocol.io-92","path":"","grain":"section","startChar":0,"endChar":1941},{"protocolId":"Bio-protocol:Bio-protocol-4249","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-io:Protocol.io-5782","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Protocol-io:Protocol.io-2510","path":"","grain":"section","startChar":3200,"endChar":5200}]},
+    {"id":"TEST-ORD-000900","task":"ORD","type":"child","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":541.4159999999974,"modelMs":6054,"contextChars":12889,"serializedContextChars":12889,"serializedContextBytes":12921,"contextProfile":"large","error":null,"promptSha256":"15f44daf81174a8df35fbed25c85276b01b590ee70b17a4d7e42a0cba7d5510f","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":33,"cacheReadInputTokens":162004,"cacheCreationInputTokens":12645,"webSearchRequests":0,"costUSD":0.1342288,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"235bc2054e6c4a27382029f3cdd7c727c80fdf96199269eab16c8ce5cabdebf0","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-2009","path":"","grain":"section","startChar":4000,"endChar":6328},{"protocolId":"Bio-protocol:Bio-protocol-2009","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Bio-protocol:Bio-protocol-2300","path":"","grain":"section","startChar":4000,"endChar":9000}]},
+    {"id":"TEST-PQA-001084","task":"PQA","type":"reagent","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":225.49775000000227,"modelMs":11630,"contextChars":9565,"serializedContextChars":9565,"serializedContextBytes":9573,"contextProfile":"small","error":null,"promptSha256":"e086606ae45b4aab1ba8f958b4f9a4b53eaa03343247972a10b9efd84c49b128","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":756,"cacheReadInputTokens":162004,"cacheCreationInputTokens":10595,"webSearchRequests":0,"costUSD":0.1322888,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":501,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"89abc05682f2b8d70091bb92b46fe9016a3bc82dff5fc698784e70de965349e8","sourceRefs":[{"protocolId":"Protocol-exchange:Protocol-exchange-885","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Protocol-exchange:Protocol-exchange-885","path":"","grain":"section","startChar":6400,"endChar":8400},{"protocolId":"Protocol-io:Protocol.io-8555","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Protocol-io:Protocol.io-4618","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Protocol-io:Protocol.io-8005","path":"","grain":"section","startChar":1600,"endChar":2501}]},
+    {"id":"TEST-GEN-000009","task":"GEN","type":"easy","variant":"paper-context","correct":null,"score":0.33684210526315794,"retrievalMs":138.0834160000013,"modelMs":6980,"contextChars":15448,"serializedContextChars":15448,"serializedContextBytes":15467,"contextProfile":"large","error":null,"promptSha256":"8de12a5adb4698a6b6cb8ae78092233778ef01514df9d71fccddc5fd57376d43","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":169,"cacheReadInputTokens":162004,"cacheCreationInputTokens":13488,"webSearchRequests":0,"costUSD":0.1436928,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":21,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"fa9ac14fbb3f44e3e657f9c6294ac5b77f9a690e5eefdb7c32009bf8c3833797","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-3135","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-5498","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-5498","path":"","grain":"section","startChar":4000,"endChar":9000}]},
+    {"id":"TEST-PQA-000046","task":"PQA","type":"reagent","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":220.55304100000285,"modelMs":9589,"contextChars":10842,"serializedContextChars":10842,"serializedContextBytes":10867,"contextProfile":"small","error":null,"promptSha256":"4557f30bb37775900247b9ef06eba79e9d5f1131435da8e2af67f4dcf1a7ebc0","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":494,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11581,"webSearchRequests":0,"costUSD":0.1349368,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":290,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"46328f5f594043db366c721bd2b5d469ab27db360e68bf44cbd71faca7433d96","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-2627","path":"","grain":"section","startChar":9600,"endChar":11600},{"protocolId":"Bio-protocol:Bio-protocol-1401","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Bio-protocol:Bio-protocol-3601","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Protocol-exchange:Protocol-exchange-153","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Protocol-exchange:Protocol-exchange-153","path":"","grain":"section","startChar":3200,"endChar":5200}]},
+    {"id":"TEST-GEN-000707","task":"GEN","type":"difficulty","variant":"paper-context","correct":null,"score":0.5659109991603695,"retrievalMs":424.8778750000056,"modelMs":23522,"contextChars":15289,"serializedContextChars":15289,"serializedContextBytes":15303,"contextProfile":"large","error":null,"promptSha256":"a12604a8f8e0c37343796e96f6b0be4b8d88bb738f59ebbb4d74b411ade6bae2","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":2064,"cacheReadInputTokens":162004,"cacheCreationInputTokens":13778,"webSearchRequests":0,"costUSD":0.1839128,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":412,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"8c13bfc71acf2ce3ee34288e244cbb7153cc76a40691348cbaf011121bd7bb47","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-42","path":"","grain":"section","startChar":0,"endChar":4763},{"protocolId":"Bio-protocol:Bio-protocol-2216","path":"","grain":"section","startChar":0,"endChar":4905},{"protocolId":"Bio-protocol:Bio-protocol-1464","path":"","grain":"section","startChar":4000,"endChar":9000}]},
+    {"id":"TEST-ORD-000189","task":"ORD","type":"child","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":250.78262499999983,"modelMs":5673,"contextChars":14825,"serializedContextChars":14825,"serializedContextBytes":14855,"contextProfile":"large","error":null,"promptSha256":"377690db015c9c0457d03210184bdf5b0146972f110bd4e767157c93e33bf3ba","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":27,"cacheReadInputTokens":162004,"cacheCreationInputTokens":13881,"webSearchRequests":0,"costUSD":0.14399679999999998,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"16f20b3e0094d9fab4894e064ae523064a343be771f3289d01eacdd94ea972e4","sourceRefs":[{"protocolId":"Protocol-exchange:Protocol-exchange-172","path":"","grain":"section","startChar":0,"endChar":4509},{"protocolId":"Protocol-io:Protocol.io-9879","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-exchange:Protocol-exchange-63","path":"","grain":"section","startChar":0,"endChar":4823}]},
+    {"id":"TEST-ORD-000561","task":"ORD","type":"child","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":666.244749999998,"modelMs":12686,"contextChars":15448,"serializedContextChars":15448,"serializedContextBytes":15601,"contextProfile":"large","error":null,"promptSha256":"cff43ce2892fa72458caafc23eae2f1a3421a5b6ee60e50b5614095a89245254","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":185,"cacheReadInputTokens":162004,"cacheCreationInputTokens":12935,"webSearchRequests":0,"costUSD":0.1395888,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":149,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"291eb1895ce5503e4e3634bcb6df162572394684a745b88b4e7828c267e6905e","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-47","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-5566","path":"","grain":"section","startChar":24000,"endChar":29000},{"protocolId":"Protocol-io:Protocol.io-3176","path":"","grain":"section","startChar":24000,"endChar":29000}]},
+    {"id":"TEST-ORD-000218","task":"ORD","type":"child","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":1564.4718749999993,"modelMs":9146,"contextChars":15650,"serializedContextChars":15650,"serializedContextBytes":15747,"contextProfile":"large","error":null,"promptSha256":"252c3b240009caba10370e9816b664a7fd0d152c2749d69d564807b73e2e1558","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":108,"cacheReadInputTokens":152204,"cacheCreationInputTokens":181483,"webSearchRequests":0,"costUSD":1.4844808,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":63,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"fd17aab8526a2cbbe8909819716f48041d0b427e1ed4c08bc11cf238c70613b5","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-387","path":"","grain":"section","startChar":8000,"endChar":13000},{"protocolId":"Protocol-io:Protocol.io-2118","path":"","grain":"section","startChar":8000,"endChar":13000},{"protocolId":"Protocol-exchange:Protocol-exchange-685","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-ERR-000771","task":"ERR","type":"correct","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":345.1662079999951,"modelMs":8994,"contextChars":9274,"serializedContextChars":9274,"serializedContextBytes":9297,"contextProfile":"small","error":null,"promptSha256":"c0d3f011373532af94e650d814c4a2b59e614c42df27827c82add5f33642900a","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":173,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11187,"webSearchRequests":0,"costUSD":0.1253648,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":152,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"35dc9400a573baf3e661f7b5b1501d826dcead2db49396ca7792b1c9aeab7853","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-2092","path":"","grain":"section","startChar":3200,"endChar":4344},{"protocolId":"Protocol-io:Protocol.io-5570","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Protocol-io:Protocol.io-2092","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Protocol-io:Protocol.io-4645","path":"","grain":"section","startChar":0,"endChar":1760},{"protocolId":"Protocol-io:Protocol.io-2597","path":"","grain":"section","startChar":0,"endChar":1751}]},
+    {"id":"TEST-GEN-000438","task":"GEN","type":"easy","variant":"paper-context","correct":null,"score":0.0,"retrievalMs":315.92487500000425,"modelMs":5767,"contextChars":13430,"serializedContextChars":13430,"serializedContextBytes":13453,"contextProfile":"large","error":"provider biology safeguard refusal","promptSha256":"e7818deca870260116cce654c58441c9df1f4925d4b4cfb935885febafe71b0d","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":0,"cacheReadInputTokens":324008,"cacheCreationInputTokens":24153,"webSearchRequests":0,"costUSD":0.2580416,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-2268","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Bio-protocol:Bio-protocol-2268","path":"","grain":"section","startChar":4000,"endChar":6781},{"protocolId":"Protocol-io:Protocol.io-4951","path":"","grain":"section","startChar":24000,"endChar":29000}]},
+    {"id":"TEST-ERR-000989","task":"ERR","type":"correct","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":414.58258399999613,"modelMs":9171,"contextChars":10680,"serializedContextChars":10680,"serializedContextBytes":10689,"contextProfile":"small","error":null,"promptSha256":"68597874fcfb9c565ddfd5a9ad4ed718bad7e6eccb32466d26767b6c401404e4","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":143,"cacheReadInputTokens":162004,"cacheCreationInputTokens":10847,"webSearchRequests":0,"costUSD":0.12204480000000001,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":122,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"5de9da631470ac51c427ab5982cc340153ea826dcdf1b25c5c9c316ec0498b7d","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-6984","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-io:Protocol.io-8220","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-4234","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Bio-protocol:Bio-protocol-4234","path":"","grain":"section","startChar":6400,"endChar":8400},{"protocolId":"Protocol-io:Protocol.io-9961","path":"","grain":"section","startChar":6400,"endChar":8400}]},
+    {"id":"TEST-PQA-000621","task":"PQA","type":"parameter","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":158.86062500000116,"modelMs":7258,"contextChars":9399,"serializedContextChars":9399,"serializedContextBytes":9464,"contextProfile":"small","error":null,"promptSha256":"6ad64252a5930ab21285968e65a3702a5b3681b2285b07b0a92b2d605a7e2b21","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":109,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11114,"webSearchRequests":0,"costUSD":0.12350080000000001,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"44470b0cbfbecf72115aaba45835036a1108c7acff20006356961030cc75f4a1","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-3372","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Bio-protocol:Bio-protocol-1417","path":"","grain":"section","startChar":3200,"endChar":5055},{"protocolId":"Protocol-io:Protocol.io-649","path":"","grain":"section","startChar":0,"endChar":1136},{"protocolId":"Protocol-io:Protocol.io-5834","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Bio-protocol:Bio-protocol-3539","path":"","grain":"section","startChar":3200,"endChar":4691}]},
+    {"id":"TEST-GEN-000455","task":"GEN","type":"easy","variant":"paper-context","correct":null,"score":0.15384615384615385,"retrievalMs":333.104124999998,"modelMs":15520,"contextChars":13248,"serializedContextChars":13248,"serializedContextBytes":13297,"contextProfile":"large","error":null,"promptSha256":"bf82b5854ea432c5949909bbbd86d1c84d8c638e2928083e2eec2165e737f456","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":1249,"cacheReadInputTokens":162004,"cacheCreationInputTokens":13280,"webSearchRequests":0,"costUSD":0.16362880000000002,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":182,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"8fdabd38699b781f5f57c955acb8f40645224aac8b73e5bec5ad4733aedd91e0","sourceRefs":[{"protocolId":"Protocol-exchange:Protocol-exchange-608","path":"","grain":"section","startChar":0,"endChar":2712},{"protocolId":"Protocol-exchange:Protocol-exchange-594","path":"","grain":"section","startChar":0,"endChar":4738},{"protocolId":"Bio-protocol:Bio-protocol-313","path":"","grain":"section","startChar":8000,"endChar":13000}]},
+    {"id":"TEST-PQA-000226","task":"PQA","type":"reagent","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":142.6633750000001,"modelMs":6522,"contextChars":8763,"serializedContextChars":8763,"serializedContextBytes":8768,"contextProfile":"small","error":null,"promptSha256":"af63e59eef456121914b60f5fe1a6a070210fc863f023768ec72b679afcb4957","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":142,"cacheReadInputTokens":162004,"cacheCreationInputTokens":10292,"webSearchRequests":0,"costUSD":0.11758480000000002,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"88d2ce1bd590b7449f47fe8c90ae3404341bfe8d288be9ddec1abdd17aa0979e","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-396","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-io:Protocol.io-1811","path":"","grain":"section","startChar":12800,"endChar":14800},{"protocolId":"Protocol-io:Protocol.io-1467","path":"","grain":"section","startChar":3200,"endChar":4389},{"protocolId":"Protocol-io:Protocol.io-94","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-io:Protocol.io-7305","path":"","grain":"section","startChar":3200,"endChar":4014}]},
+    {"id":"TEST-ERR-000619","task":"ERR","type":"reagent","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":289.0572919999977,"modelMs":10923,"contextChars":10775,"serializedContextChars":10775,"serializedContextBytes":10872,"contextProfile":"small","error":null,"promptSha256":"053a451a77ca1e65a269d57b9279515d9d67a78fc01f75c4c9f49d5ef92dd9c6","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":482,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11575,"webSearchRequests":0,"costUSD":0.1346488,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":461,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"35dc9400a573baf3e661f7b5b1501d826dcead2db49396ca7792b1c9aeab7853","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-8672","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-2212","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Protocol-io:Protocol.io-8289","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Protocol-io:Protocol.io-672","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Bio-protocol:Bio-protocol-211","path":"","grain":"section","startChar":12800,"endChar":14800}]},
+    {"id":"TEST-ORD-000798","task":"ORD","type":"child","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":1122.0277079999978,"modelMs":5453,"contextChars":13645,"serializedContextChars":13645,"serializedContextBytes":13664,"contextProfile":"large","error":null,"promptSha256":"44e88aa105d9681a64ecabc895248d2ea0989ee29b4d3164d045c020f044038e","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":27,"cacheReadInputTokens":162004,"cacheCreationInputTokens":12057,"webSearchRequests":0,"costUSD":0.1294048,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e59af6ec222ac9206492b76a23d17fa423f6530ca59649f77223bb6dbe47138f","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-9700","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-9700:revision:02efb07845c0bb5a91b9798746d9f0bdcf49c39625f3b31af102fcc3dd86b7c1","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Bio-protocol:Bio-protocol-2035","path":"","grain":"section","startChar":8000,"endChar":10962}]},
+    {"id":"TEST-GEN-000194","task":"GEN","type":"easy","variant":"paper-context","correct":null,"score":0.0,"retrievalMs":266.6819169999944,"modelMs":7319,"contextChars":9773,"serializedContextChars":9773,"serializedContextBytes":9809,"contextProfile":"large","error":"provider biology safeguard refusal","promptSha256":"77a2cecb7fecc3806b3c903befe4549c80225c1955616084bb4007c67b9a2bcd","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":0,"cacheReadInputTokens":151919,"cacheCreationInputTokens":175104,"webSearchRequests":0,"costUSD":1.4312318000000002,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-4013","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Bio-protocol:Bio-protocol-4013","path":"","grain":"section","startChar":4000,"endChar":5365},{"protocolId":"Protocol-io:Protocol.io-2571","path":"","grain":"section","startChar":32000,"endChar":34766}]},
+    {"id":"TEST-ORD-000576","task":"ORD","type":"top","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":362.84283400000277,"modelMs":7611,"contextChars":14640,"serializedContextChars":14640,"serializedContextBytes":14677,"contextProfile":"large","error":"provider biology safeguard refusal","promptSha256":"d70e143afae2d78adbe70c48cf34f93f4aca46446508f29f1444f709f5d22b14","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":72,"cacheReadInputTokens":324008,"cacheCreationInputTokens":27379,"webSearchRequests":0,"costUSD":0.28528960000000003,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":72,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sourceRefs":[{"protocolId":"Protocol-exchange:Protocol-exchange-163","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-4884","path":"","grain":"section","startChar":0,"endChar":4064},{"protocolId":"Bio-protocol:Bio-protocol-2544","path":"","grain":"section","startChar":4000,"endChar":9000}]},
+    {"id":"TEST-ORD-000976","task":"ORD","type":"child","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":462.8191250000018,"modelMs":5272,"contextChars":7633,"serializedContextChars":7633,"serializedContextBytes":7680,"contextProfile":"large","error":null,"promptSha256":"0d035eac3171c85c4da7728879e782bd70be9b44045976b39b5f4710d1ba2589","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":36,"cacheReadInputTokens":162004,"cacheCreationInputTokens":10326,"webSearchRequests":0,"costUSD":0.1157368,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"8a61ce1dc54bedbe57a64494fc3935f161ec4d5cc94cb9f3067a8e9acba767b7","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-2150","path":"","grain":"section","startChar":8000,"endChar":9903},{"protocolId":"Protocol-io:Protocol.io-5148","path":"","grain":"section","startChar":0,"endChar":3569},{"protocolId":"Protocol-exchange:Protocol-exchange-1110","path":"","grain":"section","startChar":4000,"endChar":5735}]},
+    {"id":"TEST-PQA-000122","task":"PQA","type":"operation","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":318.58487500000047,"modelMs":7493,"contextChars":10051,"serializedContextChars":10051,"serializedContextBytes":10075,"contextProfile":"small","error":null,"promptSha256":"ffba95e1be4a056fcbe2dc598411ccbbc1d55eef00e6dd43a2856014a677999a","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":172,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11276,"webSearchRequests":0,"costUSD":0.1260568,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":69,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"4d5c330ab76bd5c7201b7522dd7e0e3027af3cbf2c4bff667e3e097c69b99316","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-2505","path":"","grain":"section","startChar":3200,"endChar":4685},{"protocolId":"Bio-protocol:Bio-protocol-1330","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-io:Protocol.io-9027","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-2125","path":"","grain":"section","startChar":8000,"endChar":10000},{"protocolId":"Protocol-io:Protocol.io-1517","path":"","grain":"section","startChar":12800,"endChar":14603}]},
+    {"id":"TEST-PQA-000006","task":"PQA","type":"parameter","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":181.20079199999964,"modelMs":7278,"contextChars":10839,"serializedContextChars":10839,"serializedContextBytes":10872,"contextProfile":"small","error":null,"promptSha256":"fb5cb7cd2d134cabe3f8c280e4d9b3978807bace0b05f81bf804a1d4a74231d9","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":283,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11912,"webSearchRequests":0,"costUSD":0.1333648,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":111,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"3f9fd738966a5461fee536568bfc3cd2fbb6bf6b46aca697ab6f58729b331926","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-3471","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Bio-protocol:Bio-protocol-2397","path":"","grain":"section","startChar":6400,"endChar":8400},{"protocolId":"Protocol-io:Protocol.io-6104","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-io:Protocol.io-1432","path":"","grain":"section","startChar":6400,"endChar":8400},{"protocolId":"Bio-protocol:Bio-protocol-1579","path":"","grain":"section","startChar":4800,"endChar":6800}]},
+    {"id":"TEST-ORD-000556","task":"ORD","type":"top","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":225.5514170000024,"modelMs":6125,"contextChars":9774,"serializedContextChars":9774,"serializedContextBytes":9826,"contextProfile":"large","error":null,"promptSha256":"b31c07a2e6a1ea7f3c8eae2d16033e9c96e72709821ed9b4d648a3ce70f7a2b2","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":27,"cacheReadInputTokens":162004,"cacheCreationInputTokens":10699,"webSearchRequests":0,"costUSD":0.1185408,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"52847f1ac592af41092285b559a60724d689f5edb5b7f1d12ad294f389a2b5c7","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-1888","path":"","grain":"section","startChar":0,"endChar":1979},{"protocolId":"Protocol-io:Protocol.io-5502","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-5501","path":"","grain":"section","startChar":4000,"endChar":6252}]},
+    {"id":"TEST-ERR-000947","task":"ERR","type":"correct","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":299.59991699999955,"modelMs":8090,"contextChars":9419,"serializedContextChars":9419,"serializedContextBytes":9455,"contextProfile":"small","error":null,"promptSha256":"42a5915ce5a3a1dd8b3e14175a61dec177775181915ccc3673e8b221c8646830","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":21,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11031,"webSearchRequests":0,"costUSD":0.12107679999999998,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"5de9da631470ac51c427ab5982cc340153ea826dcdf1b25c5c9c316ec0498b7d","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-2295","path":"","grain":"section","startChar":6400,"endChar":7186},{"protocolId":"Bio-protocol:Bio-protocol-2295","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Bio-protocol:Bio-protocol-523","path":"","grain":"section","startChar":8000,"endChar":10000},{"protocolId":"Protocol-io:Protocol.io-866","path":"","grain":"section","startChar":8000,"endChar":10000},{"protocolId":"Protocol-io:Protocol.io-7627","path":"","grain":"section","startChar":3200,"endChar":4801}]},
+    {"id":"TEST-ERR-000052","task":"ERR","type":"correct","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":447.0046250000014,"modelMs":7090,"contextChars":10044,"serializedContextChars":10044,"serializedContextBytes":10075,"contextProfile":"small","error":null,"promptSha256":"1565ad9330502775362d2fc4855d763fd9e360dc7bd29f99c5dcc1c1f29c0e4f","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":247,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11590,"webSearchRequests":0,"costUSD":0.13006879999999998,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":226,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"35dc9400a573baf3e661f7b5b1501d826dcead2db49396ca7792b1c9aeab7853","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-888","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Protocol-exchange:Protocol-exchange-461","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-832","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Bio-protocol:Bio-protocol-306","path":"","grain":"section","startChar":3200,"endChar":4952},{"protocolId":"Bio-protocol:Bio-protocol-3279","path":"","grain":"section","startChar":4800,"endChar":6191}]},
+    {"id":"TEST-GEN-000351","task":"GEN","type":"easy","variant":"paper-context","correct":null,"score":0.14092140921409216,"retrievalMs":407.7675410000011,"modelMs":14284,"contextChars":15449,"serializedContextChars":15449,"serializedContextBytes":15553,"contextProfile":"large","error":null,"promptSha256":"227a11e86e9104884fd3d9e5c3d7103bf682415e432e0941e5b0c0fa326b4a14","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":783,"cacheReadInputTokens":162004,"cacheCreationInputTokens":12617,"webSearchRequests":0,"costUSD":0.1490048,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":98,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"248c8374dde29ee1760e97069d8a7022d53881c7da82ec4d9469a5902295e45d","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-7567","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-5528","path":"","grain":"section","startChar":16000,"endChar":21000},{"protocolId":"Protocol-io:Protocol.io-3558","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-ORD-000121","task":"ORD","type":"top","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":450.5674579999977,"modelMs":8437,"contextChars":13085,"serializedContextChars":13085,"serializedContextBytes":13120,"contextProfile":"large","error":null,"promptSha256":"2f6d04e3eaeaa7972761b2387d2dd4cf5278850c086d365ca1edc49103790255","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":409,"cacheReadInputTokens":162004,"cacheCreationInputTokens":13130,"webSearchRequests":0,"costUSD":0.1456288,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":352,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"4f818e4f92ba947a53f5b84d76da710d77caa8a219d38876ee025e9bd450325f","sourceRefs":[{"protocolId":"Protocol-exchange:Protocol-exchange-96","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-5286","path":"","grain":"section","startChar":0,"endChar":2501},{"protocolId":"Bio-protocol:Bio-protocol-3030","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-ERR-000809","task":"ERR","type":"correct","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":267.5717500000028,"modelMs":8269,"contextChars":9639,"serializedContextChars":9639,"serializedContextBytes":9652,"contextProfile":"small","error":null,"promptSha256":"ea5aabca02f97d1624be791b905fc48718ce40fc5b210fed151f71055b42a3d8","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":259,"cacheReadInputTokens":162004,"cacheCreationInputTokens":10846,"webSearchRequests":0,"costUSD":0.12435679999999999,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":238,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"5de9da631470ac51c427ab5982cc340153ea826dcdf1b25c5c9c316ec0498b7d","sourceRefs":[{"protocolId":"Protocol-exchange:Protocol-exchange-770","path":"","grain":"section","startChar":6400,"endChar":8288},{"protocolId":"Bio-protocol:Bio-protocol-1353","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Protocol-io:Protocol.io-776","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Bio-protocol:Bio-protocol-2926","path":"","grain":"section","startChar":8000,"endChar":9136},{"protocolId":"Bio-protocol:Bio-protocol-2907","path":"","grain":"section","startChar":11200,"endChar":12988}]},
+    {"id":"TEST-ERR-001062","task":"ERR","type":"parameter","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":342.20966600000247,"modelMs":9645,"contextChars":10703,"serializedContextChars":10703,"serializedContextBytes":10747,"contextProfile":"small","error":null,"promptSha256":"1ca125d65effeee40650924248ac9db7bf4ee863dd8b0f84e846925d884fc973","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":58,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11988,"webSearchRequests":0,"costUSD":0.1294728,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":37,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"35dc9400a573baf3e661f7b5b1501d826dcead2db49396ca7792b1c9aeab7853","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-3319","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-3393","path":"","grain":"section","startChar":6400,"endChar":8400},{"protocolId":"Bio-protocol:Bio-protocol-2088","path":"","grain":"section","startChar":6400,"endChar":8400},{"protocolId":"Bio-protocol:Bio-protocol-2088","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Bio-protocol:Bio-protocol-2538","path":"","grain":"section","startChar":6400,"endChar":8345}]},
+    {"id":"TEST-PQA-000666","task":"PQA","type":"parameter","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":253.95966599999883,"modelMs":11537,"contextChars":10882,"serializedContextChars":10882,"serializedContextBytes":10908,"contextProfile":"small","error":null,"promptSha256":"2547b435264bdc9b4458caf9fe65800291face4f859f64086091f90f16039a4f","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":551,"cacheReadInputTokens":0,"cacheCreationInputTokens":144986,"webSearchRequests":0,"costUSD":1.170916,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":347,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"ab879e9d6a8f5f0ebca93ab0cbac46a21a477f04ac24d1672f9fa722a627f57f","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-792","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Bio-protocol:Bio-protocol-2472","path":"","grain":"section","startChar":8000,"endChar":10000},{"protocolId":"Protocol-io:Protocol.io-3931","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-io:Protocol.io-5318","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Bio-protocol:Bio-protocol-452","path":"","grain":"section","startChar":11200,"endChar":13200}]},
+    {"id":"TEST-ERR-000063","task":"ERR","type":"correct","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":404.9020409999939,"modelMs":7054,"contextChars":9545,"serializedContextChars":9545,"serializedContextBytes":9561,"contextProfile":"small","error":null,"promptSha256":"77adc5a477592faffe8e17d35cec7fd85103884642c3825bfa481825a86d83c5","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":174,"cacheReadInputTokens":162004,"cacheCreationInputTokens":10951,"webSearchRequests":0,"costUSD":0.1234968,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":153,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"5de9da631470ac51c427ab5982cc340153ea826dcdf1b25c5c9c316ec0498b7d","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-1964","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Protocol-io:Protocol.io-9309","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Protocol-io:Protocol.io-9310","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-io:Protocol.io-8779","path":"","grain":"section","startChar":0,"endChar":920},{"protocolId":"Protocol-io:Protocol.io-162","path":"","grain":"section","startChar":0,"endChar":2000}]},
+    {"id":"TEST-ORD-001100","task":"ORD","type":"child","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":836.9033750000017,"modelMs":6607,"contextChars":10813,"serializedContextChars":10813,"serializedContextBytes":10934,"contextProfile":"large","error":null,"promptSha256":"91eeb6a5afeb0434cfc1f9ce55ea56aacf569373b43ae89e9583599f1a466607","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":111,"cacheReadInputTokens":162004,"cacheCreationInputTokens":12318,"webSearchRequests":0,"costUSD":0.1331728,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":72,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"8e54274e555012e402ecd2428e405ef15bb2142ae3335c4be53bf3b87b590ade","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-2834","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-2970","path":"","grain":"section","startChar":0,"endChar":3438},{"protocolId":"Protocol-io:Protocol.io-6166","path":"","grain":"section","startChar":8000,"endChar":9913}]},
+    {"id":"TEST-ERR-000917","task":"ERR","type":"correct","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":184.69337500000256,"modelMs":7820,"contextChars":9847,"serializedContextChars":9847,"serializedContextBytes":9858,"contextProfile":"small","error":null,"promptSha256":"fc2131f17efb138143ccb2c5e85bacfb8b3a9c73111d871e6b9c8b30977ece8e","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":21,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11281,"webSearchRequests":0,"costUSD":0.12307679999999999,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"5de9da631470ac51c427ab5982cc340153ea826dcdf1b25c5c9c316ec0498b7d","sourceRefs":[{"protocolId":"Protocol-exchange:Protocol-exchange-650","path":"","grain":"section","startChar":6400,"endChar":8400},{"protocolId":"Protocol-exchange:Protocol-exchange-650","path":"","grain":"section","startChar":8000,"endChar":10000},{"protocolId":"Protocol-io:Protocol.io-9158","path":"","grain":"section","startChar":0,"endChar":1084},{"protocolId":"Bio-protocol:Bio-protocol-3327","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Bio-protocol:Bio-protocol-1600","path":"","grain":"section","startChar":6400,"endChar":8400}]},
+    {"id":"TEST-GEN-000609","task":"GEN","type":"standard","variant":"paper-context","correct":null,"score":0.0,"retrievalMs":428.87091599999985,"modelMs":6052,"contextChars":9463,"serializedContextChars":9463,"serializedContextBytes":9464,"contextProfile":"large","error":"provider biology safeguard refusal","promptSha256":"822c62e2285db20865318001c32b234f45a46c548facc50350a885c7bf00a414","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":0,"cacheReadInputTokens":324008,"cacheCreationInputTokens":20531,"webSearchRequests":0,"costUSD":0.2290656,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-124","path":"","grain":"section","startChar":0,"endChar":1853},{"protocolId":"Bio-protocol:Bio-protocol-1301","path":"","grain":"section","startChar":0,"endChar":2022},{"protocolId":"Protocol-io:Protocol.io-7524","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-ORD-001012","task":"ORD","type":"top","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":394.94841599999927,"modelMs":12173,"contextChars":12321,"serializedContextChars":12321,"serializedContextBytes":12362,"contextProfile":"large","error":null,"promptSha256":"70e9e47e2f00dae9d18cdf1c81f28e0468d40d8f3fbab7ecbc10efa089241668","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":345,"cacheReadInputTokens":162004,"cacheCreationInputTokens":12185,"webSearchRequests":0,"costUSD":0.1367888,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":303,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"cf9496336021b57b379d973e12794268e334ab865420cbaf4fa65afc5d6451e1","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-1971","path":"","grain":"section","startChar":8000,"endChar":9774},{"protocolId":"Protocol-exchange:Protocol-exchange-815","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Bio-protocol:Bio-protocol-1971","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-ORD-001086","task":"ORD","type":"child","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":195.02387499999895,"modelMs":7169,"contextChars":12624,"serializedContextChars":12624,"serializedContextBytes":12708,"contextProfile":"large","error":null,"promptSha256":"e3962bf7358d5f134a564cedf519456f7b360e600af13b8e9134ddb1e62d5f70","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":30,"cacheReadInputTokens":162004,"cacheCreationInputTokens":12946,"webSearchRequests":0,"costUSD":0.1365768,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"3285fc4d6f19053e875e7c7fc05fa009e79401ccd793c0f7d2ad3ac3c16f6175","sourceRefs":[{"protocolId":"Protocol-exchange:Protocol-exchange-1100","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-445","path":"","grain":"section","startChar":8000,"endChar":10218},{"protocolId":"Protocol-io:Protocol.io-446","path":"","grain":"section","startChar":4000,"endChar":9000}]},
+    {"id":"TEST-GEN-000625","task":"GEN","type":"standard","variant":"paper-context","correct":null,"score":0.4812129202373105,"retrievalMs":478.4360000000015,"modelMs":12412,"contextChars":13809,"serializedContextChars":13809,"serializedContextBytes":13835,"contextProfile":"large","error":null,"promptSha256":"288638b80950c65e983da27c8f63e4fbdf8c809ae756940b478f5ee2dbc72bab","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":978,"cacheReadInputTokens":162004,"cacheCreationInputTokens":12829,"webSearchRequests":0,"costUSD":0.15460079999999998,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":88,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"c98e1c2e9a0b1a1a466079d35fa6ed1b9d41ca188aeb9247d16979b35ba2fa46","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-157","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Bio-protocol:Bio-protocol-525","path":"","grain":"section","startChar":4000,"endChar":7442},{"protocolId":"Bio-protocol:Bio-protocol-157","path":"","grain":"section","startChar":8000,"endChar":12728}]},
+    {"id":"TEST-ERR-001054","task":"ERR","type":"correct","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":501.73879199999647,"modelMs":10306,"contextChars":9226,"serializedContextChars":9226,"serializedContextBytes":9245,"contextProfile":"small","error":"provider biology safeguard refusal","promptSha256":"8f4d5fd2fac22b3f978b9b9fe0e6eb2c8da35279b96c4504814428fd8e44c635","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":0,"cacheReadInputTokens":324008,"cacheCreationInputTokens":21917,"webSearchRequests":0,"costUSD":0.24015360000000002,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-3876","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-2367","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Protocol-io:Protocol.io-9751","path":"","grain":"section","startChar":0,"endChar":1286},{"protocolId":"Protocol-io:Protocol.io-9751:revision:d619d97c67f1d1156a9cc5163b5ad3c1318a391fba6bfa03bc8a88c1cc79460f","path":"","grain":"section","startChar":0,"endChar":1286},{"protocolId":"Protocol-io:Protocol.io-3921","path":"","grain":"section","startChar":1600,"endChar":3600}]},
+    {"id":"TEST-ERR-000887","task":"ERR","type":"correct","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":323.43670900000143,"modelMs":5669,"contextChars":8655,"serializedContextChars":8655,"serializedContextBytes":8666,"contextProfile":"small","error":null,"promptSha256":"03f7fdc452169dfb881d69e9349b98dee3d7b9875b0994d15b61f11595fda84b","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":21,"cacheReadInputTokens":162004,"cacheCreationInputTokens":10445,"webSearchRequests":0,"costUSD":0.11638879999999999,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"5de9da631470ac51c427ab5982cc340153ea826dcdf1b25c5c9c316ec0498b7d","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-2288","path":"","grain":"section","startChar":3200,"endChar":3747},{"protocolId":"Bio-protocol:Bio-protocol-2288","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-1999","path":"","grain":"section","startChar":3200,"endChar":4625},{"protocolId":"Bio-protocol:Bio-protocol-3544","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Protocol-exchange:Protocol-exchange-739","path":"","grain":"section","startChar":6400,"endChar":8196}]},
+    {"id":"TEST-ERR-000243","task":"ERR","type":"correct","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":341.81358299999556,"modelMs":9142,"contextChars":10284,"serializedContextChars":10284,"serializedContextBytes":10286,"contextProfile":"small","error":null,"promptSha256":"b95906ef88d6e19c346b70a671731d73d4d5cb744036bf14974e3bf32d7d27be","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":432,"cacheReadInputTokens":162004,"cacheCreationInputTokens":10944,"webSearchRequests":0,"costUSD":0.12860080000000002,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":411,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"35dc9400a573baf3e661f7b5b1501d826dcead2db49396ca7792b1c9aeab7853","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-4569","path":"","grain":"section","startChar":1600,"endChar":3369},{"protocolId":"Bio-protocol:Bio-protocol-2882","path":"","grain":"section","startChar":6400,"endChar":8400},{"protocolId":"Protocol-io:Protocol.io-7142","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-io:Protocol.io-8878","path":"","grain":"section","startChar":3200,"endChar":5022},{"protocolId":"Protocol-io:Protocol.io-8555","path":"","grain":"section","startChar":3200,"endChar":5200}]},
+    {"id":"TEST-PQA-000850","task":"PQA","type":"reagent","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":262.96441699999923,"modelMs":8821,"contextChars":9481,"serializedContextChars":9481,"serializedContextBytes":9499,"contextProfile":"small","error":null,"promptSha256":"41fe0e69feefe9a028c52544246eaa21ce54febfe86461b289413cd9aa5599d7","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":306,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11033,"webSearchRequests":0,"costUSD":0.12679279999999998,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":153,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"b8dd16a659a866abf63ff1a8bd42e817c19bc22f670b9a14bf7ec2583d21ea1b","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-2785","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-io:Protocol.io-8185","path":"","grain":"section","startChar":9600,"endChar":10802},{"protocolId":"Protocol-io:Protocol.io-9462","path":"","grain":"section","startChar":1600,"endChar":3273},{"protocolId":"Bio-protocol:Bio-protocol-4219","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-io:Protocol.io-4322","path":"","grain":"section","startChar":0,"endChar":2000}]},
+    {"id":"TEST-GEN-000665","task":"GEN","type":"standard","variant":"paper-context","correct":null,"score":0.34396671289875175,"retrievalMs":443.7716669999936,"modelMs":18015,"contextChars":15132,"serializedContextChars":15132,"serializedContextBytes":15151,"contextProfile":"large","error":null,"promptSha256":"698cb14d157b2bcbe0bafd51f84e24d6a26da6ae80f9b7befb2862a7e8f79bf9","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":1584,"cacheReadInputTokens":162004,"cacheCreationInputTokens":13436,"webSearchRequests":0,"costUSD":0.1715768,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":236,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"42989d7c4464c9918497cee0ea5a612012488ce546ff6ed69c400ea0c82ff1c7","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-198","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Bio-protocol:Bio-protocol-1813","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-9821","path":"","grain":"section","startChar":8000,"endChar":12560}]},
+    {"id":"TEST-ERR-000644","task":"ERR","type":"operation","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":474.822957999997,"modelMs":6787,"contextChars":10698,"serializedContextChars":10698,"serializedContextBytes":10747,"contextProfile":"small","error":"provider biology safeguard refusal","promptSha256":"fdc97fce99a58e1dbc160d172a0cd29f8f9688d1c7e033193f9f17b593a096eb","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":0,"cacheReadInputTokens":324008,"cacheCreationInputTokens":24239,"webSearchRequests":0,"costUSD":0.2587296,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-8243","path":"","grain":"section","startChar":8000,"endChar":10000},{"protocolId":"Protocol-io:Protocol.io-8243","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Protocol-io:Protocol.io-2668","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Protocol-io:Protocol.io-1546","path":"","grain":"section","startChar":9600,"endChar":11600},{"protocolId":"Protocol-io:Protocol.io-8350","path":"","grain":"section","startChar":1600,"endChar":3600}]},
+    {"id":"TEST-ORD-000854","task":"ORD","type":"child","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":544.6108340000064,"modelMs":8803,"contextChars":12685,"serializedContextChars":12685,"serializedContextBytes":12739,"contextProfile":"large","error":null,"promptSha256":"ec5346e717bd064f21bcaac7df2ed8a11196bf9cafca21ba91eba4bc20cbc35b","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":39,"cacheReadInputTokens":162004,"cacheCreationInputTokens":13199,"webSearchRequests":0,"costUSD":0.1387808,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"86a755fbdc60a3f8398a0efa3f378f0a8f3fec701ae925dfadf18a38fab50e1e","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-3117","path":"","grain":"section","startChar":8000,"endChar":11433},{"protocolId":"Bio-protocol:Bio-protocol-3117","path":"","grain":"section","startChar":4000,"endChar":9000},{"protocolId":"Bio-protocol:Bio-protocol-3116","path":"","grain":"section","startChar":8000,"endChar":11564}]},
+    {"id":"TEST-ERR-000594","task":"ERR","type":"parameter","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":372.591042,"modelMs":10275,"contextChars":10871,"serializedContextChars":10871,"serializedContextBytes":10889,"contextProfile":"small","error":"provider biology safeguard refusal","promptSha256":"95a56067c164036c65fa49527467943071db2eb15aa1c20791c48b797a8f3243","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":0,"cacheReadInputTokens":324008,"cacheCreationInputTokens":25091,"webSearchRequests":0,"costUSD":0.26554560000000005,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-553","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Bio-protocol:Bio-protocol-553","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-553","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Protocol-io:Protocol.io-2193","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-io:Protocol.io-1230","path":"","grain":"section","startChar":4800,"endChar":6800}]},
+    {"id":"TEST-PQA-000407","task":"PQA","type":"operation","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":171.26354199999696,"modelMs":7446,"contextChars":8754,"serializedContextChars":8754,"serializedContextBytes":8782,"contextProfile":"small","error":null,"promptSha256":"063cc3cbaf09f37ad696594c6934d4b0fc703b65a4bccee9d08827eb983fa1ee","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":267,"cacheReadInputTokens":162004,"cacheCreationInputTokens":10913,"webSearchRequests":0,"costUSD":0.12505280000000002,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":112,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"7fa16ac76976a26a9ab021fd1282c3d58d619d16cc0c528d8eb3e3b67e45c568","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-3303","path":"","grain":"section","startChar":0,"endChar":1129},{"protocolId":"Bio-protocol:Bio-protocol-1729","path":"","grain":"section","startChar":6400,"endChar":8400},{"protocolId":"Protocol-io:Protocol.io-3415","path":"","grain":"section","startChar":3200,"endChar":4016},{"protocolId":"Bio-protocol:Bio-protocol-1328","path":"","grain":"section","startChar":6400,"endChar":8400},{"protocolId":"Protocol-io:Protocol.io-8610","path":"","grain":"section","startChar":0,"endChar":2000}]},
+    {"id":"TEST-PQA-000493","task":"PQA","type":"reagent","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":131.71420900000157,"modelMs":8191,"contextChars":10063,"serializedContextChars":10063,"serializedContextBytes":10068,"contextProfile":"small","error":null,"promptSha256":"de117a9211ee9547f51c91926351f4f5b23444ed7398b364c65efa6012a20756","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":277,"cacheReadInputTokens":162004,"cacheCreationInputTokens":10884,"webSearchRequests":0,"costUSD":0.1250208,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":142,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"5f47320aeaa021c3622016009f0f2667ff72d3757c77c9d35f5186d57b42393c","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-2505","path":"","grain":"section","startChar":3200,"endChar":4685},{"protocolId":"Bio-protocol:Bio-protocol-1823","path":"","grain":"section","startChar":9600,"endChar":11411},{"protocolId":"Bio-protocol:Bio-protocol-878","path":"","grain":"section","startChar":9600,"endChar":11600},{"protocolId":"Bio-protocol:Bio-protocol-1652","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-2849","path":"","grain":"section","startChar":3200,"endChar":5200}]},
+    {"id":"TEST-GEN-000126","task":"GEN","type":"easy","variant":"paper-context","correct":null,"score":0.0,"retrievalMs":232.70658399999957,"modelMs":12643,"contextChars":9179,"serializedContextChars":9179,"serializedContextBytes":9197,"contextProfile":"large","error":"provider biology safeguard refusal","promptSha256":"2c46eab036ead74c3322d3ce6bf4f3d000ca2f5cf3b04108c213fb11afb38642","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":213,"cacheReadInputTokens":324008,"cacheCreationInputTokens":20203,"webSearchRequests":0,"costUSD":0.2307016,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":213,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-6887","path":"","grain":"section","startChar":4000,"endChar":6239},{"protocolId":"Protocol-io:Protocol.io-7181","path":"","grain":"section","startChar":0,"endChar":1584},{"protocolId":"Protocol-io:Protocol.io-6887","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-PQA-000702","task":"PQA","type":"parameter","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":128.10512500000186,"modelMs":9219,"contextChars":9301,"serializedContextChars":9301,"serializedContextBytes":9325,"contextProfile":"small","error":null,"promptSha256":"a15ace2b90cfa9b75d525b6b320a0b615d5af396f8120e551244c282f1f7d99a","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":187,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11199,"webSearchRequests":0,"costUSD":0.1257408,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":58,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e7972d8ec27f70fc1fd819e2d09870b13791151bd8327eb3e18d980523681fc4","sourceRefs":[{"protocolId":"Protocol-exchange:Protocol-exchange-407","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Protocol-io:Protocol.io-8676","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-exchange:Protocol-exchange-407","path":"","grain":"section","startChar":3200,"endChar":3851},{"protocolId":"Bio-protocol:Bio-protocol-2909","path":"","grain":"section","startChar":17600,"endChar":19600},{"protocolId":"Protocol-io:Protocol.io-7849","path":"","grain":"section","startChar":0,"endChar":2000}]},
+    {"id":"TEST-ORD-000356","task":"ORD","type":"child","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":295.6644579999993,"modelMs":8026,"contextChars":14877,"serializedContextChars":14877,"serializedContextBytes":14893,"contextProfile":"large","error":null,"promptSha256":"ad93e13ce9fb0bf4f2f50a2b4ecf88d32736f7a579127a64d9f85426dc00c404","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":27,"cacheReadInputTokens":152204,"cacheCreationInputTokens":12555,"webSearchRequests":0,"costUSD":0.1314288,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"569fb87d06baef2a078e1af5f7de6750c47403c47631bb5902f0fdc5afd09ea1","sourceRefs":[{"protocolId":"Protocol-exchange:Protocol-exchange-885","path":"","grain":"section","startChar":4000,"endChar":8983},{"protocolId":"Protocol-exchange:Protocol-exchange-707","path":"","grain":"section","startChar":4000,"endChar":9000},{"protocolId":"Protocol-io:Protocol.io-8514","path":"","grain":"section","startChar":4000,"endChar":8346}]},
+    {"id":"TEST-PQA-000313","task":"PQA","type":"reagent","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":194.2035419999993,"modelMs":6954,"contextChars":10150,"serializedContextChars":10150,"serializedContextBytes":10198,"contextProfile":"small","error":null,"promptSha256":"ef73048600106ee99ff7be4ab570918c62c0cbbddef81969a1a77eaf170a4006","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":227,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11656,"webSearchRequests":0,"costUSD":0.1301968,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":11,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"c192a1de225b973f51dbb8a5c2f9cf57b53b3f885e66b4a528ba29096d95a4c6","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-573","path":"","grain":"section","startChar":6400,"endChar":8400},{"protocolId":"Protocol-io:Protocol.io-2170","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-exchange:Protocol-exchange-1109","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Protocol-io:Protocol.io-2789","path":"","grain":"section","startChar":0,"endChar":1344},{"protocolId":"Bio-protocol:Bio-protocol-734","path":"","grain":"section","startChar":3200,"endChar":5200}]},
+    {"id":"TEST-PQA-000763","task":"PQA","type":"reagent","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":227.54020800000217,"modelMs":6815,"contextChars":10661,"serializedContextChars":10661,"serializedContextBytes":10723,"contextProfile":"small","error":null,"promptSha256":"e37b6a9a96c57b28cccbbd88f87daefcb4616620ab577e55fc84ca13e6c1d72f","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":106,"cacheReadInputTokens":162004,"cacheCreationInputTokens":10698,"webSearchRequests":0,"costUSD":0.12011279999999999,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"0d2ed208a31f8bb91c2eb843fe2466d48cf7df6f905ded64c8337a1cfeb0eec1","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-8701","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Protocol-io:Protocol.io-9579","path":"","grain":"section","startChar":9600,"endChar":11600},{"protocolId":"Protocol-io:Protocol.io-9108","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Protocol-io:Protocol.io-5694","path":"","grain":"section","startChar":12800,"endChar":14800},{"protocolId":"Protocol-io:Protocol.io-758","path":"","grain":"section","startChar":3200,"endChar":5200}]},
+    {"id":"TEST-PQA-000626","task":"PQA","type":"operation","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":172.52062499999738,"modelMs":7233,"contextChars":8153,"serializedContextChars":8153,"serializedContextBytes":8205,"contextProfile":"small","error":null,"promptSha256":"7ff6562c07447e337addc0e3c167b4a9b00f4c89df4a0e9d4963a23962ecc22e","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":286,"cacheReadInputTokens":162004,"cacheCreationInputTokens":10467,"webSearchRequests":0,"costUSD":0.12186480000000001,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":146,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"bccd22fa13973cdc507277bf0e3de57aff522169d3e66c06365f91a4b300a769","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-2585","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Protocol-io:Protocol.io-7876","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Bio-protocol:Bio-protocol-2585","path":"","grain":"section","startChar":6400,"endChar":7115},{"protocolId":"Protocol-io:Protocol.io-7573","path":"","grain":"section","startChar":1600,"endChar":2236},{"protocolId":"Protocol-exchange:Protocol-exchange-236","path":"","grain":"section","startChar":8000,"endChar":10000}]},
+    {"id":"TEST-GEN-000487","task":"GEN","type":"easy","variant":"paper-context","correct":null,"score":0.0970873786407767,"retrievalMs":260.43166599999677,"modelMs":14465,"contextChars":12744,"serializedContextChars":12744,"serializedContextBytes":12780,"contextProfile":"large","error":null,"promptSha256":"ef92e627e116c2ad9707c4a629bf12db0f8fcbc8153d39726653422c2818e632","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":963,"cacheReadInputTokens":162004,"cacheCreationInputTokens":12257,"webSearchRequests":0,"costUSD":0.1497248,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":352,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"8177595e3e348745ea1099cd75c3c12bc089c65367047c64f45a5f12f2593eaa","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-3685","path":"","grain":"section","startChar":0,"endChar":4279},{"protocolId":"Bio-protocol:Bio-protocol-196","path":"","grain":"section","startChar":0,"endChar":2906},{"protocolId":"Protocol-io:Protocol.io-4271","path":"","grain":"section","startChar":12000,"endChar":17000}]},
+    {"id":"TEST-GEN-000215","task":"GEN","type":"easy","variant":"paper-context","correct":null,"score":0.18285714285714286,"retrievalMs":340.7998330000046,"modelMs":31858,"contextChars":15388,"serializedContextChars":15388,"serializedContextBytes":15418,"contextProfile":"large","error":null,"promptSha256":"ac39ebed1ad798d06fa8013fa78b4d3c186af690d8315a9e7160188b0c46d8e2","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":1742,"cacheReadInputTokens":162004,"cacheCreationInputTokens":12922,"webSearchRequests":0,"costUSD":0.1706248,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":785,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"d9fa19e5563fdc904951342420bfe367e6df2819163d9656a6c9d66bd4d73d80","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-6884","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-3855","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-6887","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-GEN-000739","task":"GEN","type":"difficulty","variant":"paper-context","correct":null,"score":0.6526791478373144,"retrievalMs":350.98354200000176,"modelMs":54498,"contextChars":14938,"serializedContextChars":14938,"serializedContextBytes":15012,"contextProfile":"large","error":null,"promptSha256":"2fdb09071dbb9e9a964b59e8470dcd84aa2ed042d4fa04b08c13c24c8947b907","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":5468,"cacheReadInputTokens":162004,"cacheCreationInputTokens":14313,"webSearchRequests":0,"costUSD":0.25627279999999997,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":1268,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"4f13e049427ded09b3975df0e4f636828367a0a0b7a49b745bbab5079acd2ed1","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-174","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Bio-protocol:Bio-protocol-174","path":"","grain":"section","startChar":8000,"endChar":12617},{"protocolId":"Bio-protocol:Bio-protocol-3493","path":"","grain":"section","startChar":0,"endChar":4610}]},
+    {"id":"TEST-GEN-000294","task":"GEN","type":"easy","variant":"paper-context","correct":null,"score":0.4485006518904824,"retrievalMs":483.74437500000204,"modelMs":18190,"contextChars":13486,"serializedContextChars":13486,"serializedContextBytes":13578,"contextProfile":"large","error":null,"promptSha256":"338ea6770c528c5675fc947b0bd8bf32b016f942e9fca4d28fc7cc66199bb1e5","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":1203,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11908,"webSearchRequests":0,"costUSD":0.1517328,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":166,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"1eeb5ce1180452dd28d10e2191f8e1afe59f2eac8e8f305a9e3fe6184d86ee76","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-8103","path":"","grain":"section","startChar":0,"endChar":3834},{"protocolId":"Protocol-io:Protocol.io-4111","path":"","grain":"section","startChar":0,"endChar":4236},{"protocolId":"Protocol-io:Protocol.io-1304","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-PQA-000023","task":"PQA","type":"operation","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":243.09145799999897,"modelMs":6150,"contextChars":11020,"serializedContextChars":11020,"serializedContextBytes":11085,"contextProfile":"small","error":null,"promptSha256":"f111a85d1406d6ba3c3c26acedd426b6c0db06fcd93fc11156e931418d699e11","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":119,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11601,"webSearchRequests":0,"costUSD":0.1275968,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"d9b27bafc7ccc154e98a0819cd035ac36a3ff91e1c3ff0edbe3cfeaa0fc10885","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-1804","path":"","grain":"section","startChar":12800,"endChar":14800},{"protocolId":"Protocol-io:Protocol.io-630","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Bio-protocol:Bio-protocol-3724","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Protocol-io:Protocol.io-628","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Protocol-io:Protocol.io-7470","path":"","grain":"section","startChar":8000,"endChar":10000}]},
+    {"id":"TEST-GEN-000257","task":"GEN","type":"easy","variant":"paper-context","correct":null,"score":0.0,"retrievalMs":462.0791670000035,"modelMs":5758,"contextChars":15448,"serializedContextChars":15448,"serializedContextBytes":15464,"contextProfile":"large","error":"provider biology safeguard refusal","promptSha256":"2c51229b54423cf51d41a9d2cc41100a11c86b40c59136a94dd48c0d3125b130","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":0,"cacheReadInputTokens":324008,"cacheCreationInputTokens":25071,"webSearchRequests":0,"costUSD":0.2653856,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-6887","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-745","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-3855","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-GEN-000538","task":"GEN","type":"standard","variant":"paper-context","correct":null,"score":0.3042671614100186,"retrievalMs":218.6612909999967,"modelMs":17912,"contextChars":15616,"serializedContextChars":15616,"serializedContextBytes":15683,"contextProfile":"large","error":null,"promptSha256":"cadc1428f2477ab7287e127a8a8a494011ce066ff9f7369d4b85439ba2d7d6f4","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":1632,"cacheReadInputTokens":162004,"cacheCreationInputTokens":13648,"webSearchRequests":0,"costUSD":0.17423280000000002,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":522,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"6aa3afc85cbecfd8ec349e0ac353ef4c48c4ff3dcfbb3456c1e5f047470a2cff","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-2352","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Bio-protocol:Bio-protocol-40","path":"","grain":"section","startChar":12000,"endChar":17000},{"protocolId":"Protocol-io:Protocol.io-2118","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-ORD-000070","task":"ORD","type":"child","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":207.69904099999985,"modelMs":13329,"contextChars":10165,"serializedContextChars":10165,"serializedContextBytes":10208,"contextProfile":"large","error":null,"promptSha256":"c187239d1ba4f1ef51eedc0771c53be9cf76a3ffc81cbdb15355f637d1c5e8b7","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":27,"cacheReadInputTokens":0,"cacheCreationInputTokens":173609,"webSearchRequests":0,"costUSD":1.38942,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"569fb87d06baef2a078e1af5f7de6750c47403c47631bb5902f0fdc5afd09ea1","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-658","path":"","grain":"section","startChar":4000,"endChar":6235},{"protocolId":"Bio-protocol:Bio-protocol-658","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Bio-protocol:Bio-protocol-545","path":"","grain":"section","startChar":4000,"endChar":6306}]},
+    {"id":"TEST-ERR-000610","task":"ERR","type":"correct","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":399.614542000003,"modelMs":7936,"contextChars":9534,"serializedContextChars":9534,"serializedContextBytes":9543,"contextProfile":"small","error":"provider biology safeguard refusal","promptSha256":"600cfa3d7db78f84a7216727a83333155074892f61b4d1e59bde58b3a2e49126","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":98,"cacheReadInputTokens":324008,"cacheCreationInputTokens":22125,"webSearchRequests":0,"costUSD":0.2437776,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":98,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-9426","path":"","grain":"section","startChar":0,"endChar":1548},{"protocolId":"Protocol-exchange:Protocol-exchange-877","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-io:Protocol.io-9434","path":"","grain":"section","startChar":0,"endChar":1383},{"protocolId":"Protocol-io:Protocol.io-5009","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Bio-protocol:Bio-protocol-1686","path":"","grain":"section","startChar":4800,"endChar":6800}]},
+    {"id":"TEST-ORD-000841","task":"ORD","type":"top","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":469.4283329999962,"modelMs":6246,"contextChars":11711,"serializedContextChars":11711,"serializedContextBytes":11736,"contextProfile":"large","error":"provider biology safeguard refusal","promptSha256":"983fc408b9ab3a7f1d5ea16bad46afb1618896b633462323d7a0f7b80b74a051","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":0,"cacheReadInputTokens":324008,"cacheCreationInputTokens":24277,"webSearchRequests":0,"costUSD":0.2590336,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-7397","path":"","grain":"section","startChar":0,"endChar":1148},{"protocolId":"Protocol-io:Protocol.io-2689","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Bio-protocol:Bio-protocol-2045","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-PQA-000078","task":"PQA","type":"parameter","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":192.63758400000006,"modelMs":9006,"contextChars":9841,"serializedContextChars":9841,"serializedContextBytes":9865,"contextProfile":"small","error":null,"promptSha256":"8d8dea2ca0c4aa49565eec99390c379e38ff5bf0dccec617b48eb4c349472945","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":224,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11229,"webSearchRequests":0,"costUSD":0.1267208,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":83,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"855a2df795b4a0070505f3aa6d934eff155c17348675bf80eab566a175194b15","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-784","path":"","grain":"section","startChar":6400,"endChar":8206},{"protocolId":"Protocol-io:Protocol.io-8027","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Bio-protocol:Bio-protocol-2219","path":"","grain":"section","startChar":8000,"endChar":10000},{"protocolId":"Protocol-io:Protocol.io-964","path":"","grain":"section","startChar":1600,"endChar":2916},{"protocolId":"Protocol-io:Protocol.io-8027","path":"","grain":"section","startChar":9600,"endChar":11600}]},
+    {"id":"TEST-PQA-000717","task":"PQA","type":"parameter","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":182.21624999999767,"modelMs":7254,"contextChars":10798,"serializedContextChars":10798,"serializedContextBytes":10825,"contextProfile":"small","error":"provider biology safeguard refusal","promptSha256":"3f4b03e709b167a859884ab1fa34cf89c695feb99e5853445c4727a2f8c32d6e","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":6,"outputTokens":82,"cacheReadInputTokens":335610,"cacheCreationInputTokens":11754,"webSearchRequests":0,"costUSD":0.16281800000000002,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":13,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sourceRefs":[{"protocolId":"Protocol-exchange:Protocol-exchange-735","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Protocol-io:Protocol.io-10333","path":"","grain":"section","startChar":8000,"endChar":10000},{"protocolId":"Protocol-exchange:Protocol-exchange-589","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-io:Protocol.io-910","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Protocol-io:Protocol.io-3805","path":"","grain":"section","startChar":0,"endChar":2000}]},
+    {"id":"TEST-ORD-000640","task":"ORD","type":"child","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":1008.4772080000039,"modelMs":15753,"contextChars":14405,"serializedContextChars":14405,"serializedContextBytes":14487,"contextProfile":"large","error":null,"promptSha256":"292b06853587dcc8ac3db5fabcfeed59ff9de8a39ef31263aee8eaf3a9b3301e","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":1211,"cacheReadInputTokens":162004,"cacheCreationInputTokens":13076,"webSearchRequests":0,"costUSD":0.1612368,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":1151,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"510285af7affd53a548a10a6b75f68a1e4263631b93f48ec6d69b1eb1a74390c","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-1200","path":"","grain":"section","startChar":4000,"endChar":9000},{"protocolId":"Protocol-io:Protocol.io-8972","path":"","grain":"section","startChar":12000,"endChar":17000},{"protocolId":"Protocol-io:Protocol.io-6637","path":"","grain":"section","startChar":0,"endChar":4003}]},
+    {"id":"TEST-ERR-000811","task":"ERR","type":"reagent","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":448.80487500000163,"modelMs":8477,"contextChars":10968,"serializedContextChars":10968,"serializedContextBytes":11011,"contextProfile":"small","error":null,"promptSha256":"e681b28dac9518d2858da1d87b721d1b194cb4d2a44db7e0fc470c347baeffe0","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":21,"cacheReadInputTokens":162004,"cacheCreationInputTokens":12289,"webSearchRequests":0,"costUSD":0.1311408,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"35dc9400a573baf3e661f7b5b1501d826dcead2db49396ca7792b1c9aeab7853","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-849","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Bio-protocol:Bio-protocol-849","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Bio-protocol:Bio-protocol-1737","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Protocol-exchange:Protocol-exchange-52","path":"","grain":"section","startChar":8000,"endChar":10000},{"protocolId":"Bio-protocol:Bio-protocol-1733","path":"","grain":"section","startChar":6400,"endChar":8400}]},
+    {"id":"TEST-PQA-000686","task":"PQA","type":"operation","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":163.6921250000014,"modelMs":6035,"contextChars":10206,"serializedContextChars":10206,"serializedContextBytes":10228,"contextProfile":"small","error":null,"promptSha256":"ba5d6eec8080bb291b3c0cc0aa48502fcb1a6e59bb3853b09a5309784d4e2cf5","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":137,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11425,"webSearchRequests":0,"costUSD":0.1265488,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"2df62643b40984b8320b61aa16c5e4094392d2fa9f84e4f0ed7b83e0bf08b6c2","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-349","path":"","grain":"section","startChar":6400,"endChar":7803},{"protocolId":"Bio-protocol:Bio-protocol-248","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Bio-protocol:Bio-protocol-4015","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Protocol-io:Protocol.io-1960","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Bio-protocol:Bio-protocol-1479","path":"","grain":"section","startChar":4800,"endChar":6800}]},
+    {"id":"TEST-ORD-000513","task":"ORD","type":"child","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":404.85587499999383,"modelMs":8032,"contextChars":13102,"serializedContextChars":13102,"serializedContextBytes":13123,"contextProfile":"large","error":null,"promptSha256":"db566f7eb77ab12e4bcb2c46b820eac457cb915724505aa9fb46318f14c341db","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":36,"cacheReadInputTokens":152204,"cacheCreationInputTokens":13006,"webSearchRequests":0,"costUSD":0.1352168,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"112d48240d4c53342ec7ad0e515a15c578d6d15addd7f493f8cfb219f24f83e6","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-1737","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Bio-protocol:Bio-protocol-1737","path":"","grain":"section","startChar":4000,"endChar":7221},{"protocolId":"Protocol-exchange:Protocol-exchange-201","path":"","grain":"section","startChar":4000,"endChar":8150}]},
+    {"id":"TEST-GEN-000493","task":"GEN","type":"easy","variant":"paper-context","correct":null,"score":0.0,"retrievalMs":190.7490420000031,"modelMs":6265,"contextChars":15511,"serializedContextChars":15511,"serializedContextBytes":15565,"contextProfile":"large","error":"provider biology safeguard refusal","promptSha256":"71a8131dca21577360ce7770a4883a5ccc1154e935f6daf9d065b382641dcfb5","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":0,"cacheReadInputTokens":324008,"cacheCreationInputTokens":26053,"webSearchRequests":0,"costUSD":0.2732416,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-554","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-595","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-8355","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-ERR-000109","task":"ERR","type":"reagent","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":427.48224999999366,"modelMs":7791,"contextChars":10126,"serializedContextChars":10126,"serializedContextBytes":10174,"contextProfile":"small","error":null,"promptSha256":"b95e1c7b4c945f6ab9624396f82032239185639a8e7bf604ef296bc4ba082d8a","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":127,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11626,"webSearchRequests":0,"costUSD":0.12795679999999998,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":28,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"6b000300f8214fb4b54c714036b6f2b5821debdcb3d50d903aed79f98f4ec378","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-2541","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-2541","path":"","grain":"section","startChar":3200,"endChar":4835},{"protocolId":"Protocol-io:Protocol.io-5284","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-3852","path":"","grain":"section","startChar":6400,"endChar":8400},{"protocolId":"Protocol-io:Protocol.io-371","path":"","grain":"section","startChar":0,"endChar":1641}]},
+    {"id":"TEST-PQA-000370","task":"PQA","type":"reagent","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":205.69483299999774,"modelMs":7077,"contextChars":10861,"serializedContextChars":10861,"serializedContextBytes":10914,"contextProfile":"small","error":null,"promptSha256":"daa4797e6675c98a7f534184b9b0273e0c1a1a8632b074b6d85a73a0ddf2de7f","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":185,"cacheReadInputTokens":162004,"cacheCreationInputTokens":12176,"webSearchRequests":0,"costUSD":0.1335168,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":15,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"9d7d63b9175da992033b32e135a05a070a67d6e7dc1a9cba9247c066bb29e094","sourceRefs":[{"protocolId":"Protocol-exchange:Protocol-exchange-223","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Protocol-io:Protocol.io-1749","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Protocol-exchange:Protocol-exchange-839","path":"","grain":"section","startChar":6400,"endChar":8400},{"protocolId":"Protocol-io:Protocol.io-1749","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Bio-protocol:Bio-protocol-47","path":"","grain":"section","startChar":8000,"endChar":10000}]},
+    {"id":"TEST-ERR-000534","task":"ERR","type":"parameter","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":549.5235420000026,"modelMs":13890,"contextChars":10347,"serializedContextChars":10347,"serializedContextBytes":10382,"contextProfile":"small","error":null,"promptSha256":"25b785ae5b31f46eac07c052a782b5e083cb6bd693829a1bf7537d1d10169775","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":862,"cacheReadInputTokens":324008,"cacheCreationInputTokens":24233,"webSearchRequests":0,"costUSD":0.2759216,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":841,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"5de9da631470ac51c427ab5982cc340153ea826dcdf1b25c5c9c316ec0498b7d","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-2555","path":"","grain":"section","startChar":0,"endChar":1669},{"protocolId":"Bio-protocol:Bio-protocol-2960","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Bio-protocol:Bio-protocol-391","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-2959","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-391","path":"","grain":"section","startChar":0,"endChar":2000}]},
+    {"id":"TEST-ORD-000543","task":"ORD","type":"child","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":739.8715830000001,"modelMs":5900,"contextChars":15557,"serializedContextChars":15557,"serializedContextBytes":15596,"contextProfile":"large","error":null,"promptSha256":"e6874e6a782fd1ca47e87268f75062019eddd217b007b843b6cf104f9b9ecfc4","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":79,"cacheReadInputTokens":162004,"cacheCreationInputTokens":12833,"webSearchRequests":0,"costUSD":0.13665280000000002,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":46,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"542f6c61e211d2c168e6c064000b8843426a27a2bb8d2c4204f67ca4560178ae","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-1458","path":"","grain":"section","startChar":8000,"endChar":13000},{"protocolId":"Protocol-io:Protocol.io-776","path":"","grain":"section","startChar":4000,"endChar":9000},{"protocolId":"Protocol-io:Protocol.io-1031","path":"","grain":"section","startChar":16000,"endChar":21000}]},
+    {"id":"TEST-ORD-000778","task":"ORD","type":"top","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":412.4149580000012,"modelMs":7813,"contextChars":9537,"serializedContextChars":9537,"serializedContextBytes":9567,"contextProfile":"large","error":null,"promptSha256":"d9eda41fc9bea61794287226fe974af4218b546b426550dac84f9ce1e345bad3","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":296,"cacheReadInputTokens":162004,"cacheCreationInputTokens":10819,"webSearchRequests":0,"costUSD":0.12488080000000001,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":251,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"137b6baad9057d6f7c517584430d6b8f50e899966c9eeddf4f3348ea8cc697a3","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-2686","path":"","grain":"section","startChar":0,"endChar":2513},{"protocolId":"Bio-protocol:Bio-protocol-765","path":"","grain":"section","startChar":12000,"endChar":17000},{"protocolId":"Bio-protocol:Bio-protocol-765","path":"","grain":"section","startChar":20000,"endChar":21488}]},
+    {"id":"TEST-ORD-001153","task":"ORD","type":"child","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":466.93212499999936,"modelMs":8582,"contextChars":15600,"serializedContextChars":15600,"serializedContextBytes":15674,"contextProfile":"large","error":"provider biology safeguard refusal","promptSha256":"c6adfd0812297cbd23ca6704f1925ef302e463fc4d0831055cb2aa7a2ef741e5","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":0,"cacheReadInputTokens":324008,"cacheCreationInputTokens":27557,"webSearchRequests":0,"costUSD":0.2852736,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-1097","path":"","grain":"section","startChar":4000,"endChar":9000},{"protocolId":"Bio-protocol:Bio-protocol-937","path":"","grain":"section","startChar":4000,"endChar":9000},{"protocolId":"Protocol-io:Protocol.io-10330","path":"","grain":"section","startChar":4000,"endChar":9000}]},
+    {"id":"TEST-PQA-000245","task":"PQA","type":"operation","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":487.48570800000016,"modelMs":16793,"contextChars":8399,"serializedContextChars":8399,"serializedContextBytes":8469,"contextProfile":"small","error":null,"promptSha256":"c40520e5f884d01433297b70115d2bbac93b4ff4b561d4fc8a30ceb9c52e5c7d","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":1051,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11017,"webSearchRequests":0,"costUSD":0.1415648,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":808,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"8c899d79c81f2cb815b8c299bd018e534e67a289ea421476181c67ec0826e489","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-1643","path":"","grain":"section","startChar":8000,"endChar":9338},{"protocolId":"Protocol-io:Protocol.io-5472","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-io:Protocol.io-3033","path":"","grain":"section","startChar":0,"endChar":1055},{"protocolId":"Protocol-io:Protocol.io-9570","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Bio-protocol:Bio-protocol-3773","path":"","grain":"section","startChar":9600,"endChar":10942}]},
+    {"id":"TEST-ERR-000913","task":"ERR","type":"reagent","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":337.7202079999988,"modelMs":9090,"contextChars":8129,"serializedContextChars":8129,"serializedContextBytes":8150,"contextProfile":"small","error":null,"promptSha256":"8b6f54acd47d26d2e375c869074242d3e797f209e1ac1dca6a8e8bb03d5675ab","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":44,"cacheReadInputTokens":0,"cacheCreationInputTokens":173060,"webSearchRequests":0,"costUSD":1.385368,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":23,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"35dc9400a573baf3e661f7b5b1501d826dcead2db49396ca7792b1c9aeab7853","sourceRefs":[{"protocolId":"Protocol-exchange:Protocol-exchange-650","path":"","grain":"section","startChar":8000,"endChar":10000},{"protocolId":"Bio-protocol:Bio-protocol-2273","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Protocol-io:Protocol.io-999","path":"","grain":"section","startChar":1600,"endChar":2077},{"protocolId":"Protocol-io:Protocol.io-228","path":"","grain":"section","startChar":0,"endChar":1915},{"protocolId":"Bio-protocol:Bio-protocol-3507","path":"","grain":"section","startChar":6400,"endChar":7379}]},
+    {"id":"TEST-PQA-000711","task":"PQA","type":"parameter","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":105.26437499999884,"modelMs":5977,"contextChars":8504,"serializedContextChars":8504,"serializedContextBytes":8533,"contextProfile":"small","error":null,"promptSha256":"7ae56e9099bb49e83ee893c4be9b95b25d2112c9661f6ce70d9f4c3a85e61d18","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":87,"cacheReadInputTokens":162004,"cacheCreationInputTokens":10829,"webSearchRequests":0,"costUSD":0.1207808,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"cc2389cabbe5925772a191efe07b10b2d15aaf99b76ab67717da04966897091d","sourceRefs":[{"protocolId":"Protocol-exchange:Protocol-exchange-1092","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Protocol-exchange:Protocol-exchange-1091","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Protocol-exchange:Protocol-exchange-1092","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-io:Protocol.io-52","path":"","grain":"section","startChar":3200,"endChar":3638},{"protocolId":"Bio-protocol:Bio-protocol-1082","path":"","grain":"section","startChar":4800,"endChar":6164}]},
+    {"id":"TEST-GEN-000498","task":"GEN","type":"standard","variant":"paper-context","correct":null,"score":0.4806201550387597,"retrievalMs":468.7455409999966,"modelMs":21775,"contextChars":14187,"serializedContextChars":14187,"serializedContextBytes":14214,"contextProfile":"large","error":null,"promptSha256":"4ec3f25cf9507c53cc16126dae0074b80d3b633815ae6f41a414e47ddfc7287e","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":1834,"cacheReadInputTokens":0,"cacheCreationInputTokens":159596,"webSearchRequests":0,"costUSD":1.313456,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":751,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"d18b2d81df276e01c2c9b812e6213bd8143d0da3a0dc93d9cf1149dc87abbc68","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-2","path":"","grain":"section","startChar":12000,"endChar":15486},{"protocolId":"Bio-protocol:Bio-protocol-474","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Bio-protocol:Bio-protocol-420","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-ORD-000538","task":"ORD","type":"top","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":351.1438749999943,"modelMs":6042,"contextChars":12135,"serializedContextChars":12135,"serializedContextBytes":12168,"contextProfile":"large","error":"provider biology safeguard refusal","promptSha256":"7dc46e4757458e3cdc0dc3a052a12ae9a0e1672840cbbfd7e8bd00eb85b36b9c","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":0,"cacheReadInputTokens":324008,"cacheCreationInputTokens":25111,"webSearchRequests":0,"costUSD":0.2657056,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":0,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-3986","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Bio-protocol:Bio-protocol-1511","path":"","grain":"section","startChar":8000,"endChar":11870},{"protocolId":"Bio-protocol:Bio-protocol-402","path":"","grain":"section","startChar":8000,"endChar":10712}]},
+    {"id":"TEST-GEN-000359","task":"GEN","type":"easy","variant":"paper-context","correct":null,"score":0.2524271844660194,"retrievalMs":554.8788750000022,"modelMs":14981,"contextChars":13186,"serializedContextChars":13186,"serializedContextBytes":13216,"contextProfile":"large","error":null,"promptSha256":"25e77bb4ee019d4f58a0f1511db90d9cbc52d02a648e8c59551bf4108eeb02cb","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":1017,"cacheReadInputTokens":162004,"cacheCreationInputTokens":13218,"webSearchRequests":0,"costUSD":0.1584928,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":303,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"b0440bb976eeb719d2c4fd027ad8e82fc301fa8335a6bb3e83f770047022f428","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-4125","path":"","grain":"section","startChar":4000,"endChar":6628},{"protocolId":"Bio-protocol:Bio-protocol-4125","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-exchange:Protocol-exchange-1045","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-GEN-000181","task":"GEN","type":"easy","variant":"paper-context","correct":null,"score":0.05833333333333333,"retrievalMs":482.9072079999969,"modelMs":15588,"contextChars":13278,"serializedContextChars":13278,"serializedContextBytes":13381,"contextProfile":"large","error":null,"promptSha256":"62ea3a1839e2ae062bfa80a6228b0594cd51cb59ab33e6ec3191fda9b1a7ef2c","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":1053,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11794,"webSearchRequests":0,"costUSD":0.1478208,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":115,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"8f9d36190f84bf95e6903ba9ab555ce9f7746cf3354677cc0a2eae20bab57485","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-7567","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-9648","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-1421","path":"","grain":"section","startChar":48000,"endChar":50931}]},
+    {"id":"TEST-GEN-000752","task":"GEN","type":"difficulty","variant":"paper-context","correct":null,"score":0.6846615252784918,"retrievalMs":606.7232079999958,"modelMs":43260,"contextChars":14012,"serializedContextChars":14012,"serializedContextBytes":14072,"contextProfile":"large","error":null,"promptSha256":"7156a9cd55d645fad23d0e2e3f0697cd137060003c1fd7ac91f493720dd7b095","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":4952,"cacheReadInputTokens":162004,"cacheCreationInputTokens":13884,"webSearchRequests":0,"costUSD":0.24252079999999998,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":1971,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"85879c1a515a724aebe575419eed9a67849055af459244ebbe63b9c89e34174a","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-221","path":"","grain":"section","startChar":8000,"endChar":11371},{"protocolId":"Bio-protocol:Bio-protocol-221","path":"","grain":"section","startChar":4000,"endChar":9000},{"protocolId":"Bio-protocol:Bio-protocol-221","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-GEN-000210","task":"GEN","type":"easy","variant":"paper-context","correct":null,"score":0.15421686746987956,"retrievalMs":275.8819999999978,"modelMs":14231,"contextChars":15554,"serializedContextChars":15554,"serializedContextBytes":15580,"contextProfile":"large","error":null,"promptSha256":"4c4b8d9231f3601270863f20ff71bc553c55d887c174140e47674ee766bd3672","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":940,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11807,"webSearchRequests":0,"costUSD":0.14566479999999998,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":198,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"f5917a8d5c09bebd96f4dafc48a31d306cabf7c0e3f04a0b4eb4d5c4e45de81a","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-4951","path":"","grain":"section","startChar":16000,"endChar":21000},{"protocolId":"Protocol-io:Protocol.io-4951","path":"","grain":"section","startChar":12000,"endChar":17000},{"protocolId":"Protocol-io:Protocol.io-6884","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-GEN-000180","task":"GEN","type":"easy","variant":"paper-context","correct":null,"score":0.13265306122448978,"retrievalMs":315.69512499999837,"modelMs":9750,"contextChars":12620,"serializedContextChars":12620,"serializedContextBytes":12711,"contextProfile":"large","error":null,"promptSha256":"2ae0bbd533ad66fd0ba6eca7524b216a28e765e7c9e22308f04c2123078e234d","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":577,"cacheReadInputTokens":162004,"cacheCreationInputTokens":12751,"webSearchRequests":0,"costUSD":0.1459568,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":167,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"decec9680aa6481413cda40e62315791525264fff7cfdcecb21ef13d23571269","sourceRefs":[{"protocolId":"Protocol-exchange:Protocol-exchange-826","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-3837","path":"","grain":"section","startChar":0,"endChar":2089},{"protocolId":"Protocol-io:Protocol.io-5131","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-ORD-000489","task":"ORD","type":"child","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":951.7874169999996,"modelMs":10392,"contextChars":15405,"serializedContextChars":15405,"serializedContextBytes":15431,"contextProfile":"large","error":null,"promptSha256":"d96c92e5109f27405b9e04b81a37cd707389517f7de4f007ba197773348c0b99","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":612,"cacheReadInputTokens":162004,"cacheCreationInputTokens":13221,"webSearchRequests":0,"costUSD":0.15041680000000002,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":570,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"a5f40653cb40509cf5ad3823ef434e645bf11452dadd03f0185caaf02a6a2627","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-449","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-8965","path":"","grain":"section","startChar":8000,"endChar":13000},{"protocolId":"Protocol-io:Protocol.io-8965","path":"","grain":"section","startChar":12000,"endChar":17000}]},
+    {"id":"TEST-ERR-000836","task":"ERR","type":"operation","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":321.752542000002,"modelMs":7010,"contextChars":10883,"serializedContextChars":10883,"serializedContextBytes":10910,"contextProfile":"small","error":"provider biology safeguard refusal","promptSha256":"654c2dd1b79ab2db0180c6b938302506bd1f8542f4699059f1692358832b36f1","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":4,"outputTokens":51,"cacheReadInputTokens":324008,"cacheCreationInputTokens":23815,"webSearchRequests":0,"costUSD":0.2563576,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":51,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-758","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Protocol-exchange:Protocol-exchange-831","path":"","grain":"section","startChar":4800,"endChar":6800},{"protocolId":"Protocol-io:Protocol.io-1852","path":"","grain":"section","startChar":0,"endChar":1969},{"protocolId":"Protocol-exchange:Protocol-exchange-193","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-849","path":"","grain":"section","startChar":8000,"endChar":10000}]},
+    {"id":"TEST-PQA-000585","task":"PQA","type":"parameter","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":227.37108299999818,"modelMs":6700,"contextChars":9380,"serializedContextChars":9380,"serializedContextBytes":9415,"contextProfile":"small","error":null,"promptSha256":"1b7236af839b98cb89c5ad64cd0398f27fb357a79823a57fb68b957d2ff58de2","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":132,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11626,"webSearchRequests":0,"costUSD":0.1280568,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":18,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"e565e99dc7919490e0c912e525c352a94c2018c57d630049d093f8906d7c1519","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-1343","path":"","grain":"section","startChar":9600,"endChar":10191},{"protocolId":"Bio-protocol:Bio-protocol-2540","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-2727","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-1174","path":"","grain":"section","startChar":0,"endChar":2000},{"protocolId":"Protocol-exchange:Protocol-exchange-857","path":"","grain":"section","startChar":3200,"endChar":5200}]},
+    {"id":"TEST-ORD-000313","task":"ORD","type":"top","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":221.82808300000033,"modelMs":7549,"contextChars":14221,"serializedContextChars":14221,"serializedContextBytes":14250,"contextProfile":"large","error":null,"promptSha256":"c16b32b546b6534661ec08fd787f25ce5b26ce5f8203332e5de9b7e5de43f6d0","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":295,"cacheReadInputTokens":162004,"cacheCreationInputTokens":13424,"webSearchRequests":0,"costUSD":0.14570080000000002,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":256,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"a20dfa0c0fa546064109122a5169efdc576f6bb5778a09a66c3f13c4414faf8a","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-1463","path":"","grain":"section","startChar":8000,"endChar":11524},{"protocolId":"Protocol-exchange:Protocol-exchange-677","path":"","grain":"section","startChar":0,"endChar":5000},{"protocolId":"Bio-protocol:Bio-protocol-1920","path":"","grain":"section","startChar":0,"endChar":5000}]},
+    {"id":"TEST-ERR-000569","task":"ERR","type":"correct","variant":"paper-context","correct":true,"score":1.0,"retrievalMs":379.49145800000406,"modelMs":10201,"contextChars":9840,"serializedContextChars":9840,"serializedContextBytes":9906,"contextProfile":"small","error":null,"promptSha256":"4c0da7fc2f259d17b7899a7c6acb75a595c868316fcb5a3f33db639fe868deb2","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":441,"cacheReadInputTokens":162004,"cacheCreationInputTokens":10760,"webSearchRequests":0,"costUSD":0.1273088,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":420,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"5de9da631470ac51c427ab5982cc340153ea826dcdf1b25c5c9c316ec0498b7d","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-7411","path":"","grain":"section","startChar":6400,"endChar":8400},{"protocolId":"Protocol-io:Protocol.io-7624","path":"","grain":"section","startChar":6400,"endChar":8400},{"protocolId":"Bio-protocol:Bio-protocol-3296","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Protocol-io:Protocol.io-6751","path":"","grain":"section","startChar":4800,"endChar":5965},{"protocolId":"Protocol-io:Protocol.io-8201","path":"","grain":"section","startChar":17600,"endChar":19600}]},
+    {"id":"TEST-ERR-000752","task":"ERR","type":"operation","variant":"paper-context","correct":false,"score":0.0,"retrievalMs":299.3219590000008,"modelMs":8597,"contextChars":10690,"serializedContextChars":10690,"serializedContextBytes":10725,"contextProfile":"small","error":null,"promptSha256":"a73c66f404ab650c3ef171c7b5869af8b0fea3b6afd276da669c14243ce16960","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":489,"cacheReadInputTokens":162004,"cacheCreationInputTokens":11285,"webSearchRequests":0,"costUSD":0.1324688,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":468,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"5de9da631470ac51c427ab5982cc340153ea826dcdf1b25c5c9c316ec0498b7d","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-2087","path":"","grain":"section","startChar":12800,"endChar":14800},{"protocolId":"Protocol-io:Protocol.io-2087","path":"","grain":"section","startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-1197","path":"","grain":"section","startChar":6400,"endChar":8400},{"protocolId":"Bio-protocol:Bio-protocol-467","path":"","grain":"section","startChar":3200,"endChar":5200},{"protocolId":"Protocol-io:Protocol.io-2087","path":"","grain":"section","startChar":11200,"endChar":13200}]}
+  ]
+}
