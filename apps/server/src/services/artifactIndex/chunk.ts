@@ -95,8 +95,12 @@ function splitSection(text: string): string[] {
     const cut = at > MIN_TAIL_CHARS ? at : TARGET_CHARS;
     out.push(rest.slice(0, cut).trim());
     // Step back by the overlap so a step spanning the cut appears whole in the
-    // next chunk too.
-    rest = rest.slice(Math.max(0, cut - OVERLAP_CHARS));
+    // next chunk too — but always move forward. A break point just past the
+    // minimum tail (a short paragraph before a long list) made `cut − overlap`
+    // zero or negative, so the window never advanced and this loop appended
+    // the same chunk until the process ran out of memory.
+    const advance = cut - OVERLAP_CHARS >= MIN_TAIL_CHARS ? cut - OVERLAP_CHARS : cut;
+    rest = rest.slice(advance);
   }
   const tail = rest.trim();
   if (tail) {
