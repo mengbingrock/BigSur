@@ -107,4 +107,26 @@ describe("push notifications", () => {
     const d = pushes.find((p) => p.data.kind === "done" && p.data.sessionId === s2.id)!;
     expect(d.body).toContain("Hello from fake claude");
   }, 60000);
+
+  it("a phone signed in with Apple or Google (no pairing token) registers itself and gets pushes too", async () => {
+    // Only the account session, no Bearer: this used to be refused with 400.
+    const reg = await api("/api/link/push-token", { method: "POST", headers: { "x-labee-device": "iPhone" }, body: JSON.stringify({ pushToken: "ExponentPushToken[phone-2]" }) });
+    if (reg.status !== 200) console.log("push-token →", reg.status, await reg.clone().text(), box.logs.slice(-12).join(""));
+    expect(reg.status).toBe(200);
+    // Registering again is the same device, not a second one.
+    expect((await api("/api/link/push-token", { method: "POST", body: JSON.stringify({ pushToken: "ExponentPushToken[phone-2]" }) })).status).toBe(200);
+    const list = (await (await api("/api/link/devices")).json()) as { devices: { name: string; status: string }[] };
+    expect(list.devices.filter((d) => d.status === "approved")).toHaveLength(2);
+
+    let hostId = "";
+    await waitFor(async () => {
+      const r = (await (await api("/api/link/hosts")).json()) as { hosts: { hostId: string; online: boolean }[] };
+      hostId = r.hosts.find((h) => h.online)?.hostId ?? "";
+      return Boolean(hostId);
+    }, 20000);
+    const { session } = (await (await api(`/api/hosts/${hostId}/api/sessions`, { method: "POST", body: JSON.stringify({ title: "second phone" }) })).json()) as { session: { id: string } };
+    await api(`/api/hosts/${hostId}/api/sessions/${session.id}/turns`, { method: "POST", body: JSON.stringify({ text: "finish quietly" }) });
+    await waitFor(() => pushes.some((p) => p.data.sessionId === session.id && p.to === "ExponentPushToken[phone-2]"), 15000);
+    expect(pushes.filter((p) => p.data.sessionId === session.id).map((p) => p.to).sort()).toEqual(["ExponentPushToken[phone-1]", "ExponentPushToken[phone-2]"]);
+  }, 60000);
 });

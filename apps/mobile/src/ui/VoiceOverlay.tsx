@@ -1,19 +1,44 @@
-// Full-screen voice mode: big hold-to-talk target, what you said, what it is
-// saying, one-line activity. Interrupt and Close are explicit controls (a
+// Full-screen voice mode: a big tap-to-talk target (tap, speak, pause; it
+// stops by itself), what you said, what it is saying, one-line activity.
+// During a run it is Lab mode: the current step in large type and the short
+// commands it understands. Interrupt and Close are explicit controls (a
 // full-screen Pressable used to wrap everything and swallowed taps on the X;
 // it also merged every child into one accessibility element).
+import { useEffect } from "react";
 import { Modal, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { PttState } from "~/hooks/usePushToTalk";
 import { useTheme } from "./theme";
+
+/** The phone must not lock while Lab mode is open: iOS will not reopen the
+ *  app from the Lock Screen without Face ID, which is no use with gloves on.
+ *  Held only while the overlay is visible, so the phone locks as usual after. */
+function useScreenAwake(on: boolean): void {
+  useEffect(() => {
+    if (!on) return;
+    let active = false;
+    void import("expo-keep-awake")
+      .then((m) => m.activateKeepAwakeAsync("labee-voice"))
+      .then(() => {
+        active = true;
+      })
+      .catch(() => {});
+    return () => {
+      void import("expo-keep-awake")
+        .then((m) => (active ? m.deactivateKeepAwake("labee-voice") : undefined))
+        .catch(() => {});
+    };
+  }, [on]);
+}
 
 export function VoiceOverlay({
   visible,
   onClose,
   ptt,
   seconds,
-  onPttStart,
-  onPttStop,
+  onTap,
+  step,
+  hints,
   heard,
   saying,
   activity,
@@ -26,8 +51,12 @@ export function VoiceOverlay({
   onClose: () => void;
   ptt: PttState;
   seconds: number;
-  onPttStart: () => void;
-  onPttStop: () => void;
+  /** Start listening, or stop early if already listening. */
+  onTap: () => void;
+  /** Lab mode: the current step, shown large. */
+  step?: string | null;
+  /** Lab mode: the commands it understands. */
+  hints?: string[] | null;
   heard: string | null;
   saying: string;
   activity: string | null;
@@ -38,7 +67,8 @@ export function VoiceOverlay({
 }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
-  const phase = ptt === "recording" ? "Listening" : ptt === "transcribing" ? "Transcribing" : speaking ? "Speaking" : streaming ? "Thinking" : "Hold to talk";
+  useScreenAwake(visible);
+  const phase = ptt === "recording" ? "Listening" : ptt === "transcribing" ? "Transcribing" : speaking ? "Speaking" : streaming ? "Thinking" : step ? "Lab mode" : "Tap to talk";
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} presentationStyle="fullScreen">
       <View
@@ -75,6 +105,11 @@ export function VoiceOverlay({
         </View>
 
         <View style={{ alignItems: "center", gap: 16 }}>
+          {step ? (
+            <Text testID="voice-step" style={{ color: t.text, fontSize: 22, lineHeight: 30, fontWeight: "600", textAlign: "center" }} numberOfLines={6}>
+              {step}
+            </Text>
+          ) : null}
           <Text style={{ color: t.muted, fontSize: 13, letterSpacing: 1 }}>
             {phase.toUpperCase()}
             {ptt === "recording" ? ` · ${seconds}s` : ""}
@@ -93,12 +128,17 @@ export function VoiceOverlay({
         </View>
 
         <View style={{ alignItems: "center", gap: 14 }}>
+          {hints?.length ? (
+            <Text testID="voice-hints" style={{ color: t.muted, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
+              Say: {hints.join(" · ")}
+            </Text>
+          ) : null}
           <Pressable
             testID="voice-mic"
             accessibilityRole="button"
-            accessibilityLabel="Hold to talk"
-            onPressIn={onPttStart}
-            onPressOut={onPttStop}
+            accessibilityLabel={ptt === "recording" ? "Stop listening" : "Tap to talk"}
+            onPress={onTap}
+            disabled={ptt === "transcribing"}
             style={{
               width: 96,
               height: 96,
@@ -110,7 +150,7 @@ export function VoiceOverlay({
           >
             <Text style={{ fontSize: 36 }}>{ptt === "recording" ? "●" : "🎤"}</Text>
           </Pressable>
-          <Text style={{ color: t.muted, fontSize: 12 }}>hold the mic while speaking</Text>
+          <Text style={{ color: t.muted, fontSize: 12 }}>{ptt === "recording" ? "listening, pause when you're done or tap to stop" : "tap, speak, then pause"}</Text>
           <Pressable onPress={onClose} accessibilityRole="button" testID="voice-done" hitSlop={12} style={{ marginTop: 6, paddingVertical: 10, paddingHorizontal: 28, borderRadius: 999, backgroundColor: t.card, borderWidth: 1, borderColor: t.border }}>
             <Text style={{ color: t.text, fontSize: 15, fontWeight: "600" }}>Done</Text>
           </Pressable>

@@ -6,14 +6,32 @@ import { Stack } from "expo-router";
  *  way out. Naming the tabs as the initial route puts them under any direct
  *  entry, and Back appears. */
 export const unstable_settings = { initialRouteName: "(tabs)" };
+import { useEffect } from "react";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { AppProvider } from "~/state/AppContext";
+import { handleNotificationResponses } from "~/notifications";
+import { AppProvider, useApp } from "~/state/AppContext";
+
+/** Notification buttons (answer, reply, done with step) act here; the ones
+ *  that open a screen navigate through the router. */
+function NotificationActions() {
+  const router = useRouter();
+  const { ready, target } = useApp();
+  useEffect(() => {
+    if (!ready) return;
+    let off = () => {};
+    void handleNotificationResponses(target.base, (path) => router.push(path as never)).then((f) => (off = f));
+    return () => off();
+  }, [ready, target.base, router]);
+  return null;
+}
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AppProvider>
+        <NotificationActions />
         <StatusBar style="auto" />
         <Stack screenOptions={{ headerBackTitle: "Back" }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

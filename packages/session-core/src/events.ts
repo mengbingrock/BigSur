@@ -26,6 +26,22 @@ export interface SessionSummary {
    *  host is connected right now. */
   hostId?: string;
   hostOnline?: boolean;
+  /** "siri" for the account's router/log session (docs/siri-design.md §3.3). */
+  kind?: "siri" | null;
+  /** The protocol run this session tracks, when it does. */
+  run?: SessionRunBadge | null;
+}
+
+/** Enough of a run to draw its row in a list. */
+export interface SessionRunBadge {
+  id: string;
+  protocolName: string;
+  current: number;
+  total: number;
+  status: "running" | "paused" | "done" | "abandoned";
+  startedAt: string;
+  /** A running timer's end, if any. */
+  timerEndsAt?: string | null;
 }
 
 export interface PendingQuestion {
@@ -37,7 +53,8 @@ export interface PendingQuestion {
 export interface SessionMessage {
   idx: number;
   turnId: string | null;
-  role: "user" | "assistant";
+  /** `system`: a quiet line from a run or the Siri router, never a turn. */
+  role: "user" | "assistant" | "system";
   content: string;
   meta: Record<string, unknown> | null;
   createdAt: string;
@@ -85,6 +102,19 @@ export interface TurnRequest {
   voice?: boolean;
   /** Free-form label of the sending device ("iPhone", "Mac"). */
   device?: string;
+  /** Who asked for this turn, when it was not the person in the chat: the
+   *  Siri agent delegating. The result is returned to them (siri-agent
+   *  design §5): a line in the Siri session, an announced summary, unread
+   *  until heard. */
+  origin?: TurnOrigin;
+}
+
+export interface TurnOrigin {
+  kind: "siri";
+  /** The Siri exchange that delegated, so the return can name it. */
+  siriTurnId: string;
+  /** What the person said, for the return line. */
+  said?: string;
 }
 
 /** Format AskUserQuestion answers as the follow-up user message the model

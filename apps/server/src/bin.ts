@@ -15,12 +15,16 @@ if (process.argv.includes("--mcp-library")) {
   const { serveLibraryMcp } = await import("./mcp/libraryMcp");
   await serveLibraryMcp();
 } else {
-  const [{ default: NodeRuntime }, { runServer }, { startLinkClient }, { primeFolderCache }] = await Promise.all([
-    import("@effect/platform-node/NodeRuntime").then((m) => ({ default: m })),
-    import("./server"),
-    import("./services/deviceLink/client"),
-    import("./services/userFolders"),
-  ]);
+  const [{ default: NodeRuntime }, { runServer }, { startLinkClient }, { primeFolderCache }, { startLinkBridge }, { startSessionBridge }, { startSiriDelivery }] =
+    await Promise.all([
+      import("@effect/platform-node/NodeRuntime").then((m) => ({ default: m })),
+      import("./server"),
+      import("./services/deviceLink/client"),
+      import("./services/userFolders"),
+      import("./services/runs/linkBridge"),
+      import("./services/runs/sessionBridge"),
+      import("./services/siri/delivery"),
+    ]);
 
   // Keep the embedded server alive: a single request's stream error (e.g. an
   // enqueue after the client aborted a chat) must never take down the whole
@@ -39,6 +43,13 @@ if (process.argv.includes("--mcp-library")) {
   // Desktop: dial the labee.online Device Link so phones can attach (no-op on
   // the box or when no account is connected yet).
   startLinkClient();
+  // Protocol runs: reflect run events into sessions held here, and push those
+  // for sessions held on a Mac down the Device Link.
+  startSessionBridge();
+  startLinkBridge();
+  // Siri: a turn the Siri agent delegated is returned to the person's ear
+  // when it ends (docs/siri-agent-design.md §5).
+  startSiriDelivery();
 
   runServer.pipe(NodeRuntime.runMain);
 }

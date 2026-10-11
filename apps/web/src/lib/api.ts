@@ -26,6 +26,8 @@ const BOX_ONLY = [
   /^\/api\/billing\//,
   /^\/api\/admin\//,
   /^\/api\/llm\/proxy-token\b/,
+  // Protocol runs are owned by the box (docs/protocol-run-design.md §2.2).
+  /^\/api\/runs\b/,
   // The shared library lives on the box; reading it goes straight there. The
   // one write — saving a copy — goes to wherever the person's own protocols
   // live, so it is not listed.

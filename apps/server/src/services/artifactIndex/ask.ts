@@ -73,7 +73,14 @@ export interface AskResult {
 export async function askLibrary(
   question: string,
   email: string,
-  opts?: { kind?: "skill" | "protocol"; scope?: Scope },
+  opts?: {
+    kind?: "skill" | "protocol";
+    scope?: Scope;
+    /** Replace the answering instructions (the quick, spoken variant). */
+    system?: string;
+    /** Passages to put in front of the retrieved ones (a run's state, a chat's tail). */
+    extraPassages?: Array<{ name: string; heading: string; text: string }>;
+  },
 ): Promise<AskResult> {
   const q = question.trim();
   if (!q) return { answer: "", citations: [], available: true, confidence: null };
@@ -91,16 +98,25 @@ export async function askLibrary(
       ? []
       : (await retrievePassages(q, email, { kind: opts?.kind ?? "protocol", limit: scope === "all" ? 5 : PASSAGE_COUNT })) ?? [];
   const lib = scope === "mine" ? [] : await libraryPassagesAnywhere(q, { limit: scope === "all" ? 3 : PASSAGE_COUNT, email });
-  const passages: Array<{
+  type Passage = {
     slug: string; name: string; heading: string; text: string; score: number; path: string;
     grain: "section" | "step" | "summary"; pool: "mine" | "library"; source?: string; url?: string; license?: string;
-  }> = [
-    ...own.map((p) => ({ ...p, pool: "mine" as const })),
-    ...lib.map((p) => ({
-      slug: `library:${p.id}`, name: p.title, heading: p.heading, text: p.text, score: p.score, path: p.path,
-      grain: p.grain, pool: "library" as const, source: p.source, url: p.url, license: p.license,
-    })),
-  ].sort((a, b) => b.score - a.score);
+  };
+  // The caller's own passages (a run's state, a chat's tail) come first: they
+  // are the context the question was asked in, not something retrieved.
+  const extra: Passage[] = (opts?.extraPassages ?? []).map((p) => ({
+    slug: "", name: p.name, heading: p.heading, text: p.text, score: 1, path: "", grain: "summary" as const, pool: "mine" as const,
+  }));
+  const passages: Passage[] = [
+    ...extra,
+    ...[
+      ...own.map((p) => ({ ...p, pool: "mine" as const })),
+      ...lib.map((p) => ({
+        slug: `library:${p.id}`, name: p.title, heading: p.heading, text: p.text, score: p.score, path: p.path,
+        grain: p.grain, pool: "library" as const, source: p.source, url: p.url, license: p.license,
+      })),
+    ].sort((a, b) => b.score - a.score),
+  ];
   if (passages.length === 0) {
     return {
       answer: "There are no protocols to answer from yet.",
@@ -118,7 +134,7 @@ export async function askLibrary(
   }));
   const answer = await chatComplete(
     target,
-    SYSTEM,
+    opts?.system ?? SYSTEM,
     JSON.stringify({ question: q, passages: numbered }),
   );
   if (answer == null) {

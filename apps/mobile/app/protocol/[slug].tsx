@@ -3,9 +3,14 @@
 // a button to save a copy. One's own protocol also shows the mechanical
 // checks and can be reviewed step by step. Plain text with monospace fences,
 // the same treatment as a chat message — the app carries no markdown renderer.
-import { useCallback, useEffect, useState } from "react";
+//
+// Ways on from one's own protocol: "Start run" previews the parsed steps,
+// asks the scale when the protocol names a working volume, and starts a run
+// (run-design §5.1); "Ask about this" opens a chat with the protocol attached.
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Linking, ScrollView, Text, View } from "react-native";
+import { Linking, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { parseProtocol } from "@labee/session-core";
 import {
   getLibraryProtocol,
   getProtocol,
@@ -18,7 +23,10 @@ import {
   type Protocol,
   type ReviewFinding,
 } from "~/api/protocols";
+import { startRun, type RunScale } from "~/api/runs";
 import { createSession } from "~/api/sessions";
+import { registerForPush } from "~/notifications";
+import { parseScale, summaryLine } from "~/runs/format";
 import { useApp } from "~/state/AppContext";
 import { Button } from "~/ui/Button";
 import { Chip } from "~/ui/Chip";
@@ -34,6 +42,9 @@ export default function ProtocolScreen() {
   const [p, setP] = useState<Protocol | null>(null);
   const [lib, setLib] = useState<LibraryProtocol | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [sheet, setSheet] = useState(false);
+  const [scaleInput, setScaleInput] = useState("");
   const [busy, setBusy] = useState<"" | "chat" | "save" | "review">("");
   const [saved, setSaved] = useState<{ slug: string; already: boolean } | null>(null);
   const [lint, setLint] = useState<{ findings: LintFinding[]; halts: number; warns: number } | null>(null);
@@ -59,6 +70,10 @@ export default function ProtocolScreen() {
     void load();
   }, [load]);
 
+  // The same parser the server freezes with, so the preview is what the
+  // run will be.
+  const snapshot = useMemo(() => (p ? parseProtocol(p.body) : null), [p]);
+
   // Carry the protocol into a chat: the session opens with it attached, so the
   // first question is answered against these steps.
   const discuss = async () => {
@@ -71,6 +86,32 @@ export default function ProtocolScreen() {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy("");
+    }
+  };
+
+  const start = async () => {
+    if (!p || !snapshot) return;
+    let scale: RunScale | null = null;
+    if (snapshot.base && scaleInput.trim()) {
+      const actual = parseScale(scaleInput, snapshot.base);
+      if (!actual) {
+        setErr("Say the volume as a number, like 50 or 50 ml.");
+        return;
+      }
+      scale = { base: { qty: snapshot.base.qty, unit: snapshot.base.unit }, actual };
+    }
+    setStarting(true);
+    try {
+      const r = await startRun(target, { protocolSlug: p.slug, scale });
+      setSheet(false);
+      // Timer alerts and the Done button on notifications need permission;
+      // ask now, the first time it matters, instead of leaving it to Settings.
+      void registerForPush(target);
+      router.push(`/session/${r.run.sessionId}?skill=${encodeURIComponent(p.slug)}`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStarting(false);
     }
   };
 
@@ -103,6 +144,7 @@ export default function ProtocolScreen() {
   const description = p?.description ?? lib?.description ?? "";
   const body = p?.body ?? lib?.body ?? "";
   const purpose = p ?? lib;
+  const canRun = Boolean(snapshot && snapshot.steps.length > 0);
 
   return (
     <Screen>
@@ -149,9 +191,10 @@ export default function ProtocolScreen() {
                 ) : null}
               </View>
             ) : (
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                <Button title={busy === "chat" ? "Opening…" : "Ask about this"} onPress={discuss} disabled={busy !== ""} />
-                <Button kind="secondary" title={busy === "review" ? "Reviewing…" : "Review steps"} onPress={runReview} disabled={busy !== ""} />
+              <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+                <Button testID="start-run" title="▶ Start run" onPress={() => setSheet(true)} disabled={starting || busy !== "" || !canRun} />
+                <Button kind="secondary" title={busy === "chat" ? "Opening…" : "Ask about this"} onPress={discuss} disabled={starting || busy !== ""} />
+                <Button kind="secondary" title={busy === "review" ? "Reviewing…" : "Review steps"} onPress={runReview} disabled={starting || busy !== ""} />
               </View>
             )}
 
@@ -192,6 +235,57 @@ export default function ProtocolScreen() {
           <Text style={{ color: t.muted }}>Loading…</Text>
         ) : null}
       </ScrollView>
+
+      <Modal visible={sheet} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSheet(false)}>
+        <View style={{ flex: 1, backgroundColor: t.bg }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
+            <Text style={{ color: t.text, fontSize: 17, fontWeight: "700" }}>Start run</Text>
+            <Pressable onPress={() => setSheet(false)} hitSlop={12}>
+              <Text style={{ color: t.accent, fontSize: 16 }}>Cancel</Text>
+            </Pressable>
+          </View>
+          {snapshot ? (
+            <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+              <Text style={{ color: t.text, fontSize: 16, fontWeight: "600" }}>{p?.name}</Text>
+              <Text testID="run-summary" style={{ color: t.muted, fontSize: 13 }}>{summaryLine(snapshot)}</Text>
+              {snapshot.loose ? (
+                <Text style={{ color: t.warn, fontSize: 13 }}>
+                  This protocol has no numbered procedure, so each paragraph becomes a step. Ask Labee to structure it first if that looks wrong.
+                </Text>
+              ) : null}
+              {snapshot.base ? (
+                <View style={{ gap: 6 }}>
+                  <Text style={{ color: t.text, fontSize: 14 }}>
+                    Written for {snapshot.base.qty} {snapshot.base.unit}. What volume are you running? (leave empty for the protocol's)
+                  </Text>
+                  <TextInput
+                    testID="scale-input"
+                    value={scaleInput}
+                    onChangeText={setScaleInput}
+                    keyboardType="decimal-pad"
+                    placeholder={`${snapshot.base.qty} ${snapshot.base.unit}`}
+                    placeholderTextColor={t.muted}
+                    style={{ borderWidth: 1, borderColor: t.border, borderRadius: 10, padding: 10, color: t.text, backgroundColor: t.card }}
+                  />
+                </View>
+              ) : null}
+              <View style={{ gap: 6 }}>
+                {snapshot.steps.map((s) => (
+                  <View key={s.n} style={{ flexDirection: "row", gap: 8 }}>
+                    <Text style={{ color: t.muted, width: 22, textAlign: "right" }}>{s.n}.</Text>
+                    <Text style={{ color: t.text, flex: 1, fontSize: 14 }}>
+                      {s.text.split("\n")[0]}
+                      {s.timer ? <Text style={{ color: t.accent }}>  ⏱ {s.timer.label}</Text> : null}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+              {err ? <Text style={{ color: t.danger }}>{err}</Text> : null}
+              <Button testID="confirm-start" title={starting ? "Starting…" : "Start"} onPress={start} disabled={starting} loading={starting} />
+            </ScrollView>
+          ) : null}
+        </View>
+      </Modal>
     </Screen>
   );
 }

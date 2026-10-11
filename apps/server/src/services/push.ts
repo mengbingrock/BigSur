@@ -8,12 +8,24 @@ export interface PushMessage {
   title: string;
   body: string;
   data?: Record<string, unknown>;
+  /** iOS notification category: which buttons the app shows (siri-design §4). */
+  categoryId?: string;
+  /** `time-sensitive` breaks through Focus and is read aloud on AirPods. */
+  interruptionLevel?: "passive" | "active" | "time-sensitive" | "critical";
 }
 
 export async function sendPush(email: string, msg: PushMessage): Promise<number> {
   const tokens = await pushTokensFor(email);
   if (tokens.length === 0) return 0;
-  const messages = tokens.map((to) => ({ to, sound: "default", title: msg.title, body: msg.body, data: msg.data ?? {} }));
+  const messages = tokens.map((to) => ({
+    to,
+    sound: "default",
+    title: msg.title,
+    body: msg.body,
+    data: msg.data ?? {},
+    ...(msg.categoryId ? { categoryId: msg.categoryId } : {}),
+    ...(msg.interruptionLevel ? { interruptionLevel: msg.interruptionLevel } : {}),
+  }));
   try {
     const res = await fetch(EXPO_PUSH_URL, {
       method: "POST",

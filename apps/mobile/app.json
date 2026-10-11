@@ -16,11 +16,30 @@
           "audio",
           "remote-notification"
         ],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSSupportsLiveActivities": true,
+        "INAlternativeAppNames": [
+          {
+            "INAlternativeAppName": "Lab Bee",
+            "INAlternativeAppNamePronunciationHint": "lab bee"
+          },
+          {
+            "INAlternativeAppName": "Lab Helper"
+          },
+          {
+            "INAlternativeAppName": "Lab Assistant"
+          }
+        ]
       },
       "appleTeamId": "W3X4ZUG72V",
       "icon": "./assets/icon.png",
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.developer.usernotifications.time-sensitive": true,
+        "keychain-access-groups": [
+          "$(AppIdentifierPrefix)online.labee.mobile"
+        ]
+      }
     },
     "web": {
       "bundler": "metro",
@@ -39,10 +58,17 @@
       "expo-secure-store",
       "expo-status-bar",
       "./plugins/withSceneLifecycle",
-      "expo-web-browser"
+      "expo-web-browser",
+      "@bacons/apple-targets"
     ],
     "experiments": {
-      "typedRoutes": false
+      "typedRoutes": false,
+      "inlineModules": {
+        "watchedDirectories": [
+          "native",
+          "targets/widgets/shared"
+        ]
+      }
     },
     "icon": "./assets/icon.png",
     "splash": {

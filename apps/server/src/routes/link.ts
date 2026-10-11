@@ -14,7 +14,10 @@ import type { BoxToHost, HostToBox } from "../services/deviceLink/protocol";
 import { boxSessionCookie, isDesktop, proxyServerBase } from "../services/llmSettings";
 import { linkState, stableHostId } from "../services/deviceLink/client";
 import { sendPush } from "../services/push";
+import { ackRunEvents, replayRunsTo } from "../services/runs/linkBridge";
+import { endRunsForDeletedSession } from "../services/runs/service";
 import { readLinkToken, sealLinkToken } from "../services/session";
+import { runBadge } from "./sessions";
 
 const params = HttpRouter.params;
 
@@ -83,9 +86,12 @@ export const hostSocketRoute = HttpRouter.add(
                 Effect.runPromise(write(new SocketCloseEvent(4000, "replaced"))).catch(() => {});
               },
               pending: new Map(),
+              parses: new Map(),
             };
             registerHost(conn);
             send({ t: "welcome", email, hostId: conn.hostId });
+            // Run events this Mac slept through (design §2.2), oldest first.
+            void replayRunsTo(conn).catch(() => {});
             lastSeenMs = Date.now();
             heartbeat = setInterval(() => {
               if (Date.now() - lastSeenMs > PING_MS * 2.5) {
@@ -113,6 +119,10 @@ export const hostSocketRoute = HttpRouter.add(
             void handleMirror(conn, frame);
             return;
           }
+          if (frame.t === "runack") {
+            void ackRunEvents(conn, frame.runId, frame.seqs).catch(() => {});
+            return;
+          }
           dispatchHostFrame(conn, frame);
         };
         yield* socket.runRaw(onFrame).pipe(Effect.catch(() => Effect.void));
@@ -129,26 +139,64 @@ async function handleMirror(conn: HostConn, frame: Extract<HostToBox, { t: "mirr
   try {
     if (frame.session) await mirror.upsertMirrorSession(email, hostId, { ...frame.session, hostId });
     if (frame.messages) await mirror.upsertMirrorMessages(email, hostId, frame.messages.sessionId, frame.messages.items);
-    if (frame.deleted) await mirror.deleteMirrorSession(email, hostId, frame.deleted);
+    if (frame.deleted) {
+      await mirror.deleteMirrorSession(email, hostId, frame.deleted);
+      // Deleted on the Mac itself: a run tracked in that chat ends with it.
+      await endRunsForDeletedSession(email, frame.deleted, hostId);
+    }
     if (frame.sessionIds) await mirror.pruneMirrorSessions(email, hostId, frame.sessionIds);
     if (frame.event) {
       await mirror.insertMirrorEvent(email, hostId, frame.event);
       const evt = frame.event as { type?: string; sessionId?: string; data?: Record<string, unknown> };
       const sessionId = String(evt.sessionId ?? "");
       const title = String((frame.session as { title?: string } | undefined)?.title ?? "Labee");
-      if (evt.type === "question_asked") {
-        await sendPush(email, { title, body: "Labee is asking you a question.", data: { sessionId, hostId, kind: "question" } });
+      // A turn the Siri agent delegated is returned by the host that ran it
+      // (a spoken summary, through `notify`); the generic pushes would double it.
+      const siriOrigin = (evt.data?.origin as { kind?: string } | undefined)?.kind === "siri";
+      if (siriOrigin) {
+        // nothing: the host's `notify` frame carries the return
+      } else if (evt.type === "question_asked") {
+        // The buttons are generic slots; the body lists the options and the
+        // data carries their labels so a press maps back to an answer.
+        const input = (evt.data?.input ?? {}) as { questions?: Array<{ question?: string; options?: Array<{ label?: string }> }> };
+        const first = input.questions?.[0];
+        const options = (first?.options ?? []).map((o) => String(o.label ?? "")).filter(Boolean).slice(0, 4);
+        const question = String(first?.question ?? "Labee is asking you a question.");
+        const listed = options.slice(0, 3).map((o, i) => `${i + 1}. ${o}`).join("  ");
+        await sendPush(email, {
+          title,
+          body: listed ? `${question}\n${listed}` : question,
+          data: { sessionId, hostId, kind: "question", options },
+          categoryId: "labee.question",
+          interruptionLevel: "time-sensitive",
+        });
       } else if (evt.type === "turn_ended") {
         const err = typeof evt.data?.error === "string" ? evt.data.error : null;
         const beingWatched = (watching.get(watchKey(email, hostId, sessionId)) ?? 0) > 0;
-        if (err) await sendPush(email, { title, body: `Turn failed: ${err.slice(0, 120)}`, data: { sessionId, hostId, kind: "error" } });
-        else if (!beingWatched && !evt.data?.question) {
+        if (err) {
+          await sendPush(email, { title, body: `Turn failed: ${err.slice(0, 120)}`, data: { sessionId, hostId, kind: "error" }, categoryId: "labee.attention" });
+        } else if (!beingWatched && !evt.data?.question) {
           const content = typeof evt.data?.content === "string" ? evt.data.content : "";
-          await sendPush(email, { title, body: content ? content.slice(0, 140) : "Turn finished.", data: { sessionId, hostId, kind: "done" } });
+          await sendPush(email, {
+            title,
+            body: content ? content.slice(0, 140) : "Turn finished.",
+            data: { sessionId, hostId, kind: "done" },
+            categoryId: "labee.reply",
+            interruptionLevel: "time-sensitive",
+          });
         }
       }
     }
-    if (frame.notify) await sendPush(email, frame.notify);
+    if (frame.notify) {
+      const n = frame.notify;
+      await sendPush(email, {
+        title: n.title,
+        body: n.body,
+        data: { ...(n.data ?? {}), hostId },
+        ...(n.categoryId ? { categoryId: n.categoryId } : {}),
+        ...(n.interruptionLevel ? { interruptionLevel: n.interruptionLevel } : {}),
+      });
+    }
   } catch (e) {
     console.warn("[link] mirror write failed:", e instanceof Error ? e.message : e);
   }
@@ -237,6 +285,11 @@ export const tunnelRoute = HttpRouter.add(
               const del = request.method === "DELETE" ? rest.match(/^\/api\/sessions\/([^/?]+)\/?(?:\?.*)?$/) : null;
               if (del && (head.status === 404 || (head.status >= 200 && head.status < 300))) {
                 void mirror.deleteMirrorSession(user.email, hostId, del[1]!);
+                // …and a run tracked in that chat ends, or it would sit "in
+                // progress" in the Runs tab pointing at a chat that is gone.
+                void endRunsForDeletedSession(user.email, del[1]!, hostId).catch((e) =>
+                  console.warn("[runs] ending runs of a deleted chat failed:", e instanceof Error ? e.message : e),
+                );
               }
               if (wkey) watching.set(wkey, (watching.get(wkey) ?? 0) + 1);
               const stream = new ReadableStream<Uint8Array>({
@@ -310,7 +363,7 @@ export const tunnelRoute = HttpRouter.add(
  *  and stream the answer back. Unlike proxyToBox this carries the method,
  *  body and the headers the tunnel cares about, and never buffers the
  *  response — an SSE tail has no end to wait for. */
-function forwardToBox(request: HttpServerRequest.HttpServerRequest, path: string) {
+export function forwardToBox(request: HttpServerRequest.HttpServerRequest, path: string) {
   return Effect.gen(function* () {
     const cookie = boxSessionCookie();
     if (!cookie) return yield* error("Connect to Labee first (Settings → Connection).", 409);
@@ -431,12 +484,18 @@ export const listSessionsEverywhereRoute = HttpRouter.add(
     }
     const online = new Map(listHosts(user.email).map((h) => [h.hostId, h]));
     const rows = yield* Effect.promise(() => mirror.listMirrorSessionsForAccount(user.email));
-    const sessions = rows.map(({ hostId, session }) => ({
-      ...session,
-      hostId,
-      hostName: online.get(hostId)?.name ?? null,
-      hostOnline: online.get(hostId)?.online ?? false,
-    }));
+    // The box owns run state, so it can badge a Mac's sessions itself.
+    const sessions = yield* Effect.promise(() =>
+      Promise.all(
+        rows.map(async ({ hostId, session }) => ({
+          ...session,
+          hostId,
+          hostName: online.get(hostId)?.name ?? null,
+          hostOnline: online.get(hostId)?.online ?? false,
+          run: await runBadge(String((session as { id?: unknown }).id ?? "")),
+        })),
+      ),
+    );
     return yield* json({ sessions });
   }),
 );
@@ -502,13 +561,20 @@ export const pushTokenRoute = HttpRouter.add(
     const user = yield* sessionUser;
     if (!user) return yield* error("Unauthorized.", 401);
     const request = yield* HttpServerRequest.HttpServerRequest;
+    const body = yield* safeBody<{ pushToken?: string; name?: string }>();
+    if (!body || typeof body.pushToken !== "string" || !body.pushToken) return yield* error("`pushToken` is required.", 400);
     const auth = request.headers["authorization"] ?? "";
-    const device = auth.startsWith("Bearer ") ? yield* Effect.promise(() => devices.authenticateDevice(auth.slice(7))) : null;
-    if (!device) return yield* error("Pair this device first (Settings → Devices).", 400);
-    const body = yield* safeBody<{ pushToken?: string }>();
-    if (!body || typeof body.pushToken !== "string") return yield* error("`pushToken` is required.", 400);
-    yield* Effect.promise(() => devices.setPushToken(user.email, device.id, body.pushToken!));
-    return yield* json({ ok: true });
+    const paired = auth.startsWith("Bearer ") ? yield* Effect.promise(() => devices.authenticateDevice(auth.slice(7))) : null;
+    if (paired) {
+      yield* Effect.promise(() => devices.setPushToken(user.email, paired.id, body.pushToken!));
+      return yield* json({ ok: true, deviceId: paired.id });
+    }
+    // Signed in with Apple or Google: no pairing token, so the phone registers
+    // itself by its push token. (Before this, such phones were refused here
+    // and never received a single push.)
+    const name = String(body.name ?? request.headers["x-labee-device"] ?? "iPhone").trim() || "iPhone";
+    const device = yield* Effect.promise(() => devices.upsertPushDevice({ email: user.email, name, platform: name, pushToken: body.pushToken! }));
+    return yield* json({ ok: true, deviceId: device.id });
   }),
 );
 

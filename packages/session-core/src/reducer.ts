@@ -26,7 +26,7 @@ export interface TurnStats {
 export interface TranscriptMessage {
   id: string;
   turnId: string | null;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   content: string;
   /** Still streaming. */
   pending: boolean;
@@ -187,6 +187,21 @@ export function applyEvent(state: TranscriptState, ev: SessionEvent): Transcript
     }
     case "init":
       return { ...next, session: d };
+    case "system_message": {
+      const id = `m${String(d.idx ?? ev.seq)}`;
+      if (next.messages.some((m) => m.id === id)) return next; // seeded already
+      const line: TranscriptMessage = {
+        id,
+        turnId: null,
+        role: "system",
+        content: String(d.content ?? ""),
+        pending: false,
+        activity: [],
+        ...(d.meta && typeof d.meta === "object" && typeof (d.meta as { device?: unknown }).device === "string" ? { device: (d.meta as { device: string }).device } : {}),
+        createdAt: typeof d.createdAt === "string" ? d.createdAt : ev.ts,
+      };
+      return { ...next, messages: [...next.messages, line] };
+    }
     case "status":
       return mutateActivity(next, t, (a) => [
         ...a.filter((x) => x.kind !== "status"),

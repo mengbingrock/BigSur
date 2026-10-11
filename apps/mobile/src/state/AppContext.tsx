@@ -10,7 +10,9 @@ import {
   logout as apiLogout,
   type User,
 } from "~/api/auth";
-import { setDeviceToken, setSessionToken, type Target } from "~/api/client";
+import { getSessionToken, setDeviceToken, setSessionToken, type Target } from "~/api/client";
+import { syncPushRegistration } from "~/notifications";
+import { configureSiri, refreshSiriShortcuts, reindexSiri } from "~/siri";
 import { getPref, getSecret, setPref, setSecret } from "~/storage";
 
 const DEFAULT_BASE = Platform.OS === "web" && typeof location !== "undefined" && location.origin.startsWith("http")
@@ -20,6 +22,8 @@ const DEFAULT_BASE = Platform.OS === "web" && typeof location !== "undefined" &&
 export interface AppState {
   ready: boolean;
   target: Target;
+  /** The account server itself, never a Mac: runs, link, billing. */
+  rootTarget: Target;
   user: User | null;
   error: string | null;
   setBase: (base: string) => Promise<void>;
@@ -220,9 +224,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await forgetLocalSession();
   }, [rootTarget, forgetLocalSession]);
 
+  // The Siri intents run without this JS: hand them what they need to call
+  // the server, and take it away on sign-out (docs/siri-design.md §5.2).
+  useEffect(() => {
+    if (!ready) return;
+    if (!user) {
+      void configureSiri(null);
+      return;
+    }
+    void configureSiri({ base, hostId: hostId ?? null, sessionToken: getSessionToken() })
+      .then(() => refreshSiriShortcuts())
+      .then(() => reindexSiri());
+    // Keep the account server's copy of this phone's push token current, so
+    // "I'll let you know" from Siri can actually reach the phone.
+    void syncPushRegistration({ base });
+  }, [ready, user, base, hostId]);
+
   const value = useMemo<AppState>(
-    () => ({ ready, target, user, error, setBase, setHostId, signIn, signInWithGoogle, signInWithApple, signOut, deleteAccount, refresh }),
-    [ready, target, user, error, setBase, setHostId, signIn, signInWithGoogle, signInWithApple, signOut, deleteAccount, refresh],
+    () => ({ ready, target, rootTarget, user, error, setBase, setHostId, signIn, signInWithGoogle, signInWithApple, signOut, deleteAccount, refresh }),
+    [ready, target, rootTarget, user, error, setBase, setHostId, signIn, signInWithGoogle, signInWithApple, signOut, deleteAccount, refresh],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

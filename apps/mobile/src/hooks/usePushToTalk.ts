@@ -1,5 +1,7 @@
 // Hold-to-talk recording: expo-audio recorder → base64 → /api/transcribe.
 // Returns the transcript to the caller (who decides whether it's a command).
+// `listen()` is the hands-free variant for Lab mode: one tap starts it, and
+// it stops by itself once the person has spoken and gone quiet.
 //
 // Robustness notes: the release can arrive before the recorder is ready (quick
 // taps, slow permission prompts), so readiness lives in a ref and a release
@@ -16,6 +18,7 @@ import {
 } from "expo-audio";
 import type { Target } from "~/api/client";
 import { transcribe } from "~/api/sessions";
+import { SpeechEndDetector } from "./speechEnd";
 
 export type PttState = "idle" | "recording" | "transcribing" | "denied" | "unsupported";
 
@@ -26,8 +29,14 @@ export interface PushToTalk {
   start: () => Promise<void>;
   /** Stop and transcribe; resolves with the text ("" when nothing was said). */
   stop: () => Promise<string>;
+  /** Tap-to-talk: record until speech is followed by a pause (or a cap),
+   *  then transcribe. Resolves "" if `stop()` ended it instead, because the
+   *  caller of `stop()` gets the text then. */
+  listen: () => Promise<string>;
   cancel: () => Promise<void>;
 }
+
+const RECORDING_OPTIONS = { ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true };
 
 export async function blobUriToBase64(uri: string): Promise<{ base64: string; mimeType: string }> {
   const res = await fetch(uri);
@@ -68,7 +77,7 @@ const log = (...args: unknown[]) => {
 };
 
 export function usePushToTalk(target: Target): PushToTalk {
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorder = useAudioRecorder(RECORDING_OPTIONS);
   const [state, setState] = useState<PttState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [seconds, setSeconds] = useState(0);
@@ -201,7 +210,37 @@ export function usePushToTalk(target: Target): PushToTalk {
     setState("idle");
   }, [recorder]);
 
+  const listen = useCallback(async (): Promise<string> => {
+    await start();
+    if (phase.current !== "recording") return "";
+    return new Promise<string>((resolve) => {
+      const detector = new SpeechEndDetector(Date.now());
+      const iv = setInterval(() => {
+        if (phase.current !== "recording") {
+          // Ended by stop() (a second tap) or cancel(): that caller has the text.
+          clearInterval(iv);
+          resolve("");
+          return;
+        }
+        let level: number | null = null;
+        try {
+          const m = recorder.getStatus().metering;
+          if (typeof m === "number") level = m;
+        } catch {
+          // No metering: the time caps still end the recording.
+        }
+        const verdict = detector.push(level, Date.now());
+        if (verdict === "listening") return;
+        clearInterval(iv);
+        log("listen: auto-stop", verdict);
+        // Nothing but background the whole time: drop the clip, don't upload it.
+        if (verdict === "ended") void finish().then(resolve);
+        else void cancel().then(() => resolve(""));
+      }, 150);
+    });
+  }, [start, finish, cancel, recorder]);
+
   useEffect(() => clearTimer, []);
 
-  return { state, error, seconds, start, stop, cancel };
+  return { state, error, seconds, start, stop, listen, cancel };
 }

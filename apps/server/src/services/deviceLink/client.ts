@@ -14,6 +14,10 @@ import { LINK_VERSION } from "./protocol";
 import { ensureLinkSecret } from "./secret";
 import { subscribeAgents } from "../agents";
 import { subscribeSessionDeleted } from "../sessions/db";
+import { getSkillBySlug } from "../skills";
+import { parseProtocol } from "../runs/parse";
+import { applyRemoteRunEvent } from "../runs/sessionBridge";
+import type { RunEventRow, RunRow } from "../runs/db";
 
 const CHUNK = 64 * 1024;
 const HEARTBEAT_MS = 20_000;
@@ -37,6 +41,15 @@ let ws: WebSocket | null = null;
 
 export function linkState(): LinkState {
   return currentState;
+}
+
+/** Send a frame to the box on the live connection. False when offline; the
+ *  caller decides whether that matters (a push can be retried, a mirror
+ *  write is caught up by the next summary). */
+export function sendToBox(frame: HostToBox): boolean {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+  ws.send(JSON.stringify(frame));
+  return true;
 }
 
 function hostIdFile(): string {
@@ -279,6 +292,40 @@ function runSocket(
         const ctrl = new AbortController();
         inflight.set(frame.id, ctrl);
         void replay(frame, cfg, send, ctrl.signal).finally(() => inflight.delete(frame.id));
+        return;
+      }
+      // A run event the box owns for a session held here: keep a copy, add
+      // the transcript line, acknowledge (design §2.2).
+      if (frame.t === "run") {
+        const run = frame.run as unknown as RunRow;
+        const event = frame.event as RunEventRow;
+        if (run.email !== accountEmail) return;
+        void applyRemoteRunEvent(run, event)
+          .then((fresh) => {
+            if (!fresh) console.log(`[link] run event ${run.id}#${event.seq} already held`);
+            send({ t: "runack", runId: run.id, seqs: [event.seq] });
+          })
+          .catch((e) => console.warn("[link] run event failed:", e instanceof Error ? e.message : e));
+        return;
+      }
+      // The box wants a protocol's frozen steps and a session for a run.
+      if (frame.t === "parse") {
+        void (async () => {
+          try {
+            if (frame.user !== accountEmail) throw new Error("Not this account.");
+            const skill = getSkillBySlug(frame.protocolSlug, accountEmail);
+            if (!skill || skill.artifactKind !== "protocol") throw new Error("Protocol not found on this Mac.");
+            const snapshot = parseProtocol(skill.body);
+            let sessionId = frame.sessionId;
+            if (!sessionId) {
+              const s = await sdb.createSession({ email: accountEmail, title: skill.name, lastBody: { skillSlugs: [skill.slug] } });
+              sessionId = s.id;
+            }
+            send({ t: "parsed", reqId: frame.reqId, snapshot: snapshot as unknown as Record<string, unknown>, sessionId, protocolName: skill.name });
+          } catch (e) {
+            send({ t: "parsed", reqId: frame.reqId, error: e instanceof Error ? e.message : String(e) });
+          }
+        })();
       }
     });
     const done = () => {

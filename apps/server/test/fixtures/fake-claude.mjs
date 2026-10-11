@@ -66,6 +66,11 @@ async function probeMcp() {
 }
 const marker = markers[markers.length - 1];
 const script = marker || process.env.FAKE_CLAUDE_SCRIPT || "default";
+// "[[reply:…]]" anywhere in the prompt (or FAKE_CLAUDE_REPLY) makes the text
+// reply exactly that — for callers that parse the answer (the Siri router).
+const replyMarker = prompt.match(/\[\[reply:([\s\S]*?)\]\]/);
+// The marker may sit inside a JSON-encoded prompt, so undo JSON's escaping.
+const fixedReply = replyMarker ? replyMarker[1].replace(/\\"/g, '"').replace(/\\\\/g, "\\") : process.env.FAKE_CLAUDE_REPLY || null;
 const delay = Number(process.env.FAKE_CLAUDE_DELAY_MS || (marker === "slow" ? 150 : 0));
 const modelIdx = args.indexOf("--model");
 const model = modelIdx >= 0 ? args[modelIdx + 1] : "fake";
@@ -75,6 +80,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const sid = "fake-session-" + process.pid;
 
 async function main() {
+  // `--output-format text` (one-shot completions): plain text, nothing else.
+  const fmtIdx = args.indexOf("--output-format");
+  if (fmtIdx >= 0 && args[fmtIdx + 1] === "text") {
+    if (script === "fail") {
+      process.stderr.write("fake failure\n");
+      process.exit(1);
+    }
+    process.stdout.write(fixedReply ?? (script === "echo" ? `You said: ${prompt.slice(-200)}` : "Hello from fake claude. The README is short."));
+    return;
+  }
   out({ type: "system", subtype: "init", model, session_id: sid, cwd: process.cwd(), permissionMode: "bypassPermissions", tools: ["Read"] });
   if (script === "fail") {
     process.stderr.write("fake failure\n");
@@ -101,11 +116,12 @@ async function main() {
   out({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "toolu_1", content: "# README" }] } });
   out({ type: "stream_event", event: { type: "content_block_start", index: 2, content_block: { type: "text" } } });
   const text =
-    script === "echo"
+    fixedReply ??
+    (script === "echo"
       ? `You said: ${prompt.slice(-200)}`
       : script === "mcp"
         ? await probeMcp()
-        : "Hello from fake claude. The README is short.";
+        : "Hello from fake claude. The README is short.");
   const words = text.split(" ");
   for (let i = 0; i < words.length; i++) {
     out({ type: "stream_event", event: { type: "content_block_delta", index: 2, delta: { type: "text_delta", text: (i ? " " : "") + words[i] } } });

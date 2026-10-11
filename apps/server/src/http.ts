@@ -17,6 +17,9 @@ import { llmRoutes } from "./routes/llmSettings";
 import { oauthRoutes } from "./routes/oauth";
 import { mcpProxyRoute, mcpTokenRoute } from "./routes/protocolsMcp";
 import { researchRoutes } from "./routes/research";
+import { runRoutes } from "./routes/runs";
+import { siriRoutes } from "./routes/siri";
+import { askRoutes } from "./routes/ask";
 import { sessionRoutes } from "./routes/sessions";
 import { linkRoutes } from "./routes/link";
 import { skillsRoutes } from "./routes/skills";
@@ -40,6 +43,9 @@ export const routesLayer = Layer.mergeAll(
   ...billingRoutes,
   ...agentRoutes,
   ...researchRoutes,
+  ...runRoutes,
+  ...siriRoutes,
+  ...askRoutes,
   ...sessionRoutes,
   ...linkRoutes,
   ...folderRoutes,

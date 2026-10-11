@@ -47,8 +47,11 @@ export default function SessionsScreen() {
     void load();
   }, [load]);
 
-  const running = sessions.filter((s) => s.status === "running" || s.status === "awaiting_input");
-  const rest = sessions.filter((s) => !running.includes(s));
+  // The Siri session (the router's log) stays pinned at the top; runs in
+  // progress sort with running turns.
+  const siri = sessions.find((s) => s.kind === "siri");
+  const running = sessions.filter((s) => s !== siri && (s.status === "running" || s.status === "awaiting_input" || s.run?.status === "running"));
+  const rest = sessions.filter((s) => s !== siri && !running.includes(s));
   const awaiting = sessions.filter((s) => s.status === "awaiting_input");
   const waiting = awaiting.length;
   const firstWaiting = awaiting[0];
@@ -60,17 +63,23 @@ export default function SessionsScreen() {
 
   const Row = ({ s }: { s: SessionSummary }) => (
     <Pressable testID={`session-${s.id}`} onPress={() => router.push(`/session/${s.id}`)} style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
-      <StatusDot status={s.status} />
+      {s.run && s.run.status === "running" ? (
+        <Text style={{ color: t.accent, fontSize: 11, fontWeight: "700", minWidth: 28 }}>{s.run.current}/{s.run.total}</Text>
+      ) : (
+        <StatusDot status={s.status} />
+      )}
       <View style={{ flex: 1 }}>
         <Text numberOfLines={1} style={{ color: t.text, fontSize: 15, fontWeight: "600" }}>
           {s.title}
         </Text>
         <Text style={{ color: t.muted, fontSize: 12 }}>
           {s.hostId ? `${s.hostOnline ? "" : "offline · "}` : ""}
+          {s.run ? `${s.run.status === "running" ? `step ${s.run.current} of ${s.run.total}` : s.run.status} · ` : ""}
           {s.status === "running" ? "running" : s.status === "awaiting_input" ? "waiting on you" : s.status === "error" ? "error" : "idle"} · {ago(s.updatedAt)}
           {s.costUsd ? ` · $${s.costUsd.toFixed(2)}` : ""}
         </Text>
       </View>
+      {s.kind === "siri" ? <Chip label="Siri" tone="accent" /> : null}
       {s.queued ? <Chip label={`${s.queued} queued`} /> : null}
     </Pressable>
   );
@@ -87,15 +96,18 @@ export default function SessionsScreen() {
       ) : null}
       {err ? <Text style={{ color: t.danger, padding: 12 }}>{err}</Text> : null}
       <FlatList
-        data={[...running, ...rest]}
+        data={[...(siri ? [siri] : []), ...running, ...rest]}
         keyExtractor={(s) => s.id}
-        renderItem={({ item, index }) => (
-          <>
-            {index === 0 && running.length > 0 ? <Text style={{ color: t.muted, fontSize: 11, fontWeight: "700", paddingHorizontal: 16, paddingTop: 12 }}>RUNNING</Text> : null}
-            {index === running.length && rest.length > 0 ? <Text style={{ color: t.muted, fontSize: 11, fontWeight: "700", paddingHorizontal: 16, paddingTop: 12 }}>RECENT</Text> : null}
-            <Row s={item} />
-          </>
-        )}
+        renderItem={({ item, index }) => {
+          const i = index - (siri ? 1 : 0);
+          return (
+            <>
+              {i === 0 && running.length > 0 ? <Text style={{ color: t.muted, fontSize: 11, fontWeight: "700", paddingHorizontal: 16, paddingTop: 12 }}>RUNNING</Text> : null}
+              {i === running.length && rest.length > 0 ? <Text style={{ color: t.muted, fontSize: 11, fontWeight: "700", paddingHorizontal: 16, paddingTop: 12 }}>RECENT</Text> : null}
+              <Row s={item} />
+            </>
+          );
+        }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
         ListEmptyComponent={<Text style={{ color: t.muted, padding: 24, textAlign: "center" }}>No sessions yet. Start one on your Mac, or tap New.</Text>}
         contentContainerStyle={{ paddingBottom: 96 }}
