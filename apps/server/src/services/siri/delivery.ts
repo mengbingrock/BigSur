@@ -18,7 +18,7 @@ import type { SessionRow } from "../sessions/db";
 import { subscribeAll, type SessionEventEnvelope } from "../sessions/runner";
 import { ensureSiriSession } from "./router";
 
-const SUMMARY_MS = Number(process.env.LABEE_SIRI_SUMMARY_MS ?? 6000);
+const SUMMARY_MS = Number(process.env.LABEE_SIRI_SUMMARY_MS ?? 12000);
 
 export interface ReturnLine {
   idx: number;

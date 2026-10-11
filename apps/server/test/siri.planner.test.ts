@@ -95,15 +95,38 @@ describe("the Siri agent over HTTP", () => {
     expect(((await (await api(`/api/runs/${runId}`)).json()) as { run: { status: string } }).run.status).toBe("running");
     const yes = (await (await post("/api/siri/say", { confirmId: r.confirmId, yes: true })).json()) as Say;
     expect(yes.status).toBe("answered");
-    expect(yes.spoken).toBe("Finishing.");
+    // After a yes, what was done is said, not the plan's own sentence.
+    expect(yes.spoken).toMatch(/^Finished the .* run\./);
     expect(((await (await api(`/api/runs/${runId}`)).json()) as { run: { status: string } }).run.status).toBe("done");
   }, 30000);
 
-  it("a plan naming an unknown run is rejected and falls back to a new chat that returns", async () => {
+  it("a confirm with no actions is not a confirm: the sentence is spoken, nothing waits", async () => {
+    const r = (await (await say("finish the first step", { say: "Should I mark step one done?", actions: [], need: null, confirm: "Mark step one done?" })).json()) as Say;
+    expect(r.status).toBe("answered");
+    expect(r.confirmId).toBeUndefined();
+  }, 30000);
+
+  it("a step done says the step and the next one, and a yes afterwards is understood from the conversation", async () => {
+    const created = (await (await post("/api/runs", { protocolSlug: "user--chemically-competent-cells-tss" })).json()) as { run: { id: string } };
+    const r = (await (await say("finish the first step", { say: "Marking it done?", actions: [{ do: "runs.advance", runId: created.run.id }], need: null, confirm: null })).json()) as Say;
+    expect(r.status).toBe("answered");
+    // The plan's sentence was a question, so the executor's sentence is used.
+    expect(r.spoken).toMatch(/^Step 1 done\. Next, step 2: /);
+    // The next plan sees the conversation.
+    const state = (await (await post("/api/siri/say", { text: "x [[reply:bad]]" })).json()) as Say;
+    expect(state.spoken).toBe("I didn't catch that. Say it again?");
+  }, 30000);
+
+  it("a plan naming an unknown run is rejected and says so; only a longer phrase with no plan at all opens a chat", async () => {
     const r = (await (await say("pause the thing", { say: "Paused.", actions: [{ do: "runs.pause", runId: "run_nope" }], need: null, confirm: null })).json()) as Say;
-    expect(r.status).toBe("working");
-    expect(r.via).toBe("fallback");
-    expect(r.spoken).toMatch(/started a chat/i);
+    expect(r.status).toBe("answered");
+    expect(r.spoken).toBe("I couldn't act on that. Say it again?");
+    const short = (await (await post("/api/siri/say", { text: "Yes, please. [[reply:garbage]]" })).json()) as Say;
+    expect(short).toMatchObject({ status: "answered", spoken: "I didn't catch that. Say it again?", actions: [] });
+    const long = (await (await post("/api/siri/say", { text: "compare the two transfection protocols for me please [[reply:garbage]]" })).json()) as Say;
+    expect(long.status).toBe("working");
+    expect(long.via).toBe("fallback");
+    expect(long.spoken).toMatch(/started a chat/i);
     await waitFor(async () => ((await (await api("/api/siri/news")).json()) as { items: unknown[] }).items.length > 0, 20000);
   }, 40000);
 
