@@ -1,5 +1,6 @@
-/** Secondary audit: all official ORD questions with an exact source-title
- * match in the downloaded corpus, selected without consulting gold order. */
+/** Historical development subset: exact ROOT-title matches only. This is not
+ * a corpus completeness audit; use coverage.py for root + subsection coverage.
+ * Selection never consults gold order. */
 import fs from "node:fs";
 import path from "node:path";
 import { Database } from "bun:sqlite";

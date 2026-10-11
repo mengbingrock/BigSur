@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { Database } from "bun:sqlite";
 const arg = (name: string, fallback?: string) =>
-  process.argv[process.argv.indexOf(name) + 1] ?? fallback;
+  process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : fallback;
 const source = arg("--source");
 const output = arg("--out");
 if (!process.argv.includes("--source") || !process.argv.includes("--out"))
@@ -19,7 +19,9 @@ process.env.LABEE_DATA_DIR = path.join(root, "app-data");
 process.env.SKILLS_ROOTS = path.join(root, "skills");
 process.env.LABEE_SEED_PROTOCOLS = "false";
 delete process.env.LABEE_DB_PATH;
-const { mapBioProRecord } = await import("../../src/services/library/ingest");
+const { loadCorpus } = await import("./corpus");
+const corpus = loadCorpus(source!, arg("--manifest"));
+fs.writeFileSync(path.join(root, "source-aliases.json"), JSON.stringify(corpus.aliases));
 const { chunkProtocol } =
   await import("../../src/services/artifactIndex/chunk");
 const { ftsExpression } =
@@ -55,57 +57,48 @@ const inserts = Object.fromEntries(
     dbs[v]!.prepare("INSERT INTO chunks VALUES(?,?,?,?,?,?)"),
   ]),
 );
-const checksums: Record<string, string> = {};
+const checksums: Record<string, string> = { ...corpus.checksums };
 let protocols = 0;
 const counts: Record<string, number> = { flat: 0, legacy: 0, hierarchy: 0 };
-for (const file of ["Protocol-exchange.json", "Protocol-io.json"]) {
-  const data = fs.readFileSync(path.join(source!, file));
-  checksums[file] = createHash("sha256").update(data).digest("hex");
-  for (const raw of JSON.parse(data.toString())) {
-    const record = mapBioProRecord(raw, {
-      source: file.replace(".json", ""),
-      license: "CC BY-NC 4.0; isolated benchmark only",
+for (const record of corpus.records) {
+  const protocol = { ...record, name: record.title };
+  // All variants see the same source content and purpose fields.
+  const flatText = `${record.title}\n${record.description}\n${record.body}`;
+  const flat = [];
+  for (let start = 0; start < flatText.length; ) {
+    const end = Math.min(start + 1800, flatText.length);
+    flat.push({
+      text: flatText.slice(start, end),
+      heading: "",
+      path: "",
+      grain: "section",
     });
-    if (!record) continue;
-    const protocol = { ...record, name: record.title };
-    // All variants see the same source content and purpose fields.
-    const flatText = `${record.title}\n${record.description}\n${record.body}`;
-    const flat = [];
-    for (let start = 0; start < flatText.length; ) {
-      const end = Math.min(start + 1800, flatText.length);
-      flat.push({
-        text: flatText.slice(start, end),
-        heading: "",
-        path: "",
-        grain: "section",
-      });
-      if (end === flatText.length) break;
-      start = end - 200;
-    }
-    const chunkSets = {
-      flat,
-      legacy: legacy.chunkProtocol(protocol),
-      hierarchy: chunkProtocol(protocol),
-    };
-    for (const variant of variants) {
-      dbs[variant]!.transaction(() => {
-        for (const c of chunkSets[variant]) {
-          inserts[variant]!.run(
-            record.id,
-            record.title,
-            c.path,
-            c.grain,
-            c.heading,
-            c.text,
-          );
-          counts[variant]!++;
-        }
-      })();
-    }
-    protocols++;
-    if (protocols % 1000 === 0)
-      console.log(JSON.stringify({ protocols, counts }));
+    if (end === flatText.length) break;
+    start = end - 200;
   }
+  const chunkSets = {
+    flat,
+    legacy: legacy.chunkProtocol(protocol),
+    hierarchy: chunkProtocol(protocol),
+  };
+  for (const variant of variants) {
+    dbs[variant]!.transaction(() => {
+      for (const c of chunkSets[variant]) {
+        inserts[variant]!.run(
+          record.id,
+          record.title,
+          c.path,
+          c.grain,
+          c.heading,
+          c.text,
+        );
+        counts[variant]!++;
+      }
+    })();
+  }
+  protocols++;
+  if (protocols % 1000 === 0)
+    console.log(JSON.stringify({ protocols, counts }));
 }
 for (const v of variants)
   dbs[v]!.exec("INSERT INTO chunks(chunks) VALUES('optimize')");
@@ -116,7 +109,7 @@ const rank = (id: string) =>
   createHash("sha256").update(`biopro-hierarchy-v1:${id}`).digest("hex");
 const jobs: unknown[] = [];
 const selection: Record<string, unknown> = {};
-for (const task of ["PQA", "ORD"]) {
+for (const task of process.argv.includes("--index-only") ? [] : ["PQA", "ORD"]) {
   const file = `${task}_test.json`;
   const bytes = fs.readFileSync(path.join(source!, "Data", file));
   checksums[file] = createHash("sha256").update(bytes).digest("hex");
@@ -193,6 +186,8 @@ fs.writeFileSync(
       upstreamRevision,
       baselineRevision,
       protocols,
+      sourceAudit: corpus.audit,
+      sourceManifest: "version 1; all required sources checksum verified",
       counts,
       checksums,
       selection,

@@ -81,3 +81,7 @@ Keep this work on the feature branch until a stronger evaluation supports deploy
 4. Run a separate real-embedding hybrid retrieval comparison and end-to-end router benchmark. The current model benchmark isolates lexical representation; fake/provider-mock unit tests establish embedding mechanics, not dense-model quality. Defer inferred process graphs until retrieval and context coverage improve.
 
 Validation: 336 tests pass across 46 server test files; server/mobile TypeScript checks, server build, Python harness compilation, and `git diff --check` pass. Lint reports warnings without errors, and the existing `gray-matter` build warning remains. Tests cover deep hierarchy, original corpus addresses, oversized Unicode fragments, library persistence/migration, revision checks, paginated navigation, frozen-run access isolation, provider batching, and edits during embedding builds. No deployment or production-corpus embedding was performed.
+
+### Subsequent corpus correction
+
+These results preserve the original two-file corpus. The [corpus repair](bioprobench-corpus-repair.md) adds the omitted Bio-protocol collection, accounts for duplicate IDs, and corrects availability auditing to include subsection titles. The source-covered subset above used whole-protocol title matches only; it was not a complete source-availability audit.

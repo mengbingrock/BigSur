@@ -88,22 +88,27 @@ for variant in variants:
     selected = [r for r in rows if r['variant'] == variant]
     performance[variant] = {'indexBytes': (index_root / f'{variant if variant != "expanded" else "hierarchy"}.sqlite').stat().st_size, 'medianRetrievalMs': statistics.median(r['retrievalMs'] for r in selected), 'medianModelMs': statistics.median(r['elapsedMs'] for r in selected), 'meanContextChars': statistics.mean(r['contextChars'] for r in selected), 'meanPassages': statistics.mean(len(r['passages']) for r in selected)}
 
-# ORD supplies protocol titles, so corpus availability can be audited without
-# consulting its gold step order. PQA has no source labels: do not invent recall.
-db = sqlite3.connect(index_root / 'hierarchy.sqlite')
-norm = lambda s: re.sub(r'[^\w]+', '', s.casefold())
-titles = {norm(r[0]) for r in db.execute('SELECT DISTINCT title FROM chunks')}
+# Match both protocol and subsection titles. Record source identity separately
+# from retrieval success; unresolved exact titles are not proven missing sources.
+from coverage import catalog, match_source
+alias_file = index_root / 'source-aliases.json'
+if alias_file.exists():
+    aliases = json.loads(alias_file.read_text())
+    coverage_method = 'Exact normalized root or section title; unresolved availability is unknown'
+else:
+    db = sqlite3.connect(index_root / 'hierarchy.sqlite')
+    aliases = [{'protocolId': pid, 'title': title, 'nodeId': None, 'path': ''} for pid, title in db.execute('SELECT DISTINCT protocol_id,title FROM chunks')]
+    coverage_method = 'Legacy index: root titles only; section coverage not audited'
+titles = catalog(aliases)
 coverage = {}
 for r in rows:
     if r['task'] != 'ORD':
         continue
-    match = re.search(r"titled '(.*)' in the correct order", r['sample']['question'])
-    target = norm(match.group(1)) if match else None
-    entry = coverage.setdefault(r['sample']['id'], {'titleParsed': bool(target), 'sourceAvailable': target in titles if target else None, 'retrievedTarget': {}})
-    entry['retrievedTarget'][r['variant']] = any(norm(p['title']) == target for p in r['passages']) if target else None
+    entry = coverage.setdefault(r['sample']['id'], {**match_source(r['sample'], titles), 'retrievedTarget': {}})
+    entry['retrievedTarget'][r['variant']] = any(p['protocol_id'] in entry['protocolIds'] for p in r['passages']) if entry['protocolIds'] else None
 
 failure_breakdown = {v: {task: {'providerBiologyRefusals': sum('[bio]' in str(r.get('error', '')) for r in rows if r['variant'] == v and r['task'] == task), 'otherCallFailures': sum(bool(r.get('error')) and '[bio]' not in str(r['error']) for r in rows if r['variant'] == v and r['task'] == task)} for task in manifest['selection']} for v in variants}
-report = {**manifest, **summary, 'failureBreakdown': failure_breakdown, 'allQuestionScores': {task: {variant: sum(score(r) for r in rows if r['task'] == task and r['variant'] == variant) / len(manifest['selection'][task]['selected']) for variant in variants} for task in manifest['selection']}, 'commonScorable': common, 'comparisons': comparisons, 'performance': performance, 'orderingCorpusCoverage': coverage,
+report = {**manifest, **summary, 'failureBreakdown': failure_breakdown, 'allQuestionScores': {task: {variant: sum(score(r) for r in rows if r['task'] == task and r['variant'] == variant) / len(manifest['selection'][task]['selected']) for variant in variants} for task in manifest['selection']}, 'commonScorable': common, 'comparisons': comparisons, 'performance': performance, 'orderingCoverageMethod': coverage_method, 'orderingCorpusCoverage': coverage,
           'cases': [{'id': r['sample']['id'], 'task': r['task'], 'type': r['sample']['type'], 'variant': r['variant'], 'correct': correct(r) if r['task'] != 'GEN' else None, 'score': score(r), 'retrievalMs': r['retrievalMs'], 'modelMs': r['elapsedMs'], 'contextChars': r['contextChars'], 'error': ('provider biology safeguard refusal' if '[bio]' in str(r.get('error', '')) else ('model call failed; see local checkpoint' if r.get('error') else None)), 'promptSha256': r['promptSha256'], 'resolvedProtocolId': r.get('resolvedProtocolId'), 'modelUsage': r.get('modelUsage', {}), 'responseSha256': hashlib.sha256(r['generated_response'].encode()).hexdigest(), 'sourceRefs': [{'protocolId': s['protocol_id'], 'path': s['path'], 'grain': s['grain']} for s in r['passages']]} for r in rows]}
 # Keep metadata readable and each audit case on one line for reviewable diffs.
 metadata = json.dumps({k: v for k, v in report.items() if k != 'cases'}, indent=2)

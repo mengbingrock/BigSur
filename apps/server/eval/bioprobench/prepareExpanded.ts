@@ -5,7 +5,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { Database } from "bun:sqlite";
 import { ftsExpression } from "../../src/services/artifactIndex/index";
-import { mapBioProRecord } from "../../src/services/library/ingest";
+import { loadCorpus } from "./corpus";
 import { expandProtocolEvidence, normalizeProtocolTitle, resolveProtocolIdentity } from "../../src/services/protocolRetrieval";
 const get = (flag: string, fallback = "") => process.argv.includes(flag) ? process.argv[process.argv.indexOf(flag) + 1]! : fallback;
 const base = get("--base"), source = get("--source"), out = get("--out");
@@ -15,24 +15,30 @@ const count = Number(get("--per-task", "24"));
 const reuse = get("--reuse");
 const priorJobs = new Map<string, any>(reuse ? JSON.parse(fs.readFileSync(path.join(reuse, "jobs.json"), "utf8")).map((j: any) => [`${j.variant}:${j.sample.id}`, j]) : []);
 const variants = get("--variants", "flat,hierarchy,expanded").split(",");
-const records = new Map<string, NonNullable<ReturnType<typeof mapBioProRecord>>>();
-for (const filename of ["Protocol-exchange.json", "Protocol-io.json"]) {
-  for (const raw of JSON.parse(fs.readFileSync(path.join(source, filename), "utf8"))) {
-    const r = mapBioProRecord(raw, { source: filename.replace(".json", ""), license: "CC BY-NC 4.0; isolated evaluation" });
-    if (r) records.set(r.id, r);
-  }
+const corpus = loadCorpus(source, get("--manifest") || undefined);
+const original = JSON.parse(fs.readFileSync(path.join(base, "manifest.json"), "utf8"));
+if (JSON.stringify(original.sourceAudit?.map((s: any) => [s.source, s.sha256])) !== JSON.stringify(corpus.audit.map((s) => [s.source, s.sha256])))
+  throw new Error("Base indexes and source manifest differ; rebuild the indexes");
+if (reuse) {
+  const prior = JSON.parse(fs.readFileSync(path.join(reuse, "manifest.json"), "utf8"));
+  if (JSON.stringify(prior.sourceAudit) !== JSON.stringify(original.sourceAudit)) throw new Error("Cannot reuse predictions from different source data");
 }
+const records = new Map(corpus.records.map((r) => [r.id, r]));
+const frozen = get("--selection");
+const frozenManifest = frozen ? JSON.parse(fs.readFileSync(frozen, "utf8")) : null;
 const headers = [...records.values()].map(({ id, title }) => ({ id, title }));
 const dbs = Object.fromEntries(["flat", "hierarchy"].map((v) => [v, new Database(path.join(base, `${v}.sqlite`), { readonly: true })]));
 // Cache by protocol ID in a separate metadata table, without altering baselines.
-const identityDb = new Database(path.join(out, "identity.sqlite"));
+const identityFile = path.join(out, "identity.sqlite");
+if (fs.existsSync(identityFile)) fs.unlinkSync(identityFile);
+const identityDb = new Database(identityFile);
 identityDb.exec("CREATE TABLE IF NOT EXISTS chunks(protocol_id TEXT,title TEXT,path TEXT,grain TEXT,heading TEXT,text TEXT); CREATE INDEX IF NOT EXISTS protocol_lookup ON chunks(protocol_id)");
 if (!(identityDb.query("SELECT count(*) n FROM chunks").get() as any).n) {
   identityDb.exec(`ATTACH DATABASE '${path.join(base, "hierarchy.sqlite").replaceAll("'", "''")}' AS original`);
   identityDb.exec("INSERT INTO chunks SELECT protocol_id,title,path,grain,heading,text FROM original.chunks");
 }
 const previous = [base, get("--covered", "/private/tmp/labee-bioprobench-covered")];
-const excluded = new Set(previous.flatMap((dir) => JSON.parse(fs.readFileSync(path.join(dir, "jobs.json"), "utf8")).map((j: any) => j.sample.id)));
+const excluded = new Set(frozen ? [] : previous.flatMap((dir) => JSON.parse(fs.readFileSync(path.join(dir, "jobs.json"), "utf8")).map((j: any) => j.sample.id)));
 const rank = (id: string) => createHash("sha256").update(`opus-expanded-v1:${id}`).digest("hex");
 const selection: Record<string, unknown> = {}, jobs: any[] = [];
 const taskChecksums: Record<string, string> = {};
@@ -42,7 +48,16 @@ for (const task of development ? ["ORD"] : ["PQA", "ORD", "ERR", "GEN"]) {
   taskChecksums[`${task}_test.json`] = createHash("sha256").update(bytes).digest("hex");
   const all = JSON.parse(bytes.toString()) as any[];
   let selected: any[];
-  if (development) {
+  if (frozenManifest) {
+    const ids = frozenManifest.selection[task]?.selected.map((s: any) => s.id);
+    if (!Array.isArray(ids) || !ids.length || new Set(ids).size !== ids.length) throw new Error(`Invalid frozen selection: ${task}`);
+    selected = ids.map((id: string) => {
+      const row = all.find((s) => s.id === id);
+      if (!row) throw new Error(`Missing frozen sample ${id}`);
+      return row;
+    });
+    if (frozenManifest.checksums[`${task}_test.json`] !== taskChecksums[`${task}_test.json`]) throw new Error(`Frozen task checksum changed: ${task}`);
+  } else if (development) {
     selected = all.filter((s) => {
       const title = /titled '(.*)' in the correct order/.exec(s.question)?.[1];
       return title && headers.some((h) => normalizeProtocolTitle(h.title) === normalizeProtocolTitle(title));
@@ -109,12 +124,11 @@ for (const task of development ? ["ORD"] : ["PQA", "ORD", "ERR", "GEN"]) {
   }
   console.log(JSON.stringify({ task, selected: selected.length, jobs: jobs.length }));
 }
-const original = JSON.parse(fs.readFileSync(path.join(base, "manifest.json"), "utf8"));
 if (reuse) {
   const prior = JSON.parse(fs.readFileSync(path.join(reuse, "manifest.json"), "utf8"));
   const checksums = { ...original.checksums, ...taskChecksums };
-  if (prior.upstreamRevision !== original.upstreamRevision || Object.entries(prior.checksums).some(([file, hash]) => checksums[file] !== hash))
+  if (JSON.stringify(prior.sourceAudit) !== JSON.stringify(original.sourceAudit) || prior.upstreamRevision !== original.upstreamRevision || Object.entries(prior.checksums).some(([file, hash]) => checksums[file] !== hash))
     throw new Error("Cannot reuse predictions from different source data");
 }
-fs.writeFileSync(path.join(out, "manifest.json"), JSON.stringify({ ...original, checksums: { ...original.checksums, ...taskChecksums }, retrieval: "BM25 with 300 global candidates. Baselines: up to 8 passages / 8000 serialized characters. Expanded: explicit unique title/ID routing, 3 ranked seed nodes, source-ordered tree expansion within 8000 serialized characters; no passage-count cap. No dense vectors.", date: new Date().toISOString(), selection, variants, model: "claude-opus-5-5", ...(reuse ? { followup: "Post-hoc explicit-title precedence correction; unchanged model/prompt checkpoints reused, changed evidence reevaluated once. Original evaluation retained separately." } : {}), split: development ? "previously analyzed development audit" : "fresh deterministic stratified holdout excluding all previous pilot IDs", scope: "Four-task lexical retrieval ablation; source identity + hierarchy expansion. No real dense embeddings or end-to-end router in this experiment." }, null, 2));
+fs.writeFileSync(path.join(out, "manifest.json"), JSON.stringify({ ...original, checksums: { ...original.checksums, ...taskChecksums }, retrieval: "BM25 with 300 global candidates. Baselines: up to 8 passages / 8000 serialized characters. Expanded: explicit unique title/ID routing, 3 ranked seed nodes, source-ordered tree expansion within 8000 serialized characters; no passage-count cap. No dense vectors.", date: new Date().toISOString(), selection, variants, model: "claude-opus-5-5", ...(reuse ? { followup: "Post-hoc explicit-title precedence correction; unchanged model/prompt checkpoints reused, changed evidence reevaluated once. Original evaluation retained separately." } : {}), split: frozen ? "Frozen previous sample IDs; corpus coverage follow-up, not a fresh holdout" : development ? "root-title-matched development audit; root matches only" : "fresh deterministic stratified holdout excluding all previous pilot IDs", scope: "Four-task lexical retrieval ablation; source identity + hierarchy expansion. No real dense embeddings or end-to-end router in this experiment." }, null, 2));
 fs.writeFileSync(path.join(out, "jobs.json"), JSON.stringify(jobs));
