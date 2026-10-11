@@ -6,7 +6,9 @@ import { AppState as RNAppState } from "react-native";
 import {
   applyEvent,
   initialState,
+  normalizeQuestions,
   type AskUserAnswer,
+  type AskUserQuestionItem,
   type SessionEvent,
   type SessionSummary,
   type TranscriptState,
@@ -29,6 +31,8 @@ export interface SessionStream {
   /** Subscribe to live text deltas (for read-aloud). */
   onDelta: (fn: (turnId: string | null, text: string) => void) => () => void;
   onTurnEnd: (fn: (turnId: string | null) => void) => () => void;
+  /** The agent asked something: the questions, as a list, the moment they arrive. */
+  onQuestion: (fn: (turnId: string | null, questions: AskUserQuestionItem[]) => void) => () => void;
 }
 
 export function useSessionStream(target: Target, sessionId: string | undefined): SessionStream {
@@ -42,6 +46,7 @@ export function useSessionStream(target: Target, sessionId: string | undefined):
   stateRef.current = state;
   const deltaSubs = useRef(new Set<(turnId: string | null, text: string) => void>());
   const endSubs = useRef(new Set<(turnId: string | null) => void>());
+  const questionSubs = useRef(new Set<(turnId: string | null, questions: AskUserQuestionItem[]) => void>());
   const handleRef = useRef<{ close: () => void } | null>(null);
   const generation = useRef(0);
 
@@ -56,6 +61,10 @@ export function useSessionStream(target: Target, sessionId: string | undefined):
     }
     if (evt.type === "turn_ended" || evt.type === "turn_cancelled") {
       for (const fn of endSubs.current) fn(evt.turnId);
+    }
+    if (evt.type === "question_asked") {
+      const questions = normalizeQuestions(evt.data.input);
+      if (questions.length) for (const fn of questionSubs.current) fn(evt.turnId, questions);
     }
     if (evt.type === "turn_started") setSummary((s) => (s ? { ...s, status: "running", activeTurn: evt.turnId } : s));
     if (evt.type === "turn_ended" || evt.type === "turn_cancelled") {
@@ -198,6 +207,12 @@ export function useSessionStream(target: Target, sessionId: string | undefined):
       endSubs.current.delete(fn);
     };
   }, []);
+  const onQuestion = useCallback((fn: (turnId: string | null, questions: AskUserQuestionItem[]) => void) => {
+    questionSubs.current.add(fn);
+    return () => {
+      questionSubs.current.delete(fn);
+    };
+  }, []);
 
-  return { state, summary, queue, connected, loading, error, send, cancel, answer, reload, onDelta, onTurnEnd };
+  return { state, summary, queue, connected, loading, error, send, cancel, answer, reload, onDelta, onTurnEnd, onQuestion };
 }

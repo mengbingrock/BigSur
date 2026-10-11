@@ -7,6 +7,7 @@
 //
 // Nothing here waits on the person: a failed summary falls back to the
 // reply's first words, a failed push is logged, the line is written first.
+import { normalizeQuestions } from "@labee/session-core";
 import { auxModel } from "../llm";
 import { completeText } from "../complete";
 import { isDesktop } from "../llmSettings";
@@ -17,7 +18,7 @@ import type { SessionRow } from "../sessions/db";
 import { subscribeAll, type SessionEventEnvelope } from "../sessions/runner";
 import { ensureSiriSession } from "./router";
 
-const SUMMARY_MS = Number(process.env.LABEE_SIRI_SUMMARY_MS ?? 6000);
+const SUMMARY_MS = Number(process.env.LABEE_SIRI_SUMMARY_MS ?? 12000);
 
 export interface ReturnLine {
   idx: number;
@@ -73,10 +74,9 @@ async function spokenSummary(email: string, title: string, said: string | undefi
 }
 
 function pendingQuestionOf(session: SessionRow | null): { text: string; options: string[] } | null {
-  const input = session?.pendingQuestion?.input as { questions?: Array<{ question?: string; options?: Array<{ label?: string }> }> } | undefined;
-  const first = input?.questions?.[0];
+  const first = normalizeQuestions(session?.pendingQuestion?.input)[0];
   if (!first) return null;
-  return { text: String(first.question ?? "").trim(), options: (first.options ?? []).map((o) => String(o.label ?? "")).filter(Boolean).slice(0, 4) };
+  return { text: first.question, options: first.options.map((o) => o.label).slice(0, 4) };
 }
 
 /** Deliver one ended turn. Exported for tests; the listener below calls it. */
@@ -105,7 +105,7 @@ export async function deliverReturn(evt: SessionEventEnvelope, session: SessionR
     title: chat.title,
     spoken,
     unread: true,
-    ...(question ? { question } : {}),
+    ...(question ? { asks: question } : {}),
     ...(origin.siriTurnId ? { siriTurnId: origin.siriTurnId } : {}),
     ...(error ? { error: true } : {}),
   });
@@ -123,17 +123,44 @@ export async function deliverReturn(evt: SessionEventEnvelope, session: SessionR
     categoryId: error ? "labee.attention" : question ? "labee.question" : "labee.reply",
     interruptionLevel: "time-sensitive",
   };
+  await pushOut(email, push);
+
+  // The exchange that delegated this chat can settle now (planner.ts).
+  if (origin.siriTurnId) {
+    const { settleDelegation } = await import("./planner");
+    await settleDelegation(email, origin.siriTurnId, spoken).catch(() => {});
+  }
+
+  return { idx: row.idx, sessionId: chat.id, title: chat.title, spoken, question, siriTurnId: origin.siriTurnId ?? null, createdAt: row.createdAt };
+}
+
+/** Send a push to the account's phones from wherever this runs: directly on
+ *  the box, through the box's `notify` frame from a Mac. */
+export async function pushOut(email: string, push: PushMessage): Promise<void> {
   try {
     if (isDesktop()) {
-      if (!sendToBox({ t: "mirror", notify: push })) console.warn("[siri] return not pushed: the box is not connected");
+      if (!sendToBox({ t: "mirror", notify: push })) console.warn("[siri] push not sent: the box is not connected");
     } else {
       await sendPush(email, push);
     }
   } catch (e) {
-    console.warn("[siri] return push failed:", e instanceof Error ? e.message : e);
+    console.warn("[siri] push failed:", e instanceof Error ? e.message : e);
   }
+}
 
-  return { idx: row.idx, sessionId: chat.id, title: chat.title, spoken, question, siriTurnId: origin.siriTurnId ?? null, createdAt: row.createdAt };
+/** A planner answer that came after Siri's budget (design §4): the person
+ *  heard "give me a moment", so the answer goes the same way a chat's return
+ *  does — a line in the Siri session, unread, and an announced push. */
+export async function announceLate(email: string, spoken: string, siriTurnId: string): Promise<void> {
+  const siri = await ensureSiriSession(email);
+  await sdb.appendSystemMessage(siri.id, `← ${spoken}`, { kind: "return", sessionId: siri.id, title: "Labee", spoken, unread: true, siriTurnId });
+  await pushOut(email, {
+    title: "Labee",
+    body: spoken,
+    data: { sessionId: siri.id, kind: "done", origin: "siri", siriTurnId },
+    categoryId: "labee.reply",
+    interruptionLevel: "time-sensitive",
+  });
 }
 
 /** Unread returns, newest first, for "Any news from Labee?". */
@@ -149,7 +176,7 @@ export async function unreadReturns(email: string, limit = 5): Promise<ReturnLin
       sessionId: String(m.meta?.sessionId ?? ""),
       title: String(m.meta?.title ?? ""),
       spoken: String(m.meta?.spoken ?? m.content),
-      question: (m.meta?.question as ReturnLine["question"]) ?? null,
+      question: (m.meta?.asks as ReturnLine["question"]) ?? null,
       siriTurnId: (m.meta?.siriTurnId as string | undefined) ?? null,
       createdAt: m.createdAt,
     }));

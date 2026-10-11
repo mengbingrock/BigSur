@@ -25,6 +25,8 @@ beforeAll(async () => {
     LABEE_MODE: "server",
     LABEE_ANTHROPIC_API_KEY: "test-placeholder-never-sent",
     LABEE_SEED_PROTOCOLS: "true",
+    // The fake model speaks one-shot only; the warm process is a real-CLI thing.
+    LABEE_SIRI_WARM: "0",
   });
 }, 30000);
 
@@ -95,16 +97,51 @@ describe("the Siri agent over HTTP", () => {
     expect(((await (await api(`/api/runs/${runId}`)).json()) as { run: { status: string } }).run.status).toBe("running");
     const yes = (await (await post("/api/siri/say", { confirmId: r.confirmId, yes: true })).json()) as Say;
     expect(yes.status).toBe("answered");
-    expect(yes.spoken).toBe("Finishing.");
+    // After a yes, what was done is said, not the plan's own sentence.
+    expect(yes.spoken).toMatch(/^Finished the .* run\./);
     expect(((await (await api(`/api/runs/${runId}`)).json()) as { run: { status: string } }).run.status).toBe("done");
   }, 30000);
 
-  it("a plan naming an unknown run is rejected and falls back to a new chat that returns", async () => {
-    const r = (await (await say("pause the thing", { say: "Paused.", actions: [{ do: "runs.pause", runId: "run_nope" }], need: null, confirm: null })).json()) as Say;
-    expect(r.status).toBe("working");
-    expect(r.via).toBe("fallback");
-    expect(r.spoken).toMatch(/started a chat/i);
-    await waitFor(async () => ((await (await api("/api/siri/news")).json()) as { items: unknown[] }).items.length > 0, 20000);
+  it("a confirm with no actions is not a confirm: the sentence is spoken, nothing waits", async () => {
+    const r = (await (await say("finish the first step", { say: "Should I mark step one done?", actions: [], need: null, confirm: "Mark step one done?" })).json()) as Say;
+    expect(r.status).toBe("answered");
+    expect(r.confirmId).toBeUndefined();
+  }, 30000);
+
+  it("a step done says the step and the next one, and a yes afterwards is understood from the conversation", async () => {
+    const created = (await (await post("/api/runs", { protocolSlug: "user--chemically-competent-cells-tss" })).json()) as { run: { id: string } };
+    const r = (await (await say("finish the first step", { say: "Marking it done?", actions: [{ do: "runs.advance", runId: created.run.id }], need: null, confirm: null })).json()) as Say;
+    expect(r.status).toBe("answered");
+    // The plan's sentence was a question, so the executor's sentence is used.
+    expect(r.spoken).toMatch(/^Step 1 done\. Next, step 2: /);
+  }, 30000);
+
+  it("a pending confirmation is answered by a plain yes or no, with no model call and no id", async () => {
+    const created = (await (await post("/api/runs", { protocolSlug: "user--chemically-competent-cells-tss" })).json()) as { run: { id: string } };
+    const ask = (await (await say("finish this run", { say: "Finishing.", actions: [{ do: "runs.finish", runId: created.run.id }], need: null, confirm: null })).json()) as Say;
+    expect(ask.status).toBe("confirm");
+    // "No" leaves it; the exchange is settled and a later yes refers to nothing.
+    const no = (await (await post("/api/siri/say", { text: "No, leave it." })).json()) as Say;
+    expect(no).toMatchObject({ status: "answered", spoken: "Okay, leaving it." });
+    expect(((await (await api(`/api/runs/${created.run.id}`)).json()) as { run: { status: string } }).run.status).toBe("running");
+    // Ask again, then a plain "yes please" does it.
+    const ask2 = (await (await say("finish this run", { say: "Finishing.", actions: [{ do: "runs.finish", runId: created.run.id }], need: null, confirm: null })).json()) as Say;
+    expect(ask2.status).toBe("confirm");
+    const yes = (await (await post("/api/siri/say", { text: "Yes please" })).json()) as Say;
+    expect(yes.status).toBe("answered");
+    expect(yes.spoken).toMatch(/^Finished the .* run\./);
+    expect(((await (await api(`/api/runs/${created.run.id}`)).json()) as { run: { status: string } }).run.status).toBe("done");
+  }, 40000);
+
+  it("no usable plan means saying so: never a guess, never a chat, whatever the length of the phrase", async () => {
+    const rejected = (await (await say("pause the thing", { say: "Paused.", actions: [{ do: "runs.pause", runId: "run_nope" }], need: null, confirm: null })).json()) as Say;
+    expect(rejected).toMatchObject({ status: "answered", spoken: "I couldn't do that. Say it again?", via: "failed" });
+    const before = ((await (await api("/api/sessions")).json()) as { sessions: unknown[] }).sessions.length;
+    const short = (await (await post("/api/siri/say", { text: "Yes, please. [[reply:garbage]]" })).json()) as Say;
+    expect(short).toMatchObject({ status: "answered", spoken: "Something went wrong on my side. Say it again?", actions: [] });
+    const long = (await (await post("/api/siri/say", { text: "compare the two transfection protocols for me please [[reply:garbage]]" })).json()) as Say;
+    expect(long).toMatchObject({ status: "answered", spoken: "Something went wrong on my side. Say it again?" });
+    expect(((await (await api("/api/sessions")).json()) as { sessions: unknown[] }).sessions.length).toBe(before);
   }, 40000);
 
   it("delegates to a new chat and reports it; the chat's turn carries the Siri origin", async () => {

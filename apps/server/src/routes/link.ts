@@ -6,6 +6,7 @@
 import { Effect, Stream } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 import { CloseEvent as SocketCloseEvent } from "effect/unstable/socket/Socket";
+import { normalizeQuestions } from "@labee/session-core";
 import { bodyJson, error, json, requestUrl, sessionUser } from "../httpKit";
 import * as devices from "../services/deviceLink/devices";
 import { dispatchHostFrame, getHost, listHosts, newRequestId, registerHost, unregisterHost, type HostConn } from "../services/deviceLink/hosts";
@@ -158,8 +159,7 @@ async function handleMirror(conn: HostConn, frame: Extract<HostToBox, { t: "mirr
       } else if (evt.type === "question_asked") {
         // The buttons are generic slots; the body lists the options and the
         // data carries their labels so a press maps back to an answer.
-        const input = (evt.data?.input ?? {}) as { questions?: Array<{ question?: string; options?: Array<{ label?: string }> }> };
-        const first = input.questions?.[0];
+        const first = normalizeQuestions(evt.data?.input)[0];
         const options = (first?.options ?? []).map((o) => String(o.label ?? "")).filter(Boolean).slice(0, 4);
         const question = String(first?.question ?? "Labee is asking you a question.");
         const listed = options.slice(0, 3).map((o, i) => `${i + 1}. ${o}`).join("  ");

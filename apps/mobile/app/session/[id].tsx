@@ -15,8 +15,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { parseRunCommand, parseVoiceCommand, RUN_COMMAND_HINTS, type AskUserAnswer, type RunCommand, type TranscriptMessage } from "@labee/session-core";
-import { createSession, getDiff } from "~/api/sessions";
+import { answerSpoken, createSession, getDiff } from "~/api/sessions";
+import { confirmToLabee, sayToLabee } from "~/api/siri";
 import { afterAdvance, durationWords, peekLine, stepAmountsLine, stepLine, timeLeftLine, whereLine } from "~/runs/voice";
+import { speakingEnabled, spokenQuestion } from "~/speak";
 import { useRun } from "~/hooks/useRun";
 import { useSessionStream } from "~/hooks/useSessionStream";
 import { usePushToTalk } from "~/hooks/usePushToTalk";
@@ -95,6 +97,38 @@ export default function SessionScreen() {
     };
   }, [stream.onDelta, stream.onTurnEnd, readAloud.feed, readAloud.flush]);
 
+  // A question from the agent is spoken as it arrives, and in Voice mode the
+  // mic opens for the answer once it has been said: ask, listen, answer, with
+  // nothing to tap. Outside Voice mode it is still spoken when speaking is on.
+  const voiceOpenRef = useRef(voiceOpen);
+  voiceOpenRef.current = voiceOpen;
+  const onVoiceTapRef = useRef<() => Promise<void>>(async () => {});
+  useEffect(() => {
+    const off = stream.onQuestion((_turn, questions) => {
+      const q = questions[0];
+      if (!q) return;
+      const text = spokenQuestion(q.question, q.options.map((o) => o.label));
+      void (async () => {
+        const listen = voiceOpenRef.current;
+        if (!listen && !readAloud.enabled && !(await speakingEnabled())) return;
+        readAloud.stop();
+        setSaying(text);
+        try {
+          const Speech = await import("expo-speech");
+          Speech.speak(text, {
+            rate: 1.0,
+            onDone: () => {
+              if (voiceOpenRef.current) void onVoiceTapRef.current();
+            },
+          });
+        } catch {
+          // no voice: the question card is on screen
+        }
+      })();
+    });
+    return off;
+  }, [stream.onQuestion, readAloud.enabled, readAloud.stop]);
+
   // A run line in the transcript means the run changed somewhere (Siri, the
   // Mac): pull the fresh state so the step bar agrees with the chat.
   const lastSystem = useMemo(() => [...state.messages].reverse().find((m) => m.role === "system")?.id, [state.messages]);
@@ -106,15 +140,46 @@ export default function SessionScreen() {
   const live = state.streaming;
   const pendingQuestion = useMemo(() => [...state.messages].reverse().find((m) => m.question && !m.question.answers), [state.messages]);
 
+  // The Siri chat talks to the planner, not to a turn: the sentence comes
+  // back at once and is spoken; a risky plan asks first, and the next "yes"
+  // or "no" answers it.
+  const isSiri = summary?.kind === "siri";
+  const pendingConfirm = useRef<string | null>(null);
+  const sayViaPlanner = useCallback(
+    async (text: string) => {
+      const confirmId = pendingConfirm.current;
+      pendingConfirm.current = null;
+      try {
+        const r = confirmId
+          ? await confirmToLabee(target, confirmId, /^(yes|yeah|yep|ok|okay|do it|go ahead|sure|confirm)\b/i.test(text.trim()))
+          : await sayToLabee(target, text);
+        if (r.status === "confirm" && r.confirmId) pendingConfirm.current = r.confirmId;
+        readAloud.stop();
+        setSaying(r.spoken);
+        readAloud.say(r.spoken);
+      } catch (e) {
+        setHeard(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      } finally {
+        // The planner writes the exchange straight to the chat; pull it in.
+        void stream.reload();
+      }
+    },
+    [target, readAloud.stop, readAloud.say, stream.reload],
+  );
+
   const sendText = useCallback(
     async (text: string, voiceTurn = false) => {
       readAloud.stop();
       setSaying("");
+      if (isSiri) {
+        await sayViaPlanner(text);
+        return;
+      }
       await stream
         .send({ text, voice: voiceTurn, device: "iPhone", ...(skill ? { skillSlugs: [skill] } : {}) })
         .catch((e) => setHeard(`Error: ${e instanceof Error ? e.message : String(e)}`));
     },
-    [stream.send, readAloud.stop, skill],
+    [stream.send, readAloud.stop, skill, isSiri, sayViaPlanner],
   );
 
   /** Speak a Lab mode answer and show it as the caption. */
@@ -237,11 +302,22 @@ export default function SessionScreen() {
           await sendText(text, true);
           return;
         case "send":
-          if (pendingQuestion) return; // the question card consumes the transcript via voiceText
+          if (pendingQuestion && id) {
+            // Spoken while the agent waits on a question: map the words onto
+            // its options on the server and answer, with no tap. The card
+            // still fills in from `heard` for anyone looking at the screen.
+            try {
+              const r = await answerSpoken(target, id, text);
+              reply(r.matched === false ? `Sent "${text}" as your answer.` : `Okay, going with "${text}".`);
+            } catch (e) {
+              setHeard(`Error: ${e instanceof Error ? e.message : String(e)}`);
+            }
+            return;
+          }
           await sendText(cmd.text, true);
       }
     },
-    [noteMode, run, pendingQuestion, readAloud, sendText, state.messages, stream, reply, runCommand],
+    [noteMode, run, pendingQuestion, readAloud, sendText, state.messages, stream, reply, runCommand, target, id],
   );
 
   const onPttStart = useCallback(() => {
@@ -264,6 +340,7 @@ export default function SessionScreen() {
     readAloud.stop();
     await handleTranscript(await ptt.listen());
   }, [ptt.state, ptt.stop, ptt.listen, readAloud.stop, handleTranscript]);
+  onVoiceTapRef.current = onVoiceTap;
 
   // Opened from the Action Button or Control Center: listen straight away,
   // once the session (and its run, if any) has loaded.

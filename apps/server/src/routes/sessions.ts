@@ -4,7 +4,7 @@ import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import { Effect, Stream } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
-import type { AskUserAnswer, AskUserQuestionItem, TurnRequest } from "@labee/session-core";
+import { normalizeQuestions, type AskUserAnswer, type TurnRequest } from "@labee/session-core";
 import { bodyJson, error, json, requestUrl, sessionUser } from "../httpKit";
 import * as sdb from "../services/sessions/db";
 import * as runner from "../services/sessions/runner";
@@ -110,7 +110,13 @@ export const getSessionRoute = HttpRouter.add(
     const result = yield* Effect.promise(async () => {
       const s = await sdb.getSession(user.email, id ?? "");
       if (!s) return null;
-      const [messages, queue] = await Promise.all([sdb.listMessages(s.id), sdb.listQueue(s.id)]);
+      const [stored, queue] = await Promise.all([sdb.listMessages(s.id), sdb.listQueue(s.id)]);
+      // A question stored before the server normalised them may hold its list
+      // as a JSON string; repair it here so an older app build cannot crash on it.
+      const messages = stored.map((m) => {
+        const q = m.meta?.question as { questions?: unknown } | undefined;
+        return q ? { ...m, meta: { ...m.meta, question: { ...q, questions: normalizeQuestions(q.questions) } } } : m;
+      });
       return { session: await toSummaryWithRun(s, queue.length), messages, queue: queue.map((q) => ({ id: q.id, text: String(q.body.text ?? ""), createdAt: q.createdAt })) };
     });
     if (!result) return yield* error("Session not found.", 404);
@@ -218,11 +224,11 @@ export const answerRoute = HttpRouter.add(
     let matched: boolean | undefined;
     if (answers.length === 0 && typeof body?.spoken === "string" && body.spoken.trim()) {
       const s = yield* Effect.promise(() => sdb.getSession(user.email, id ?? ""));
-      const input = (s?.pendingQuestion?.input ?? {}) as { questions?: AskUserQuestionItem[] };
-      if (!s?.pendingQuestion || !Array.isArray(input.questions) || input.questions.length === 0) {
+      const questions = normalizeQuestions(s?.pendingQuestion?.input);
+      if (!s?.pendingQuestion || questions.length === 0) {
         return yield* error("No question is pending.", 409);
       }
-      const mapped = mapSpokenAnswer(input.questions, body.spoken);
+      const mapped = mapSpokenAnswer(questions, body.spoken);
       answers = mapped.answers;
       matched = mapped.matched;
     }

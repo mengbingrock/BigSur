@@ -31,9 +31,9 @@ export function QuestionCard({
     if (qi === -1) return;
     const q = questions[qi]!;
     const norm = voiceText.trim().toLowerCase();
-    const byLabel = q.options.find((o) => o.label.toLowerCase() === norm || norm.includes(o.label.toLowerCase()));
+    const byLabel = (q.options ?? []).find((o) => o.label.toLowerCase() === norm || norm.includes(o.label.toLowerCase()));
     const m = norm.match(/(?:option|number)\s*(\d+)/);
-    const byIndex = m ? q.options[Number(m[1]) - 1] : undefined;
+    const byIndex = m ? (q.options ?? [])[Number(m[1]) - 1] : undefined;
     const pick = byLabel ?? byIndex;
     if (pick) setPicks((p) => ({ ...p, [qi]: [pick.label] }));
     else setOther((o) => ({ ...o, [qi]: voiceText.trim() }));
@@ -49,7 +49,7 @@ export function QuestionCard({
         <View key={i} style={{ gap: 6 }}>
           {q.header ? <Text style={{ color: t.muted, fontSize: 12 }}>{q.header}</Text> : null}
           <Text style={{ color: t.text, fontSize: 15 }}>{q.question}</Text>
-          {q.options.map((o) => {
+          {(q.options ?? []).map((o) => {
             const selected = done ? (Array.isArray(answers?.[i]?.answer) ? (answers![i]!.answer as string[]).includes(o.label) : answers?.[i]?.answer === o.label) : picks[i]?.includes(o.label);
             return (
               <Pressable
