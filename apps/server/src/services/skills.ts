@@ -3,7 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import matter from "gray-matter";
 import type { Skill, SkillOrigin, SkillSource } from "@labee/contracts";
-import { seedStarterProtocols } from "./seedProtocols";
+import { retireLegacyProtocolPlan, seedStarterProtocols, seedStarterSkills } from "./seedProtocols";
 import { grantedFilePathsSync, grantedFolderPathsSync } from "./userFolders";
 
 interface Root {
@@ -336,6 +336,66 @@ function normalizeDescription(raw: unknown): string {
   return raw.replace(/\s+/g, " ").trim();
 }
 
+/** The purpose-layer frontmatter: `problem`, `method`, `application` as
+ *  sentences; `domains` and `keywords` as lists (a comma-separated string is
+ *  accepted too). Absent fields are absent, not empty, so a file without them
+ *  round-trips without gaining keys. */
+function purposeFields(data: Record<string, unknown>): {
+  problem?: string;
+  method?: string;
+  application?: string;
+  domains?: string[];
+  keywords?: string[];
+} {
+  const text = (k: string): string | undefined => {
+    const v = normalizeDescription(data[k]);
+    return v ? v : undefined;
+  };
+  const list = (k: string): string[] | undefined => {
+    const v = data[k];
+    const items = Array.isArray(v)
+      ? v.filter((x): x is string => typeof x === "string")
+      : typeof v === "string"
+        ? v.split(",")
+        : [];
+    const clean = items.map((x) => x.trim()).filter(Boolean);
+    return clean.length ? clean : undefined;
+  };
+  const out: ReturnType<typeof purposeFields> = {};
+  const problem = text("problem");
+  const method = text("method");
+  const application = text("application");
+  const domains = list("domains");
+  const keywords = list("keywords");
+  if (problem) out.problem = problem;
+  if (method) out.method = method;
+  if (application) out.application = application;
+  if (domains) out.domains = domains;
+  if (keywords) out.keywords = keywords;
+  return out;
+}
+
+/** Write the purpose layer into frontmatter being assembled for a save: a
+ *  field given in the update replaces the old value, an empty string clears
+ *  it, and a field left out keeps what the file had. */
+function writePurposeFields(
+  data: Record<string, unknown>,
+  update: Partial<Pick<SkillUpdate, "problem" | "method" | "application" | "domains" | "keywords">>,
+  existing?: Pick<Skill, "problem" | "method" | "application" | "domains" | "keywords">,
+): void {
+  const pick = <T>(next: T | undefined, prev: T | undefined): T | undefined => (next === undefined ? prev : next);
+  const problem = pick(update.problem, existing?.problem);
+  const method = pick(update.method, existing?.method);
+  const application = pick(update.application, existing?.application);
+  const domains = pick(update.domains, existing?.domains);
+  const keywords = pick(update.keywords, existing?.keywords);
+  if (problem?.trim()) data.problem = problem.trim();
+  if (method?.trim()) data.method = method.trim();
+  if (application?.trim()) data.application = application.trim();
+  if (domains?.length) data.domains = [...domains];
+  if (keywords?.length) data.keywords = [...keywords];
+}
+
 function normalizeAllowedTools(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === "string");
   if (typeof raw === "string") {
@@ -371,6 +431,17 @@ function parseOrigin(raw: unknown): SkillOrigin | undefined {
       pkg,
       version: str(o.version) ?? "",
       digest: str(o.digest),
+    };
+  }
+  if (o.kind === "library") {
+    const id = str(o.id);
+    if (!id) return undefined;
+    return {
+      kind: "library",
+      id,
+      source: str(o.source) ?? "",
+      url: str(o.url) ?? "",
+      license: str(o.license) ?? "",
     };
   }
   return undefined;
@@ -463,6 +534,7 @@ function parseSkillFile(
     source,
     sourceLabel,
     origin: parseOrigin(data.origin),
+    ...purposeFields(data),
     sourcePath: path.dirname(file),
     // A single-file grant has no manifest directory; the file is the artifact.
     ...(loose ? { artifactFile: file } : {}),
@@ -512,6 +584,9 @@ export function getAllSkills(
       // simply skips the ones they already have.
       migrateLayout(ownDir);
       seedStarterProtocols(path.join(ownDir, PROTOCOLS_DIR));
+      // The Protocol Agent's skill rides along the same way. Once it is in
+      // place the retired shared copy of its predecessor can go.
+      if (seedStarterSkills(path.join(ownDir, SKILLS_DIR)) > 0) retireLegacyProtocolPlan(root.path);
       scanOwnBase(ownDir, "user", collected);
     }
   }
@@ -703,6 +778,14 @@ export interface SkillUpdate {
   body: string;
   /** Optional artifact kind. When omitted on save, the existing kind is preserved. */
   kind?: "skill" | "protocol";
+  /** Purpose layer; a field left out keeps what the file had, an empty string clears it. */
+  problem?: string;
+  method?: string;
+  application?: string;
+  domains?: readonly string[];
+  keywords?: readonly string[];
+  /** Provenance to record on create (a save keeps what the file had). */
+  origin?: SkillOrigin;
 }
 
 function assertEditable(skill: Skill) {
@@ -814,6 +897,7 @@ export function saveSkill(
   // Keep import provenance across edits — the user editing the body doesn't
   // change where it came from.
   if (existing.origin) data.origin = existing.origin;
+  writePurposeFields(data, update, existing);
 
   const content = matter.stringify(update.body.replace(/\s*$/, "") + "\n", data);
   fs.writeFileSync(file, content, "utf8");
@@ -877,6 +961,8 @@ export function createSkill(input: SkillUpdate, email: string): Skill {
   if (input.allowedTools.length > 0) data["allowed-tools"] = input.allowedTools;
   if (input.license) data.license = input.license;
   if (input.kind === "protocol") data.kind = "protocol";
+  writePurposeFields(data, input);
+  if (input.origin) data.origin = input.origin;
 
   const content = matter.stringify(input.body.replace(/\s*$/, "") + "\n", data);
   fs.writeFileSync(file, content, "utf8");

@@ -146,25 +146,29 @@ describe("artifact categories", () => {
 });
 
 // This server starts with no embedding credential (the harness blanks them),
-// so search takes the lexical fallback. That path is what a deployment without
-// a model key gets, so it is worth holding in place. The semantic path is
-// covered in artifactIndex.test.ts against the fake provider.
+// so search runs on words alone: BM25 over the chunks, no vectors. That path
+// is what a deployment without a model key gets, so it is worth holding in
+// place. The hybrid path is covered in hybridSearch.test.ts against the fake
+// provider.
 describe("lexical search fallback", () => {
   it("reports the fallback and still matches names, descriptions and body", async () => {
+    // Every fixture shares the same body, so a name can only be matched
+    // through the summary chunk that carries name and description.
     const byName = await (await api("/api/skills/search?q=gibson")).json() as {
       mode: string;
-      hits: Array<{ slug: string; field: string; snippet?: string }>;
+      hits: Array<{ slug: string; grain: string; snippet?: string }>;
     };
     expect(byName.mode).toBe("lexical");
-    expect(byName.hits[0]?.field).toBe("name");
+    expect(byName.hits[0]?.slug).toContain("gibson");
+    expect(byName.hits[0]?.grain).toBe("summary");
 
     const byBody = await (await api("/api/skills/search?q=phenol")).json() as {
       mode: string;
-      hits: Array<{ field: string; snippet?: string }>;
+      hits: Array<{ grain: string; snippet?: string }>;
     };
     expect(byBody.mode).toBe("lexical");
     expect(byBody.hits.length).toBeGreaterThan(0);
-    expect(byBody.hits[0]?.field).toBe("body");
+    expect(byBody.hits[0]?.grain).toBe("section");
     expect(byBody.hits[0]?.snippet).toContain("phenol");
   });
 

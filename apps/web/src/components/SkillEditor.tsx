@@ -24,6 +24,12 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
     skill?.allowedTools.join(", ") ?? "",
   );
   const [kind, setKind] = useState<ArtifactKind>(skill?.artifactKind ?? "skill");
+  // The purpose layer, for a protocol: what it is for, apart from its steps.
+  const [problem, setProblem] = useState(skill?.problem ?? "");
+  const [method, setMethod] = useState(skill?.method ?? "");
+  const [application, setApplication] = useState(skill?.application ?? "");
+  const [domains, setDomains] = useState((skill?.domains ?? []).join(", "));
+  const [keywords, setKeywords] = useState((skill?.keywords ?? []).join(", "));
   const [body, setBody] = useState(
     skill?.body ?? "# New artifact\n\nDescribe how the agent should use this artifact.\n",
   );
@@ -111,6 +117,16 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
         license: skill?.license,
         body,
         kind,
+        // Sent as given: an empty string clears a field the file had.
+        ...(kind === "protocol"
+          ? {
+              problem: problem.trim(),
+              method: method.trim(),
+              application: application.trim(),
+              domains: domains.split(",").map((s) => s.trim()).filter(Boolean),
+              keywords: keywords.split(",").map((s) => s.trim()).filter(Boolean),
+            }
+          : {}),
       };
       const res = isCreate
         ? await fetch(apiUrl(`/api/skills`), {
@@ -239,6 +255,21 @@ export default function SkillEditor({ skill, mode = "edit" }: Props) {
             className="leading-relaxed"
           />
         </Field>
+
+        {kind === "protocol" && (
+          <Field
+            label="Purpose"
+            hint="What the protocol is for, apart from its steps. A question phrased as a goal finds a protocol through these when the steps never use the goal's words. All optional; the detail page can propose them."
+          >
+            <div className="flex flex-col gap-2">
+              <Input value={problem} onChange={(e) => setProblem(e.target.value)} placeholder="Problem — what it solves, in one sentence" />
+              <Input value={method} onChange={(e) => setMethod(e.target.value)} placeholder="Method — how it does it, in one sentence" />
+              <Input value={application} onChange={(e) => setApplication(e.target.value)} placeholder="Application — when a scientist reaches for it" />
+              <Input value={domains} onChange={(e) => setDomains(e.target.value)} placeholder="Domains, comma-separated — Cloning, Cell Biology & Culture" />
+              <Input value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="Keywords, comma-separated" />
+            </div>
+          </Field>
+        )}
 
         <Field
           label="Kind"

@@ -39,6 +39,19 @@ export const SkillOrigin = Schema.Union([
     /** Content digest, when the registry provides one. */
     digest: Schema.optional(Schema.String),
   }),
+  /** Saved from the shared protocol library on labee.online. The copy is the
+   *  person's own; this records where it came from, so the original is not
+   *  shown beside it in search and the licence travels with it. */
+  Schema.Struct({
+    kind: Schema.Literals(["library"]),
+    /** Library id, e.g. "protocol-io:Protocol.io-0". */
+    id: Schema.String,
+    /** Where the library got it: "protocol-io", "protocol-exchange". */
+    source: Schema.String,
+    url: Schema.String,
+    /** As stated by the source: "CC BY 4.0". */
+    license: Schema.String,
+  }),
 ]);
 export type SkillOrigin = typeof SkillOrigin.Type;
 
@@ -68,6 +81,17 @@ export const Skill = Schema.Struct({
   updatedAt: Schema.optional(Schema.String),
   /** Sibling files in the artifact directory, excluding SKILL.md itself. */
   fileCount: Schema.optional(Schema.Number),
+  /** The purpose layer — what the protocol is for, apart from its steps. A
+   *  question phrased as a goal matches a protocol through these when its
+   *  steps never use the goal's words. All optional; filled by the person or
+   *  proposed by the categorisation agent. */
+  problem: Schema.optional(Schema.String),
+  method: Schema.optional(Schema.String),
+  application: Schema.optional(Schema.String),
+  /** Subject-area tags ("Cloning", "Cell Biology & Culture"); `category` stays
+   *  the folder, these are labels. */
+  domains: Schema.optional(Schema.Array(Schema.String)),
+  keywords: Schema.optional(Schema.Array(Schema.String)),
 });
 export type Skill = typeof Skill.Type;
 
@@ -92,5 +116,11 @@ export const SkillUpdate = Schema.Struct({
   body: Schema.String,
   /** When omitted on save, the existing kind is preserved. */
   kind: Schema.optional(ArtifactKind),
+  /** Purpose layer; omitted fields are left as they are on save. */
+  problem: Schema.optional(Schema.String),
+  method: Schema.optional(Schema.String),
+  application: Schema.optional(Schema.String),
+  domains: Schema.optional(Schema.Array(Schema.String)),
+  keywords: Schema.optional(Schema.Array(Schema.String)),
 });
 export type SkillUpdate = typeof SkillUpdate.Type;

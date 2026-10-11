@@ -21,21 +21,24 @@ import { fileURLToPath } from "node:url";
 /** Record of every seed file already delivered to a folder, one relative path
  *  per line. Lives inside the person's protocols folder, beside their files. */
 const STAMP = ".starter-protocols";
+/** The same record for the person's skills folder. */
+const SKILLS_STAMP = ".starter-skills";
 
 /** Folders already checked this process, so the per-request scan that calls
  *  this pays for one Set lookup after the first time. */
 const done = new Set<string>();
 
-/** Locate the bundled seed directory: beside dist/bin.mjs in a build, or in the
- *  source tree when running from a checkout. Mirrors resolveStaticDir(). */
-function seedDir(): string | undefined {
-  const override = process.env.LABEE_SEED_DIR;
+/** Locate a bundled seed directory (`protocols` or `skills`): beside
+ *  dist/bin.mjs in a build, or in the source tree when running from a
+ *  checkout. Mirrors resolveStaticDir(). */
+function seedDir(sub: "protocols" | "skills"): string | undefined {
+  const override = sub === "protocols" ? process.env.LABEE_SEED_DIR : process.env.LABEE_SEED_SKILLS_DIR;
   if (override && fs.existsSync(override)) return override;
   const here = path.dirname(fileURLToPath(import.meta.url));
   const candidates = [
-    path.resolve(here, "seed/protocols"), // next to dist/bin.mjs
-    path.resolve(here, "../seed/protocols"),
-    path.resolve(here, "../../seed/protocols"), // src/services → apps/server/seed
+    path.resolve(here, `seed/${sub}`), // next to dist/bin.mjs
+    path.resolve(here, `../seed/${sub}`),
+    path.resolve(here, `../../seed/${sub}`), // src/services → apps/server/seed
   ];
   return candidates.find((d) => fs.existsSync(d));
 }
@@ -57,13 +60,46 @@ function walk(dir: string, base = dir): string[] {
  * read; returns how many files it actually wrote.
  */
 export function seedStarterProtocols(target: string): number {
+  return deliver("protocols", target, STAMP);
+}
+
+/**
+ * Copy the bundled starter skills — today the Protocol Agent's skill — into
+ * `target` (a person's skills folder). Same rules as the protocols: delivered
+ * once, never overwritten, never resurrected after the person deletes one.
+ */
+export function seedStarterSkills(target: string): number {
+  return deliver("skills", target, SKILLS_STAMP);
+}
+
+/**
+ * The skill the old protocol agent ran on lived in the shared `_public`
+ * folder that the two-folder layout retired; nothing reads it any more. Once
+ * the replacement skill has been delivered, that one folder goes, so a
+ * person browsing their files does not find a dead copy beside the live one.
+ * Only that folder: anything else under `_public` is left alone.
+ */
+export function retireLegacyProtocolPlan(rootPath: string): boolean {
+  const legacy = path.join(rootPath, "_public", "protocol-plan");
+  if (!fs.existsSync(legacy)) return false;
+  try {
+    fs.rmSync(legacy, { recursive: true, force: true });
+    console.info(`[seed] removed retired skill folder ${legacy}`);
+    return true;
+  } catch (e) {
+    console.warn("[seed] could not remove retired skill folder:", e);
+    return false;
+  }
+}
+
+function deliver(sub: "protocols" | "skills", target: string, stampName: string): number {
   if (process.env.LABEE_SEED_PROTOCOLS === "false") return 0;
   if (done.has(target)) return 0;
-  const from = seedDir();
+  const from = seedDir(sub);
   if (!from) return 0;
   try {
     fs.mkdirSync(target, { recursive: true });
-    const stamp = path.join(target, STAMP);
+    const stamp = path.join(target, stampName);
     const seeded = new Set(
       fs.existsSync(stamp)
         ? fs.readFileSync(stamp, "utf8").split("\n").map((l) => l.trim()).filter(Boolean)
@@ -85,13 +121,13 @@ export function seedStarterProtocols(target: string): number {
     fs.writeFileSync(stamp, [...seeded].sort().join("\n") + "\n");
     done.add(target);
     if (copied > 0) {
-      console.info(`[seed] delivered ${copied} starter protocol file(s) to ${target}`);
+      console.info(`[seed] delivered ${copied} starter ${sub} file(s) to ${target}`);
     }
     return copied;
   } catch (e) {
     // Seeding is a convenience; a read-only or unusual filesystem must not
     // stop the library from loading.
-    console.warn("[seed] could not deliver starter protocols:", e);
+    console.warn(`[seed] could not deliver starter ${sub}:`, e);
     return 0;
   }
 }

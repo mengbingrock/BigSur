@@ -131,20 +131,26 @@ export async function ensureProtocolsMcpToken(): Promise<void> {
  * uses they are auto-allowed.
  */
 export function protocolsMcpArgs(): string[] {
+  const server = protocolsMcpServer();
+  if (!server) return [];
+  return ["--mcp-config", JSON.stringify({ mcpServers: { protocols: server } })];
+}
+
+/** The `mcpServers` entry for the protocol-search server, or null when no
+ *  endpoint is configured — for callers that combine several servers into
+ *  one config. */
+export function protocolsMcpServer(): {
+  type: "http";
+  url: string;
+  headers?: Record<string, string>;
+} | null {
   const remote = cached ?? staticConfig();
-  if (!remote) return [];
-  const config = {
-    mcpServers: {
-      protocols: {
-        type: "http",
-        url: remote.url,
-        ...(remote.token
-          ? { headers: { Authorization: `Bearer ${remote.token}` } }
-          : {}),
-      },
-    },
+  if (!remote) return null;
+  return {
+    type: "http",
+    url: remote.url,
+    ...(remote.token ? { headers: { Authorization: `Bearer ${remote.token}` } } : {}),
   };
-  return ["--mcp-config", JSON.stringify(config)];
 }
 
 /** True when the protocol-search MCP server is wired into chat this run. */

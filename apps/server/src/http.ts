@@ -23,6 +23,7 @@ import { askRoutes } from "./routes/ask";
 import { sessionRoutes } from "./routes/sessions";
 import { linkRoutes } from "./routes/link";
 import { skillsRoutes } from "./routes/skills";
+import { libraryRoutes } from "./routes/library";
 import { transcribeRoute } from "./routes/transcribe";
 import { staticRoute } from "./routes/static";
 
@@ -34,6 +35,7 @@ export const routesLayer = Layer.mergeAll(
   ...appleRoutes,
   ...adminRoutes,
   ...skillsRoutes,
+  ...libraryRoutes,
   ...artifactsRoutes,
   ...deckRoutes,
   ...llmRoutes,

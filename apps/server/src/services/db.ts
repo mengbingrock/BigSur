@@ -91,6 +91,17 @@ async function openDb(): Promise<SqlDb> {
   // Deleting therefore has to leave a tombstone — a hard DELETE would simply be
   // re-created by the next device that syncs and still has the row.
   ensureColumn(db, "agents", "deleted_at", "TEXT");
+  // Which starter agents have been delivered to which account, so one that the
+  // person later deletes stays deleted instead of being re-created on the next
+  // listing. The agent row itself may be gone; this record is what remembers.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS starter_agents (" +
+      "email TEXT NOT NULL, " +
+      "starter_id TEXT NOT NULL, " +
+      "agent_id TEXT NOT NULL, " +
+      "delivered_at TEXT NOT NULL, " +
+      "PRIMARY KEY (email, starter_id));",
+  );
   // Per-user billing: Stripe customer/subscription + a credit balance (cents).
   db.exec(
     "CREATE TABLE IF NOT EXISTS billing (" +
@@ -414,6 +425,55 @@ async function openDb(): Promise<SqlDb> {
       "text TEXT NOT NULL, " +
       "vector BLOB NOT NULL, " +
       "PRIMARY KEY (source_path, idx));",
+  );
+  // Which grain a chunk is (section / step / summary) and where it sits in
+  // the protocol's tree ("2.3"), so retrieval can prefer steps for a
+  // parameter question and a citation can name the step.
+  ensureColumn(db, "artifact_chunks", "grain", "TEXT NOT NULL DEFAULT 'section'");
+  ensureColumn(db, "artifact_chunks", "path", "TEXT NOT NULL DEFAULT ''");
+  // Full-text index over the same chunks, for BM25. Kept in step with
+  // artifact_chunks by the indexer, not by triggers, so a chunk written
+  // before it has a vector is already searchable by its words.
+  db.exec(
+    "CREATE VIRTUAL TABLE IF NOT EXISTS artifact_chunks_fts USING fts5(" +
+      "source_path UNINDEXED, idx UNINDEXED, heading, text, tokenize='unicode61 remove_diacritics 2');",
+  );
+  // The shared protocol library on the box: read-only to everyone, ingested
+  // by an operator from licensed sources, searched beside a person's own
+  // protocols and saved from. Its own tables, not the artifact scanner: a
+  // library of thousands is not read whole into memory on every listing.
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS library_protocols (" +
+      "id TEXT PRIMARY KEY, " +
+      "source TEXT NOT NULL, " +
+      "source_url TEXT NOT NULL DEFAULT '', " +
+      "doi TEXT, " +
+      "license TEXT NOT NULL DEFAULT '', " +
+      "title TEXT NOT NULL, " +
+      "description TEXT NOT NULL DEFAULT '', " +
+      "category TEXT, " +
+      "domains TEXT NOT NULL DEFAULT '[]', " +
+      "keywords TEXT NOT NULL DEFAULT '[]', " +
+      "problem TEXT, method TEXT, application TEXT, " +
+      "body_md TEXT NOT NULL, " +
+      "content_hash TEXT NOT NULL, " +
+      "model TEXT NOT NULL DEFAULT '', " +
+      "ingested_at TEXT NOT NULL);",
+  );
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS library_chunks (" +
+      "protocol_id TEXT NOT NULL, " +
+      "idx INTEGER NOT NULL, " +
+      "heading TEXT NOT NULL DEFAULT '', " +
+      "text TEXT NOT NULL, " +
+      "grain TEXT NOT NULL DEFAULT 'section', " +
+      "path TEXT NOT NULL DEFAULT '', " +
+      "vector BLOB NOT NULL, " +
+      "PRIMARY KEY (protocol_id, idx));",
+  );
+  db.exec(
+    "CREATE VIRTUAL TABLE IF NOT EXISTS library_chunks_fts USING fts5(" +
+      "protocol_id UNINDEXED, idx UNINDEXED, heading, text, tokenize='unicode61 remove_diacritics 2');",
   );
   db.exec(
     "CREATE TABLE IF NOT EXISTS mirror_sessions (" +

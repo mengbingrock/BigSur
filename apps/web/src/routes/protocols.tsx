@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { FileText, FolderPlus, Loader2, MessagesSquare, Plus, Search, Sparkles } from "lucide-react";
+import { BookmarkPlus, FileText, FolderPlus, Loader2, MessagesSquare, Plus, Search, Sparkles } from "lucide-react";
 import type { Skill } from "@labee/contracts";
 import { Button } from "~/components/ui/button";
 import { useCurrentUser } from "~/lib/auth";
 import { apiGet, apiSend } from "~/lib/api";
+import {
+  confidenceLabel,
+  isLibrarySlug,
+  libraryIdOf,
+  whereLabel,
+  type AskResult,
+  type Scope,
+  type SearchResponse,
+  type UnifiedHit,
+} from "~/lib/protocolHits";
 import { cn } from "~/lib/utils";
 
 export const Route = createFileRoute("/protocols")({
@@ -14,19 +24,7 @@ export const Route = createFileRoute("/protocols")({
 
 const UNCATEGORISED = "Uncategorised";
 
-interface SearchHit {
-  slug: string;
-  score: number;
-  /** Heading path of the matching chunk, e.g. "Materials › Buffers". */
-  heading?: string;
-  snippet?: string;
-}
-
-interface SearchResponse {
-  /** "lexical" when no embedding credential resolved on the server. */
-  mode: "semantic" | "lexical";
-  hits: SearchHit[];
-}
+type SearchHit = UnifiedHit;
 
 interface CategoryProposal {
   slug: string;
@@ -41,20 +39,6 @@ interface SuggestResult {
   proposals: CategoryProposal[];
   newCategories: string[];
   usedModel: boolean;
-}
-
-interface Citation {
-  n: number;
-  slug: string;
-  name: string;
-  heading: string;
-  quote: string;
-}
-
-interface AskResult {
-  answer: string;
-  citations: Citation[];
-  available: boolean;
 }
 
 interface IndexStatus {
@@ -175,8 +159,13 @@ function ProtocolsPage() {
   // Ask the library. A deliberate button, not something that fires while
   // typing: it costs a model call and takes a second or two.
   const askMut = useMutation({
-    mutationFn: (question: string) =>
-      apiSend<AskResult>("POST", "/api/skills/ask", { q: question, kind: "protocol" }),
+    mutationFn: (v: { question: string; scope: Scope }) =>
+      apiSend<AskResult>("POST", "/api/skills/ask", { q: v.question, kind: "protocol", scope: v.scope }),
+  });
+  // Save a library hit straight from its card.
+  const saveFromLibrary = useMutation({
+    mutationFn: (id: string) => apiSend<{ skill: Skill; already: boolean }>("POST", "/api/library/import", { id }),
+    onSuccess: refresh,
   });
 
   const mutError =
@@ -189,6 +178,10 @@ function ProtocolsPage() {
     null;
 
   const [q, setQ] = useState("");
+  // Which pool search and Ask look in: the person's own protocols, the shared
+  // library on labee.online, or both. "Mine" is the default and the quiet
+  // way to say "answer only from my protocols".
+  const [scope, setScope] = useState<Scope>("mine");
   const [owner, setOwner] = useState<Ownership>("all");
   const [category, setCategory] = useState<string | null>(null);
   const [sort, setSort] = useState<"updated" | "name">("updated");
@@ -208,14 +201,21 @@ function ProtocolsPage() {
   }, [q]);
 
   const searchQ = useQuery({
-    queryKey: ["protocol-search", debounced],
+    queryKey: ["protocol-search", debounced, scope],
     queryFn: () =>
       apiGet<SearchResponse>(
-        `/api/skills/search?kind=protocol&q=${encodeURIComponent(debounced)}`,
+        `/api/skills/search?kind=protocol&scope=${scope}&q=${encodeURIComponent(debounced)}`,
       ),
     enabled: debounced.length > 0,
     staleTime: 15_000,
   });
+  /** Library hits in rank order; they are not in `protocols`, so they are
+   *  rendered from the response rather than looked up. */
+  const libraryHits = useMemo(
+    () => (searchQ.data?.hits ?? []).filter((h) => h.pool === "library"),
+    [searchQ.data],
+  );
+  const libraryUnreachable = searchQ.data?.libraryReachable === false && scope !== "mine";
 
   // Indexing progress. Polled only while the index is still catching up, so a
   // warm library makes one request and stops.
@@ -339,7 +339,7 @@ function ProtocolsPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && q.trim()) askMut.mutate(q.trim());
+              if (e.key === "Enter" && q.trim()) askMut.mutate({ question: q.trim(), scope });
             }}
             placeholder="Search protocols, steps, reagents…"
             className="min-w-0 flex-1 bg-transparent text-base text-ink placeholder:text-ink-faint focus:outline-none"
@@ -348,8 +348,14 @@ function ProtocolsPage() {
             size="sm"
             variant="ghost"
             disabled={!q.trim() || askMut.isPending}
-            onClick={() => askMut.mutate(q.trim())}
-            title="Answer this from your protocols, with citations"
+            onClick={() => askMut.mutate({ question: q.trim(), scope })}
+            title={
+              scope === "mine"
+                ? "Answer this from your protocols only, with citations"
+                : scope === "library"
+                  ? "Answer this from the shared library, with citations"
+                  : "Answer this from your protocols and the library, with citations"
+            }
           >
             {askMut.isPending ? (
               <Loader2 className="size-4 animate-spin" />
@@ -371,6 +377,17 @@ function ProtocolsPage() {
               Imported <Count>{ownerCounts.imported}</Count>
             </Chip>
           )}
+          <span className="mx-1 h-5 w-px bg-border" aria-hidden />
+          <span className="sr-only">Where to search and ask</span>
+          <Chip active={scope === "mine"} onClick={() => setScope("mine")}>
+            My protocols
+          </Chip>
+          <Chip active={scope === "library"} onClick={() => setScope("library")}>
+            Library
+          </Chip>
+          <Chip active={scope === "all"} onClick={() => setScope("all")}>
+            Both
+          </Chip>
           <div className="flex-1" />
           {!searching && (
             <label className="flex items-center gap-2 text-sm text-ink-light">
@@ -401,6 +418,11 @@ function ProtocolsPage() {
       ) : lexical ? (
         <p className="mt-2 text-sm text-ink-light">
           Semantic search needs a model key — showing text matches instead.
+        </p>
+      ) : null}
+      {libraryUnreachable ? (
+        <p className="mt-2 text-sm text-ink-light">
+          The library on labee.online could not be reached from here — showing your protocols only.
         </p>
       ) : null}
 
@@ -525,7 +547,7 @@ function ProtocolsPage() {
             <p className="text-sm text-ink-light">Loading…</p>
           ) : protocols.length === 0 ? (
             <EmptyState />
-          ) : visible.length === 0 ? (
+          ) : visible.length === 0 && libraryHits.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-ink-light">
               {searching ? `No protocol mentions “${q.trim()}”.` : "Nothing here yet."}{" "}
               <button
@@ -542,16 +564,45 @@ function ProtocolsPage() {
             </p>
           ) : searching || category ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {visible.map((p) => (
-                <ProtocolCard
-                  key={p.slug}
-                  protocol={p}
-                  hit={hits.get(p.slug)}
-                  categories={ownCategories}
-                  onMove={(slug, cat) => moveOne.mutate({ slug, category: cat })}
-                  moving={moveOne.isPending && moveOne.variables?.slug === p.slug}
-                />
-              ))}
+              {(searching
+                ? // Server rank order across both pools: own protocols looked
+                  // up by slug, library protocols rendered from the hit.
+                  (searchQ.data?.hits ?? []).map((h) =>
+                    h.pool === "library" ? (
+                      <LibraryCard
+                        key={h.slug}
+                        hit={h}
+                        onSave={(id) => saveFromLibrary.mutate(id)}
+                        saving={saveFromLibrary.isPending && saveFromLibrary.variables === h.id}
+                        saved={saveFromLibrary.data && saveFromLibrary.variables === h.id ? saveFromLibrary.data.skill.slug : null}
+                      />
+                    ) : (
+                      (() => {
+                        const p = visible.find((x) => x.slug === h.slug);
+                        return p ? (
+                          <ProtocolCard
+                            key={p.slug}
+                            protocol={p}
+                            hit={h}
+                            categories={ownCategories}
+                            onMove={(slug, cat) => moveOne.mutate({ slug, category: cat })}
+                            moving={moveOne.isPending && moveOne.variables?.slug === p.slug}
+                          />
+                        ) : null;
+                      })()
+                    ),
+                  )
+                : visible.map((p) => (
+                    <ProtocolCard
+                      key={p.slug}
+                      protocol={p}
+                      hit={hits.get(p.slug)}
+                      categories={ownCategories}
+                      onMove={(slug, cat) => moveOne.mutate({ slug, category: cat })}
+                      moving={moveOne.isPending && moveOne.variables?.slug === p.slug}
+                    />
+                  )))}
+              {searching && libraryHits.length === 0 && visible.length === 0 ? null : null}
             </div>
           ) : (
             <div className="flex flex-col gap-8">
@@ -628,6 +679,50 @@ function rememberForChat(slug: string) {
   }
 }
 
+/** A hit from the shared library: read there, or saved into one's own. */
+function LibraryCard({
+  hit,
+  onSave,
+  saving,
+  saved,
+}: {
+  hit: SearchHit;
+  onSave: (id: string) => void;
+  saving: boolean;
+  saved: string | null;
+}) {
+  const id = libraryIdOf(hit.slug);
+  const where = whereLabel(hit);
+  return (
+    <article className="flex flex-col gap-2 rounded-xl border border-dashed border-border bg-card p-4">
+      <Link to="/library/$id" params={{ id }} className="font-medium leading-snug text-ink hover:underline">
+        {hit.name}
+      </Link>
+      <p className="text-xs text-ink-light">
+        Library · {hit.source}
+        {hit.license ? ` · ${hit.license}` : ""}
+      </p>
+      {where ? <p className="text-[11px] uppercase tracking-[0.12em] text-ink-faint">{where}</p> : null}
+      <p className="line-clamp-2 text-sm leading-relaxed text-ink-light">{hit.snippet}</p>
+      <div className="mt-2 flex items-center gap-2">
+        <Button size="sm" variant="outline" render={<Link to="/library/$id" params={{ id }} />}>
+          Open
+        </Button>
+        {saved ? (
+          <Link to="/skills/$slug" params={{ slug: saved }} className="text-sm text-brand hover:underline">
+            Saved — open your copy
+          </Link>
+        ) : (
+          <Button size="sm" variant="ghost" disabled={saving} onClick={() => onSave(id)} title="Copy into your protocols">
+            {saving ? <Loader2 className="size-4 animate-spin" /> : <BookmarkPlus className="size-4" />}
+            Save
+          </Button>
+        )}
+      </div>
+    </article>
+  );
+}
+
 function ProtocolCard({
   protocol,
   hit,
@@ -657,8 +752,11 @@ function ProtocolCard({
         {protocol.category ?? UNCATEGORISED}
         {when ? ` · updated ${when}` : ""}
       </p>
-      {hit?.heading ? (
-        <p className="text-[11px] uppercase tracking-[0.12em] text-ink-faint">{hit.heading}</p>
+      {hit && whereLabel(hit) ? (
+        <p className="text-[11px] uppercase tracking-[0.12em] text-ink-faint">{whereLabel(hit)}</p>
+      ) : null}
+      {hit?.shadows ? (
+        <p className="text-[11px] text-ink-faint">Saved from the library</p>
       ) : null}
       <p className="line-clamp-2 text-sm leading-relaxed text-ink-light">
         {hit?.snippet ?? protocol.description}
@@ -746,26 +844,41 @@ function AskPanel({
           <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-ink">
             {result.answer}
           </p>
+          {(() => {
+            const c = confidenceLabel(result.confidence);
+            return c ? (
+              <p className={cn("mt-2 text-xs", c.low ? "text-destructive" : "text-ink-faint")}>{c.text}</p>
+            ) : null;
+          })()}
           {result.citations.length > 0 && (
             <ol className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
-              {result.citations.map((c) => (
-                <li key={c.n} className="flex gap-2 text-sm">
-                  <span className="shrink-0 font-mono text-xs text-ink-faint">[{c.n}]</span>
-                  <span className="min-w-0">
-                    <Link
-                      to="/skills/$slug"
-                      params={{ slug: c.slug }}
-                      className="font-medium text-ink hover:underline"
-                    >
-                      {c.name}
-                    </Link>
-                    {c.heading ? (
-                      <span className="text-ink-light"> · {c.heading}</span>
-                    ) : null}
-                    <span className="mt-0.5 block line-clamp-2 text-ink-light">{c.quote}</span>
-                  </span>
-                </li>
-              ))}
+              {result.citations.map((c) => {
+                const where = whereLabel(c);
+                return (
+                  <li key={c.n} className="flex gap-2 text-sm">
+                    <span className="shrink-0 font-mono text-xs text-ink-faint">[{c.n}]</span>
+                    <span className="min-w-0">
+                      {isLibrarySlug(c.slug) ? (
+                        <Link to="/library/$id" params={{ id: libraryIdOf(c.slug) }} className="font-medium text-ink hover:underline">
+                          {c.name}
+                        </Link>
+                      ) : (
+                        <Link to="/skills/$slug" params={{ slug: c.slug }} className="font-medium text-ink hover:underline">
+                          {c.name}
+                        </Link>
+                      )}
+                      {where ? <span className="text-ink-light"> · {where}</span> : null}
+                      {c.pool === "library" ? (
+                        <span className="ml-2 rounded-full border border-border px-1.5 py-px text-[11px] text-ink-light">
+                          library · {c.source}
+                          {c.license ? ` · ${c.license}` : ""}
+                        </span>
+                      ) : null}
+                      <span className="mt-0.5 block line-clamp-2 text-ink-light">{c.quote}</span>
+                    </span>
+                  </li>
+                );
+              })}
             </ol>
           )}
         </>

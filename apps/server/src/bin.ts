@@ -1,37 +1,55 @@
-import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
-import { runServer } from "./server";
-import { startLinkClient } from "./services/deviceLink/client";
-import { startLinkBridge } from "./services/runs/linkBridge";
-import { startSessionBridge } from "./services/runs/sessionBridge";
-import { startSiriDelivery } from "./services/siri/delivery";
-import { primeFolderCache } from "./services/userFolders";
+// Entry point. Two modes from one binary:
+//
+//   node bin.mjs                 the Labee server
+//   node bin.mjs --mcp-library   the library MCP server, over stdio — spawned
+//                                by the claude CLI for a chat turn, pointed at
+//                                the running server by env (LABEE_MCP_BASE,
+//                                LABEE_MCP_COOKIE)
+//
+// The MCP mode loads nothing of the server: no database, no config, no link
+// client. It is a thin HTTP client that happens to live in the same bundle so
+// there is one thing to ship.
+export {};
 
-// Keep the embedded server alive: a single request's stream error (e.g. an
-// enqueue after the client aborted a chat) must never take down the whole
-// process — otherwise every subsequent request fails with "Failed to fetch".
-process.on("uncaughtException", (err) => {
-  console.error("[labee] uncaughtException (ignored):", err);
-});
-process.on("unhandledRejection", (reason) => {
-  console.error("[labee] unhandledRejection (ignored):", reason);
-});
+if (process.argv.includes("--mcp-library")) {
+  const { serveLibraryMcp } = await import("./mcp/libraryMcp");
+  await serveLibraryMcp();
+} else {
+  const [{ default: NodeRuntime }, { runServer }, { startLinkClient }, { primeFolderCache }, { startLinkBridge }, { startSessionBridge }, { startSiriDelivery }] =
+    await Promise.all([
+      import("@effect/platform-node/NodeRuntime").then((m) => ({ default: m })),
+      import("./server"),
+      import("./services/deviceLink/client"),
+      import("./services/userFolders"),
+      import("./services/runs/linkBridge"),
+      import("./services/runs/sessionBridge"),
+      import("./services/siri/delivery"),
+    ]);
 
-// Ship a starter protocol library: copied into the shared _public folder the
-// first time a server boots with an empty one, never overwriting anything.
+  // Keep the embedded server alive: a single request's stream error (e.g. an
+  // enqueue after the client aborted a chat) must never take down the whole
+  // process — otherwise every subsequent request fails with "Failed to fetch".
+  process.on("uncaughtException", (err) => {
+    console.error("[labee] uncaughtException (ignored):", err);
+  });
+  process.on("unhandledRejection", (reason) => {
+    console.error("[labee] unhandledRejection (ignored):", reason);
+  });
 
-// Load the folder grants before serving: the artifact scanner reads them
-// synchronously, so an empty cache would briefly hide a person's protocols.
-void primeFolderCache();
+  // Load the folder grants before serving: the artifact scanner reads them
+  // synchronously, so an empty cache would briefly hide a person's protocols.
+  void primeFolderCache();
 
-// Desktop: dial the labee.online Device Link so phones can attach (no-op on
-// the box or when no account is connected yet).
-startLinkClient();
-// Protocol runs: reflect run events into sessions held here, and push those
-// for sessions held on a Mac down the Device Link.
-startSessionBridge();
-startLinkBridge();
-// Siri: a turn the Siri agent delegated is returned to the person's ear
-// when it ends (docs/siri-agent-design.md §5).
-startSiriDelivery();
+  // Desktop: dial the labee.online Device Link so phones can attach (no-op on
+  // the box or when no account is connected yet).
+  startLinkClient();
+  // Protocol runs: reflect run events into sessions held here, and push those
+  // for sessions held on a Mac down the Device Link.
+  startSessionBridge();
+  startLinkBridge();
+  // Siri: a turn the Siri agent delegated is returned to the person's ear
+  // when it ends (docs/siri-agent-design.md §5).
+  startSiriDelivery();
 
-runServer.pipe(NodeRuntime.runMain);
+  runServer.pipe(NodeRuntime.runMain);
+}

@@ -16,7 +16,7 @@ export interface UpdateStatus {
   /** Whether this skill has an origin we can re-fetch. */
   updatable: boolean;
   updateAvailable: boolean;
-  origin?: "github" | "registry";
+  origin?: "github" | "registry" | "library";
   /** SHA (github) or version (registry) currently installed. */
   current?: string;
   /** Latest SHA/version upstream. */
@@ -44,6 +44,12 @@ export async function checkForUpdate(email: string, slug: string): Promise<Updat
     };
   }
 
+  // A copy saved from the shared library is the person's own; it is not kept
+  // in step with the library's row, so there is nothing to update from.
+  if (o.kind !== "registry") {
+    return { updatable: false, updateAvailable: false, origin: "library", current: o.id, latest: o.id, detail: `${o.source}:${o.id}` };
+  }
+
   const latest = await latestVersion(o.registry, o.pkg);
   return {
     updatable: true,
@@ -69,6 +75,12 @@ export async function updateSkill(email: string, slug: string): Promise<Skill> {
       subpath: o.subpath,
     });
     return overwriteSkillFiles(email, slug, files, origin);
+  }
+
+  if (o.kind !== "registry") {
+    const e = new Error("A protocol saved from the library is your own copy; there is nothing to update it from.") as Error & { code: string };
+    e.code = "INVALID";
+    throw e;
   }
 
   // Registry: pull the latest matching version.

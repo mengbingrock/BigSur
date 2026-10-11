@@ -1,0 +1,77 @@
+[
+  { "id": "q01", "type": "parameter", "name": "Bacterial glycerol stock", "q": "What final glycerol concentration for a glycerol stock?", "answer": "25%" },
+  { "id": "q02", "type": "parameter", "name": "Bacterial glycerol stock", "q": "How much 50% glycerol do I mix with the overnight culture?", "answer": "500 ul" },
+  { "id": "q03", "type": "goal", "name": "Bacterial glycerol stock", "q": "How do I preserve a bacterial strain long term?" },
+  { "id": "q04", "type": "procedural", "name": "Bacterial glycerol stock", "q": "How do I recover a strain from a frozen glycerol stock?", "answer": "sterile loop" },
+  { "id": "q05", "type": "parameter", "name": "Bacterial glycerol stock", "q": "What temperature are glycerol stocks stored at?", "answer": "-80 C" },
+
+  { "id": "q06", "type": "parameter", "name": "Chemically competent cells (TSS)", "q": "What OD600 should I harvest cells at for TSS competent cells?", "answer": "0.2-0.5" },
+  { "id": "q07", "type": "parameter", "name": "Chemically competent cells (TSS)", "q": "How fast do I spin the culture when making competent cells?", "answer": "3000 rpm" },
+  { "id": "q08", "type": "goal", "name": "Chemically competent cells (TSS)", "q": "make my own competent E. coli without buying them" },
+  { "id": "q09", "type": "parameter", "name": "Chemically competent cells (TSS)", "q": "What volume do I aliquot competent cells into?", "answer": "100 ul" },
+  { "id": "q10", "type": "parameter", "name": "Chemically competent cells (TSS)", "q": "What fraction of the culture volume of TSS do I resuspend in?", "answer": "10%" },
+
+  { "id": "q11", "type": "parameter", "name": "Overnight liquid culture", "q": "What concentration of ampicillin for an overnight culture?", "answer": "100 ug/ml" },
+  { "id": "q12", "type": "parameter", "name": "Overnight liquid culture", "q": "kanamycin working concentration", "answer": "50 ug/ml" },
+  { "id": "q13", "type": "parameter", "name": "Overnight liquid culture", "q": "How long do I grow an overnight culture?", "answer": "12-18 h" },
+  { "id": "q14", "type": "procedural", "name": "Overnight liquid culture", "q": "how do I make 400 ml of LB", "answer": "4 g NaCl" },
+  { "id": "q15", "type": "parameter", "name": "Overnight liquid culture", "q": "chloramphenicol concentration in LB", "answer": "25 ug/ml" },
+  { "id": "q16", "type": "goal", "name": "Overnight liquid culture", "q": "grow bacteria from a single colony overnight" },
+
+  { "id": "q17", "type": "parameter", "name": "PEI transfection of HEK293T", "q": "How much DNA per 10 cm plate for PEI transfection?", "answer": "18.9 ug" },
+  { "id": "q18", "type": "parameter", "name": "PEI transfection of HEK293T", "q": "What DNA to PEI ratio should I use?", "answer": "1:3" },
+  { "id": "q19", "type": "parameter", "name": "PEI transfection of HEK293T", "q": "How many HEK293T cells do I seed per 10 cm plate?", "answer": "3.8 x 10^6" },
+  { "id": "q20", "type": "goal", "name": "PEI transfection of HEK293T", "q": "introduce a plasmid into HEK293T cells" },
+  { "id": "q21", "type": "parameter", "name": "PEI transfection of HEK293T", "q": "chloroquine stock concentration for transfection", "answer": "25 mM" },
+  { "id": "q22", "type": "procedural", "name": "PEI transfection of HEK293T", "q": "when do I change the medium after PEI transfection", "answer": "Day 2" },
+
+  { "id": "q23", "type": "parameter", "name": "Agarose gel electrophoresis", "q": "What agarose percentage resolves 0.5-10 kb?", "answer": "1.0%" },
+  { "id": "q24", "type": "parameter", "name": "Agarose gel electrophoresis", "q": "how long do I microwave the agarose", "answer": "90 s" },
+  { "id": "q25", "type": "goal", "name": "Agarose gel electrophoresis", "q": "separate DNA fragments by size" },
+  { "id": "q26", "type": "parameter", "name": "Agarose gel electrophoresis", "q": "Where does bromophenol blue run on a gel?", "answer": "400-500 bp" },
+  { "id": "q27", "type": "parameter", "name": "Agarose gel electrophoresis", "q": "How long should the agarose gel set before use?", "answer": "30 min" },
+  { "id": "q28", "type": "procedural", "name": "Agarose gel electrophoresis", "q": "What buffer lets me run a gel at 200-250 V?", "answer": "Sodium borate" },
+
+  { "id": "q29", "type": "parameter", "name": "Kit-free miniprep (STET boiling)", "q": "How long do I boil in the STET miniprep?", "answer": "40 s" },
+  { "id": "q30", "type": "parameter", "name": "Kit-free miniprep (STET boiling)", "q": "What is in STET buffer?", "answer": "8% sucrose" },
+  { "id": "q31", "type": "goal", "name": "Kit-free miniprep (STET boiling)", "q": "cheap plasmid prep for many samples without a kit" },
+  { "id": "q32", "type": "parameter", "name": "Kit-free miniprep (STET boiling)", "q": "How much lysozyme in the STET miniprep?", "answer": "10 ul" },
+  { "id": "q33", "type": "parameter", "name": "Kit-free miniprep (STET boiling)", "q": "What volume of TE do I rehydrate the plasmid in?", "answer": "50 ul" },
+  { "id": "q34", "type": "parameter", "name": "Kit-free miniprep (STET boiling)", "q": "how long is the spin after boiling in the STET prep", "answer": "30 min" },
+
+  { "id": "q35", "type": "parameter", "name": "Gel extraction and purification", "q": "What gel percentage for gel extraction?", "answer": "0.7-0.8%" },
+  { "id": "q36", "type": "procedural", "name": "Gel extraction and purification", "q": "how do I cut a band out of a gel", "answer": "razor blade" },
+  { "id": "q37", "type": "goal", "name": "Gel extraction and purification", "q": "recover a DNA fragment from an agarose gel" },
+  { "id": "q38", "type": "procedural", "name": "Gel extraction and purification", "q": "why weigh the gel slice before the spin column", "answer": "buffer volumes" },
+
+  { "id": "q39", "type": "parameter", "name": "Gibson assembly reaction", "q": "How long and at what temperature is a Gibson assembly incubated?", "answer": "1 hour at 50 C" },
+  { "id": "q40", "type": "parameter", "name": "Gibson assembly reaction", "q": "How long are Gibson primers?", "answer": "60 bp" },
+  { "id": "q41", "type": "parameter", "name": "Gibson assembly reaction", "q": "How much of the Gibson reaction do I transform?", "answer": "2 ul" },
+  { "id": "q42", "type": "goal", "name": "Gibson assembly reaction", "q": "join several DNA fragments without restriction enzymes" },
+  { "id": "q43", "type": "parameter", "name": "Gibson assembly reaction", "q": "How many fragments can Gibson assembly handle in one reaction?", "answer": "five fragments" },
+  { "id": "q44", "type": "parameter", "name": "Gibson assembly reaction", "q": "how much overlap between fragments for Gibson", "answer": "30 bp" },
+
+  { "id": "q45", "type": "parameter", "name": "Heat-shock transformation", "q": "How long is the heat shock at 42 C?", "answer": "30-60 s" },
+  { "id": "q46", "type": "parameter", "name": "Heat-shock transformation", "q": "How long is the outgrowth after heat shock?", "answer": "45 min" },
+  { "id": "q47", "type": "goal", "name": "Heat-shock transformation", "q": "get a plasmid into E. coli" },
+  { "id": "q48", "type": "parameter", "name": "Heat-shock transformation", "q": "How much DNA do I add to competent cells for transformation?", "answer": "1-5 ul" },
+  { "id": "q49", "type": "parameter", "name": "Heat-shock transformation", "q": "How long do I leave cells on ice after the heat shock?", "answer": "2 min" },
+  { "id": "q50", "type": "procedural", "name": "Heat-shock transformation", "q": "how should I transform a plasmid over 10 kb", "answer": "electroporation" },
+
+  { "id": "q51", "type": "parameter", "name": "T4 DNA ligation", "q": "What temperature and time for T4 ligation?", "answer": "22.5 C" },
+  { "id": "q52", "type": "parameter", "name": "T4 DNA ligation", "q": "insert to vector molar ratio for ligation", "answer": "6:1" },
+  { "id": "q53", "type": "parameter", "name": "T4 DNA ligation", "q": "How do I heat-inactivate T4 ligase?", "answer": "65 C" },
+  { "id": "q54", "type": "goal", "name": "T4 DNA ligation", "q": "stick an insert into a cut vector" },
+  { "id": "q55", "type": "parameter", "name": "T4 DNA ligation", "q": "how much T4 ligase in a 10 ul reaction", "answer": "0.5 ul" },
+
+  { "id": "q56", "type": "parameter", "name": "Colony PCR screening", "q": "How long is the initial denaturation in colony PCR?", "answer": "15 min" },
+  { "id": "q57", "type": "parameter", "name": "Colony PCR screening", "q": "How many cycles for colony PCR?", "answer": "39 cycles" },
+  { "id": "q58", "type": "goal", "name": "Colony PCR screening", "q": "check which colonies have my insert" },
+  { "id": "q59", "type": "parameter", "name": "Colony PCR screening", "q": "extension time per kb in colony PCR", "answer": "1 min per kb" },
+
+  { "id": "q60", "type": "parameter", "name": "Standard Taq PCR", "q": "What annealing temperature relative to the primer Tm?", "answer": "5 C below" },
+  { "id": "q61", "type": "parameter", "name": "Standard Taq PCR", "q": "How much Taq polymerase in a 50 ul reaction?", "answer": "0.2 ul" },
+  { "id": "q62", "type": "goal", "name": "Standard Taq PCR", "q": "amplify a DNA fragment with Taq" },
+  { "id": "q63", "type": "procedural", "name": "Standard Taq PCR", "q": "How do I reconstitute a lyophilised primer to 100 uM?", "answer": "ten times the nanomoles" },
+  { "id": "q64", "type": "parameter", "name": "Standard Taq PCR", "q": "what do I change for a GC-rich template in PCR", "answer": "lengthen the denaturation" }
+]
