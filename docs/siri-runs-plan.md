@@ -345,3 +345,13 @@ physical iPhone yet.
 - The Siri router's model call uses the account's provider through the
   same credential path as chat; with no credential it falls through to
   "new chat" rather than failing.
+
+### 2026-10-10, later: the Siri agent
+
+`docs/siri-agent-design.md`, all four phases, commits `212889c` (return
+path) and `85b7bd7` (planner, index, lock-screen activity), after the push
+registration fix (`94aece5`) that the device day exposed. Server deployed;
+app in build 17. Device checklist added: "Ask Labee what is a PCR" then
+wait for the announced return; "Any news from Labee?"; "Tell Labee stop
+all the runs" (expects a confirmation); the Siri Live Activity after a
+phrase; Spotlight "TSS" finding the run.

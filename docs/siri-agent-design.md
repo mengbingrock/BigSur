@@ -411,3 +411,39 @@ What the agent could do and the planner cannot is explore: read several
 chats, search twice, change its mind. That work is delegated to a chat,
 which is a full agent with every tool. The MCP server comes back only if
 that split stops holding.
+
+## 13. Built (2026-10-10)
+
+All four phases are on `worktree-siri-runs`, the server side deployed to
+labee.online and the app side in build 17.
+
+- **Phase 1, the return path:** `services/siri/delivery.ts`, the `origin`
+  field on turns and their events, `GET /api/siri/news` and `POST
+  /api/siri/news/read`, the Any-news intent, `.alwaysAllowed` on every
+  background intent. Test: `test/siri.delivery.test.ts`.
+- **Phase 2, the planner:** `services/siri/planner.ts` (state, plan,
+  validate, confirm, execute), `POST /api/siri/say`, the quick answer as a
+  function (`services/siri/quick.ts`), the Say intent in place of Tell, Ask,
+  New chat and Agent status; eight shortcuts. Test:
+  `test/siri.planner.test.ts` (validation and confirmation pure; the HTTP
+  path with the fake model returning the plan).
+- **Phase 3, the index:** chats and runs are `IndexedEntity` with a
+  `CSSearchableItemAttributeSet`; `LabeeIndex.refresh()` runs after sign-in
+  and after each Say. What this does not include: an App Schema domain.
+  Apple's domains (mail, messages, photos, books, reminders, system, …) have
+  none for laboratory runs, and the entity schemas carry fixed property
+  sets, so chats and runs stay custom entities. Siri AI can refer to them
+  by meaning through the index; it cannot execute "I'm done with this step"
+  without a phrase until a fitting schema exists.
+- **Phase 4, the lock screen:** `SiriActivity` in the widget target, shown
+  by the Say and Any-news intents, with Any news (a `LiveActivityIntent`,
+  in place), Done (the run's intent) and Open. It is started from the
+  intents, which run in the app's process; a return that arrives while the
+  app is not running reaches the phone as the announced push, and the
+  activity catches up on the next phrase or button press. Updating it from
+  the server would need ActivityKit push tokens, which Expo's push service
+  does not carry.
+
+Not verified on a device: everything spoken. The simulator checked the
+intents' metadata (eleven in the app, three in the widget) and the native
+build; the server paths are covered by tests.
