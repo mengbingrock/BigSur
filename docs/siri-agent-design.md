@@ -102,22 +102,42 @@ the run routes do today, so the planner sees the same state from either
 place.
 
 **The route.** The Say intent posts the phrase; the route gathers state,
-calls the model, validates the plan, executes it, and answers, under a
-15 s ceiling so the intent returns well inside Siri's limit:
+resolves the phrase against the open exchange, plans, validates, confirms
+or executes, and answers. It has a **spoken budget** of 10 s: what is ready
+by then is spoken; what is not is promised and delivered when it comes.
+Time is never a reason to guess or to open a chat.
 
 ```
 POST /api/siri/say   { text, device: "Siri" }
   → { status: "answered", spoken, actions: [...] }
   → { status: "working",  spoken: "Started 'compare transfections'. I'll tell you.", actions: [...] }
+  → { status: "working",  spoken: "Give me a moment. I'll tell you." }          (past the budget)
   → { status: "confirm",  spoken: "Pause both runs?", confirmId }
-POST /api/siri/say   { confirmId, yes: true }
+POST /api/siri/say   { text: "yes please" }   or   { confirmId, yes: true }
 ```
 
-`answered` is spoken by Siri and that is the end of it. `working` means a
-plan started or continued a chat; Siri speaks the sentence and the result
-comes back through §5. `confirm` is for the few actions that should not
-happen on a misheard word (§6): the intent uses `requestConfirmation`, and
-a yes re-posts with the `confirmId`.
+`answered` is spoken by Siri and that is the end of it. `working` means the
+answer comes later through §5: a chat was started or continued, or the
+plan itself was not ready in time, in which case it is executed when it
+arrives and its sentence is announced like a chat's return. `confirm` is
+for the few actions that should not happen on a misheard word (§6): the
+intent uses `requestConfirmation` and re-posts with the `confirmId`; in the
+app, or when Siri hears the next phrase, a plain "yes" or "no" answers it
+without a model call, because the exchange remembers the question.
+
+**The exchange.** Context is not a window of recent messages; it is the
+request being worked on. An exchange opens with a phrase and holds every
+line said about it, the question Labee asked back (a confirmation, or a
+clarifying question), and the chats Labee started for it. It closes when
+the request is done: the action ran, the person said no, or the delegated
+chats returned. The next phrase is resolved against the open exchange: the
+model sees the request, the lines so far, what is pending, and says
+whether this phrase continues it or starts something new. When nothing is
+open, the model also sees the last settled exchange in one line, for "do
+that again" or "the other one". The exchange is stored with the Siri
+session, so it survives a restart, and a confirmation pending in it expires
+after two minutes. Nothing in this depends on how many messages there were
+or how many words the person said.
 
 **The state**, gathered in milliseconds from local calls and about 1.5 KB of
 text: the clock; the runs in progress with their step, amounts, timers and
@@ -126,12 +146,24 @@ question, and last user and assistant lines (the router's `tailOf`); the
 person's protocol names; and the unread returns (§5). Every id the model
 may name is in this state, which is what makes validation possible.
 
-**The call.** `completeText`, the direct completion the router and the
-quick answer already use: a fixed system prompt of about a page, the state
-and the phrase as the user message, `effort: low`, a fast model, a 6 s
-timeout. The prompt carries the rules of §1 and the action vocabulary. It
-is terse and spoken, never lists options as a menu, names a delegated job
-("Started 'compare transfections'"), and declines what Labee cannot do.
+**The call.** One message to the model per phrase: the phrase, the
+exchange, the previous exchange and the state, as JSON; a fixed system
+prompt of about a page with the rules of §1 and the action vocabulary;
+`effort: low`, a fast model. On a Mac the only sanctioned route to the
+model is the Claude command line tool, and starting it costs 2 to 5 s, more
+than the answer itself. So the planner keeps **one warm process per
+account** (`services/siri/warm.ts`): the tool is started once with the
+system prompt, fed each phrase over its standard input, and answers in
+about a second from the second phrase on; it is closed after ten minutes
+idle and restarted after forty phrases. On labee.online, which has no
+command line tool and a direct credential, the same message goes through
+the direct completion. The prompt is terse and spoken, never lists options
+as a menu, names a delegated job ("Started 'compare transfections'"), and
+declines what Labee cannot do. A plan that names an id the state does not
+hold, or proposes a confirmation without the actions it would confirm, is
+sent back to the model once with the reason; a second bad answer is
+reported as such ("I couldn't do that. Say it again?"), never guessed at
+and never turned into a chat.
 
 **The plan**, JSON, validated against a schema before anything runs:
 
@@ -184,23 +216,31 @@ return (§5). It replays the day, and it is the test corpus (§9).
 ## 4. The two lanes
 
 ```
-phrase ──► /api/siri/say ──► state (ms) ──► planner call (≈1 s, one `need` at most)
-                                                │
-            ┌───────────────────────────────────┴──────────────────┐
-            │ plan has no chat action                               │ plan starts or continues a chat
-            ▼                                                       ▼
-   execute run/read actions; Siri speaks `say`          execute; Siri speaks `say` ("Started '…'. I'll tell you.")
-   (steps, amounts, status, pause, quick facts)          the chat's turn runs for minutes, with origin: siri
-                                                                    │
-                                                        turn_ended / question_asked
-                                                                    ▼
-                                            delivery (§5): Siri line + announced summary
-                                               + unread for "Any news from Labee?"
+phrase ──► /api/siri/say ──► exchange + state (ms) ──► warm planner (≈1 s; 4 s when cold)
+                │                                            │
+                │ plain yes/no to a pending confirmation     │
+                └──► execute the pending plan, no model      │
+                                                             │
+        ┌────────────────────────────────────────────────────┴─────────────────┐
+        │ ready inside the spoken budget (10 s)                                │ not yet ready
+        ▼                                                                      ▼
+   validate; confirm or execute;                                 Siri: "Give me a moment. I'll tell you."
+   Siri speaks what was done, or the chat it started             the plan finishes in the background,
+        │                                                        executes, and is announced (§5)
+        │ a chat was started or continued (origin: siri)
+        ▼
+   the chat's turn runs for minutes ──► turn_ended / question_asked
+                                              ▼
+                              delivery (§5): Siri line + announced summary
+                                 + unread for "Any news from Labee?"
+                                 + the exchange settles
 ```
 
-The fast lane is 2 to 4 s spoken, 5 to 7 with a `need`; most of a bench day
-lives there. The slow lane is where the real agent works, with every tool
-it has today, and the planner is only its dispatcher and its voice.
+The fast lane is 1 to 3 s spoken once the process is warm; most of a bench
+day lives there. The slow lane is where the real agent works, with every
+tool it has today, and the planner is only its dispatcher and its voice.
+Nothing crosses from fast to slow because of time alone: a late plan is a
+promise kept, not a chat.
 
 ## 5. The return path
 
@@ -322,18 +362,27 @@ locked phone. "What's Labee doing" and "Stop Labee" fold into SayToLabee.
 
 ## 9. Server changes
 
-- **`services/siri/planner.ts`.** `gatherState(email)`, `plan(email, text,
-  state, extra?)` (the `completeText` call and the JSON parse), `validate`
-  (the schema and the id check against the state), `execute(plan)` (the
-  switch over service functions, writing the action lines), and the
-  `confirm` store (in memory, 60 s). Pure enough to test with a recorded
-  model reply and a fixture state.
+- **`services/siri/planner.ts`.** `gatherState(email)`; the exchange
+  (`Exchange`, `Pending`, stored in the Siri session's `lastBody.siri`,
+  `settleDelegation` called by delivery); `planWith(email, ctx)` (the model
+  call and the JSON parse, one retry with the reason); `validatePlan`,
+  `needsConfirmation`; `executePlan` (the switch over service functions,
+  each write returning its spoken sentence); `finalSentence`;
+  `sayToLabee` (the exchange end to end, with the spoken budget and the
+  late path). Pure enough to test with a recorded model reply and a fixture
+  state.
+- **`services/siri/warm.ts`.** One Claude command line process per account,
+  `--input-format stream-json`, no tools, the system prompt fixed at spawn;
+  asks are serialised; idle close after ten minutes, restart after forty
+  phrases, fallback to the one-shot completion when it cannot run.
+  `LABEE_SIRI_WARM=0` turns it off (the tests do; the fake model is one-shot).
 - **`POST /api/siri/say`** in `routes/siri.ts`, replacing `/api/siri/send`
-  for the Say intent: gather, plan, one `need` round at most, validate,
-  execute, answer, all under a 15 s ceiling. `/api/siri/route` stays for
-  Answer (pending-question lookup) and StartRun's resume check. The quick
-  answer stays as a function the executor calls for `ask.quick`; its route
-  remains for the HowMuch fallback.
+  for the Say intent: resolve against the exchange, plan, validate, confirm
+  or execute, answer within the spoken budget, else promise and announce
+  later (`announceLate` in delivery). `/api/siri/route` stays for Answer
+  (pending-question lookup) and StartRun's resume check. The quick answer
+  stays as a function the executor calls for `ask.quick`; its route remains
+  for the HowMuch fallback.
 - **The Siri session's messages.** The phrase and `say` are written as user
   and assistant messages through `sdb`, without a runner turn; action lines
   through `emitSystemMessage`. The session's status never becomes
@@ -447,3 +496,36 @@ labee.online and the app side in build 17.
 Not verified on a device: everything spoken. The simulator checked the
 intents' metadata (eleven in the app, three in the widget) and the native
 build; the server paths are covered by tests.
+
+## 14. The second device day, and what the first build got wrong
+
+"Finish the first step of the first protocol" produced, in order: a
+confirmation question with no action behind it, a yes that did nothing,
+and a new chat called "Yes, please." Three causes, all in the planner as
+first built, all of them guesses standing in for design:
+
+- **A fixed timeout as a decision.** Every call on the Mac took a little
+  over six seconds, because each one started the command line tool from
+  cold, and the planner gave six. Past the timeout it opened a chat, so
+  slowness became a wrong action. The fix is not a longer timeout: the
+  model is reached through a warm process, so the usual answer takes a
+  second, and when an answer is still late Siri hears "give me a moment"
+  and the real answer follows through the return path. A chat is only ever
+  started because the plan says so.
+- **A window as context.** The first repair added "the last eight
+  exchanges" to the prompt. That is a guess about where the context is. The
+  exchange (§3) is the context: the request being worked on, what was asked
+  back, what is pending, which chats are working on it. A plain "yes"
+  answers the pending question without a model call; "yes, but only the
+  first one" goes to the model with the question in view.
+- **A word count as understanding.** The same repair sent phrases of four
+  words or fewer to "I didn't catch that" and longer ones to a chat. The
+  planner has the context; it decides. When the model gives no usable plan
+  at all, the honest answer is that something went wrong on Labee's side,
+  not a chat about whatever was said.
+- **A question in the wrong slot.** The model put its confirmation in
+  `confirm` with no `actions`, so a yes had nothing to do. A confirmation
+  is a proposal with the actions attached; one without them is sent back
+  once for the actions, and if it still has none it is spoken as the
+  question it is. After a confirmed action, what is spoken is what was
+  done ("Step 1 done. Next, step 2: …"), never the plan's own words.
