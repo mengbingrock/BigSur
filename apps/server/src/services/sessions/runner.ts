@@ -2,7 +2,15 @@
 // running turn, persists every event with a per-session seq, fans them out
 // to subscribers, and never lets a client disconnect touch the child. Turns
 // sent while one is running are queued and started when it ends.
-import { SseParser, frameJson, formatAnswers, type AskUserAnswer, type TurnRequest } from "@labee/session-core";
+import { SseParser, frameJson, formatAnswers, normalizeQuestions, type AskUserAnswer, type TurnRequest } from "@labee/session-core";
+
+/** The question the model asked, with its list made an array whatever the
+ *  model sent (a JSON string once crashed the phone), so every reader of
+ *  `pendingQuestion.input.questions` can count on the shape. */
+function askedQuestion(data: { id?: unknown; input?: unknown }): { toolUseId: string; input: unknown } {
+  const raw = data.input && typeof data.input === "object" ? (data.input as Record<string, unknown>) : {};
+  return { toolUseId: String(data.id ?? ""), input: { ...raw, questions: normalizeQuestions(data.input) } };
+}
 import { prepareTurn, type ChatRequest } from "../turnBuilder";
 import * as db from "./db";
 import type { SessionRow } from "./db";
@@ -255,7 +263,7 @@ async function runTurn(
     if (stats) meta.stats = stats;
     if (error) meta.error = error;
     if (cancelled) meta.cancelled = true;
-    if (question) meta.question = { toolUseId: question.toolUseId, questions: (question.input as { questions?: unknown })?.questions ?? [] };
+    if (question) meta.question = { toolUseId: question.toolUseId, questions: normalizeQuestions(question.input) };
     if (req.device) meta.device = req.device;
     await db.appendMessage(sessionId, turnId, "assistant", content, meta);
     const cost = typeof stats?.costUsd === "number" ? stats.costUsd : 0;
@@ -332,12 +340,10 @@ async function runTurn(
           a.input = data.input ?? a.input;
           if (event === "tool_stop") {
             a.done = true;
-            if (data.name === "AskUserQuestion") {
-              question = { toolUseId: String(data.id ?? ""), input: data.input ?? null };
-            }
+            if (data.name === "AskUserQuestion") question = askedQuestion(data);
           }
         } else if (data.name === "AskUserQuestion" && event === "tool_stop") {
-          question = { toolUseId: String(data.id ?? ""), input: data.input ?? null };
+          question = askedQuestion(data);
         }
         break;
       }

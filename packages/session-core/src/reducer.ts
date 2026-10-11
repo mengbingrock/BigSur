@@ -1,7 +1,7 @@
 // Pure reducer from session events to a renderable transcript. The mobile app
 // and (eventually) the web client both drive their UI from this so the two
 // never disagree about what a stream of events means.
-import type { AskUserAnswer, AskUserQuestionItem, SessionEvent, SessionMessage } from "./events";
+import { normalizeQuestions, type AskUserAnswer, type AskUserQuestionItem, type SessionEvent, type SessionMessage } from "./events";
 
 export type ActivityItem =
   | { kind: "thinking"; text: string; done: boolean }
@@ -65,7 +65,13 @@ export function initialState(messages: SessionMessage[] = [], lastSeq = 0): Tran
       ...(typeof m.meta?.error === "string" ? { error: m.meta.error as string } : {}),
       ...(m.meta?.cancelled ? { cancelled: true } : {}),
       ...(m.meta?.question
-        ? { question: m.meta.question as NonNullable<TranscriptMessage["question"]> }
+        ? {
+            question: {
+              ...(m.meta.question as NonNullable<TranscriptMessage["question"]>),
+              // Stored by an older server as whatever the model sent; make it an array.
+              questions: normalizeQuestions((m.meta.question as { questions?: unknown }).questions),
+            },
+          }
         : {}),
       ...(typeof m.meta?.device === "string" ? { device: m.meta.device as string } : {}),
       createdAt: m.createdAt,
@@ -246,10 +252,9 @@ export function applyEvent(state: TranscriptState, ev: SessionEvent): Transcript
         })),
       );
       if (d.name === "AskUserQuestion") {
-        const input = (d.input ?? {}) as { questions?: AskUserQuestionItem[] };
         s = mutateAssistant(s, t, (m) => ({
           ...m,
-          question: { toolUseId: id, questions: Array.isArray(input.questions) ? input.questions : [] },
+          question: { toolUseId: id, questions: normalizeQuestions(d.input) },
         }));
       }
       return s;
@@ -275,13 +280,12 @@ export function applyEvent(state: TranscriptState, ev: SessionEvent): Transcript
         },
       }));
     case "question_asked": {
-      const input = (d.input ?? {}) as { questions?: AskUserQuestionItem[] };
       const s = mutateAssistant(next, t, (m) => ({
         ...m,
         pending: false,
         question: m.question ?? {
           toolUseId: String(d.toolUseId ?? ""),
-          questions: Array.isArray(input.questions) ? input.questions : [],
+          questions: normalizeQuestions(d.input),
         },
       }));
       return { ...s, streaming: false, activeTurn: null };
