@@ -107,6 +107,24 @@ struct SendResult: Decodable {
   let candidates: [RouteResult.Candidate]?
 }
 
+/// POST /api/siri/say (siri-agent design §3): a phrase, or a yes to a
+/// confirmation asked a moment ago.
+struct SayBody: Encodable {
+  var text: String? = nil
+  var confirmId: String? = nil
+  var yes: Bool? = nil
+  init(text: String) { self.text = text }
+  init(confirmId: String, yes: Bool) { self.confirmId = confirmId; self.yes = yes }
+}
+
+struct SayResult: Decodable {
+  /// answered · working (a chat was started; the return comes later) · confirm
+  let status: String
+  let spoken: String
+  let confirmId: String?
+  let siriTurnId: String?
+}
+
 struct QuickAnswer: Decodable {
   let answer: String
   let needsAgent: Bool
@@ -120,6 +138,8 @@ struct SessionSummary: Decodable {
   let status: String
   let kind: String?
   let updatedAt: String
+  /// The last assistant line, one sentence, for the index (phase 3).
+  let lastLine: String?
   let run: RunBadge?
   struct RunBadge: Decodable { let id: String; let protocolName: String; let current: Int; let total: Int; let status: String }
 }
@@ -238,5 +258,33 @@ enum Spoken {
     var out = "Step \(s.n): \(s.say)"
     if withTimer, let t = s.timer { out += " There's a \(t.label) timer." }
     return out
+  }
+}
+
+// MARK: - Siri news and runs (shared with the widget extension)
+
+struct ReadBody: Encodable { let idx: [Int] }
+
+struct NewsList: Decodable {
+  let items: [NewsItem]
+  struct NewsItem: Decodable {
+    let idx: Int
+    let sessionId: String
+    let title: String
+    let spoken: String
+    let question: Question?
+    struct Question: Decodable { let text: String; let options: [String] }
+  }
+}
+
+struct RunsList: Decodable {
+  let runs: [RunItem]
+  struct RunItem: Decodable {
+    let id: String
+    let protocolName: String
+    let status: String
+    let current: Int
+    let total: Int
+    let sessionId: String
   }
 }

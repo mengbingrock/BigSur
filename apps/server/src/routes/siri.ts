@@ -9,6 +9,7 @@ import * as sdb from "../services/sessions/db";
 import * as runner from "../services/sessions/runner";
 import { ensureSiriSession, route, type RouteKind } from "../services/siri/router";
 import { markReturnsRead, unreadReturns } from "../services/siri/delivery";
+import { sayToLabee } from "../services/siri/planner";
 
 const safeBody = <T>() => bodyJson<T>().pipe(Effect.catch(() => Effect.succeed(null as T | null)));
 
@@ -105,6 +106,32 @@ export const siriSendRoute = HttpRouter.add(
   }),
 );
 
+/** The Siri agent (siri-agent design §3): say anything; the planner answers
+ *  within Siri's budget, acts, or delegates and reports back later. */
+export const siriSayRoute = HttpRouter.add(
+  "POST",
+  "/api/siri/say",
+  Effect.gen(function* () {
+    const user = yield* sessionUser;
+    if (!user) return yield* error("Unauthorized.", 401);
+    const body = yield* safeBody<{ text?: string; device?: string; confirmId?: string; yes?: boolean }>();
+    const text = typeof body?.text === "string" ? body.text.trim() : "";
+    if (!text && !body?.confirmId) return yield* error("`text` is required.", 400);
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const device = body?.device ?? (request.headers["x-labee-device"] as string | undefined) ?? "Siri";
+    const result = yield* Effect.tryPromise({
+      try: () =>
+        Promise.race([
+          sayToLabee(user.email, text, { device, ...(body?.confirmId ? { confirmId: body.confirmId, yes: body.yes === true } : {}) }),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("The Siri agent took too long.")), 15_000)),
+        ]),
+      catch: (e) => e,
+    }).pipe(Effect.map((v) => ({ ok: true as const, v })), Effect.catch((e) => Effect.succeed({ ok: false as const, e })));
+    if (!result.ok) return yield* error(result.e instanceof Error ? result.e.message : String(result.e), 500);
+    return yield* json(result.v);
+  }),
+);
+
 /** "Any news from Labee?": the returns not yet heard, newest first. */
 export const siriNewsRoute = HttpRouter.add(
   "GET",
@@ -130,4 +157,4 @@ export const siriNewsReadRoute = HttpRouter.add(
   }),
 );
 
-export const siriRoutes = [siriRouteRoute, siriSendRoute, siriNewsRoute, siriNewsReadRoute] as const;
+export const siriRoutes = [siriRouteRoute, siriSendRoute, siriSayRoute, siriNewsRoute, siriNewsReadRoute] as const;

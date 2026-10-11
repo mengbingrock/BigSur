@@ -27,6 +27,9 @@ struct CatchUpIntent: AppIntent {
       if news.items.count > heard.count { parts.append("And \(news.items.count - heard.count) more in the Siri chat.") }
       if heard.contains(where: { $0.question != nil }) { parts.append("Say answer Labee to reply.") }
       let _: Empty = try await api.post(api.viaHost("/api/siri/news/read"), ReadBody(idx: heard.map(\.idx)))
+      if let first = heard.first {
+        await SiriActivity.show(await SiriActivity.state(spoken: first.spoken, chatTitle: first.title, sessionId: first.sessionId, unread: news.items.count - heard.count))
+      }
       return .result(dialog: say(parts.joined(separator: " ")))
     }
     // Nothing unread: the runs, then the chats.
@@ -41,30 +44,5 @@ struct CatchUpIntent: AppIntent {
       return .result(dialog: say("Nothing new yet. \"\(running.title)\" is still working."))
     }
     return .result(dialog: say("Nothing new, and nothing running."))
-  }
-}
-
-struct ReadBody: Encodable { let idx: [Int] }
-
-struct NewsList: Decodable {
-  let items: [NewsItem]
-  struct NewsItem: Decodable {
-    let idx: Int
-    let sessionId: String
-    let title: String
-    let spoken: String
-    let question: Question?
-    struct Question: Decodable { let text: String; let options: [String] }
-  }
-}
-
-struct RunsList: Decodable {
-  let runs: [RunItem]
-  struct RunItem: Decodable {
-    let id: String
-    let protocolName: String
-    let status: String
-    let current: Int
-    let total: Int
   }
 }

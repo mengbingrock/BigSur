@@ -3,6 +3,7 @@
 // query lists recent items so Siri recognises the names instead of
 // transcribing them as free text; synonyms cover the short forms people say.
 import AppIntents
+import CoreSpotlight
 import Foundation
 
 @available(iOS 26.0, *)
@@ -51,15 +52,38 @@ struct ProtocolQuery: EntityStringQuery {
   }
 }
 
+/// A chat. Indexed (siri-agent design, phase 3): the system's semantic
+/// index holds the title and last line, so Siri AI and Spotlight can refer
+/// to "the gel chat" without a phrase, and "Talk to Labee about …" resolves
+/// by meaning rather than by substring.
 @available(iOS 26.0, *)
-struct SessionEntity: AppEntity {
+struct SessionEntity: IndexedEntity {
   static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Chat")
   static let defaultQuery = SessionQuery()
 
   let id: String
   let title: String
+  var lastLine: String = ""
+  var status: String = "idle"
 
-  var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(title)") }
+  init(id: String, title: String, lastLine: String = "", status: String = "idle") {
+    self.id = id
+    self.title = title
+    self.lastLine = lastLine
+    self.status = status
+  }
+
+  var displayRepresentation: DisplayRepresentation {
+    DisplayRepresentation(title: "\(title)", subtitle: lastLine.isEmpty ? nil : "\(lastLine)")
+  }
+
+  var attributeSet: CSSearchableItemAttributeSet {
+    let a = CSSearchableItemAttributeSet(contentType: .text)
+    a.title = title
+    a.contentDescription = lastLine.isEmpty ? "A Labee chat" : lastLine
+    a.keywords = ["Labee", "chat", status]
+    return a
+  }
 }
 
 @available(iOS 26.0, *)
@@ -129,6 +153,78 @@ struct MaterialQuery: EntityStringQuery {
       guard !key.isEmpty, !seen.contains(key) else { return nil }
       seen.insert(key)
       return MaterialEntity(id: key, name: n)
+    }
+  }
+}
+
+/// A protocol run in progress, indexed the same way: "my TSS run".
+@available(iOS 26.0, *)
+struct RunEntity: IndexedEntity {
+  static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Run")
+  static let defaultQuery = RunQuery()
+
+  let id: String
+  let protocolName: String
+  let step: Int
+  let total: Int
+  let status: String
+  let sessionId: String
+
+  var displayRepresentation: DisplayRepresentation {
+    DisplayRepresentation(title: "\(protocolName)", subtitle: "Step \(step) of \(total)\(status == "paused" ? ", paused" : "")")
+  }
+
+  var attributeSet: CSSearchableItemAttributeSet {
+    let a = CSSearchableItemAttributeSet(contentType: .text)
+    a.title = "\(protocolName) run"
+    a.contentDescription = "Step \(step) of \(total), \(status)"
+    a.keywords = ["Labee", "run", "protocol", protocolName]
+    return a
+  }
+}
+
+@available(iOS 26.0, *)
+struct RunQuery: EntityStringQuery {
+  func entities(for identifiers: [String]) async throws -> [RunEntity] {
+    try await open().filter { identifiers.contains($0.id) }
+  }
+  func entities(matching string: String) async throws -> [RunEntity] {
+    let q = string.lowercased()
+    return try await open().filter { $0.protocolName.lowercased().contains(q) }
+  }
+  func suggestedEntities() async throws -> [RunEntity] {
+    try await open()
+  }
+  private func open() async throws -> [RunEntity] {
+    let api = try LabeeAPI.current()
+    let list: RunsList = try await api.get("/api/runs")
+    return list.runs.filter { $0.status == "running" || $0.status == "paused" }.map {
+      RunEntity(id: $0.id, protocolName: $0.protocolName, step: $0.current, total: $0.total, status: $0.status, sessionId: $0.sessionId)
+    }
+  }
+}
+
+/// Keep the system index current: called by the app after sign-in and
+/// whenever its lists refresh, and by the intents after they act. Chats and
+/// runs that are gone are dropped by re-indexing the whole (small) set.
+@available(iOS 26.0, *)
+enum LabeeIndex {
+  static func refresh() async {
+    guard let api = try? LabeeAPI.current() else { return }
+    let index = CSSearchableIndex.default()
+    if let list: SessionsList = try? await api.get(api.viaHost("/api/sessions")) {
+      let chats = list.sessions.filter { $0.kind != "siri" }.prefix(50).map {
+        SessionEntity(id: $0.id, title: $0.title, lastLine: $0.lastLine ?? "", status: $0.status)
+      }
+      try? await index.deleteAppEntities(ofType: SessionEntity.self)
+      try? await index.indexAppEntities(Array(chats))
+    }
+    if let runs: RunsList = try? await api.get("/api/runs") {
+      let open = runs.runs.filter { $0.status == "running" || $0.status == "paused" }.map {
+        RunEntity(id: $0.id, protocolName: $0.protocolName, step: $0.current, total: $0.total, status: $0.status, sessionId: $0.sessionId)
+      }
+      try? await index.deleteAppEntities(ofType: RunEntity.self)
+      try? await index.indexAppEntities(open)
     }
   }
 }

@@ -26,11 +26,17 @@ final class LabeeSiri: Module {
       }
     }
 
+    // Phase 3: chats and runs into the system index, for Siri AI and Spotlight.
+    AsyncFunction("reindex") {
+      if #available(iOS 26.0, *) {
+        await LabeeIndex.refresh()
+      }
+    }
+
     AsyncFunction("donate") { (intent: String) in
       if #available(iOS 26.0, *) {
         switch intent {
-        case "tell": _ = try? await TellLabeeIntent().donate()
-        case "ask": _ = try? await AskLabeeIntent().donate()
+        case "tell", "ask": _ = try? await SayToLabeeIntent().donate()
         case "note": _ = try? await NoteIntent().donate()
         default: break
         }

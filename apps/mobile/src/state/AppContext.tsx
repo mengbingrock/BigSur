@@ -12,7 +12,7 @@ import {
 } from "~/api/auth";
 import { getSessionToken, setDeviceToken, setSessionToken, type Target } from "~/api/client";
 import { syncPushRegistration } from "~/notifications";
-import { configureSiri, refreshSiriShortcuts } from "~/siri";
+import { configureSiri, refreshSiriShortcuts, reindexSiri } from "~/siri";
 import { getPref, getSecret, setPref, setSecret } from "~/storage";
 
 const DEFAULT_BASE = Platform.OS === "web" && typeof location !== "undefined" && location.origin.startsWith("http")
@@ -232,7 +232,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       void configureSiri(null);
       return;
     }
-    void configureSiri({ base, hostId: hostId ?? null, sessionToken: getSessionToken() }).then(() => refreshSiriShortcuts());
+    void configureSiri({ base, hostId: hostId ?? null, sessionToken: getSessionToken() })
+      .then(() => refreshSiriShortcuts())
+      .then(() => reindexSiri());
     // Keep the account server's copy of this phone's push token current, so
     // "I'll let you know" from Siri can actually reach the phone.
     void syncPushRegistration({ base });

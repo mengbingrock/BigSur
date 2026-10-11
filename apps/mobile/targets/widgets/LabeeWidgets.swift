@@ -9,6 +9,7 @@ import WidgetKit
 struct LabeeWidgets: WidgetBundle {
   var body: some Widget {
     RunActivityWidget()
+    SiriActivityWidget()
     TalkControl()
   }
 }
@@ -108,6 +109,94 @@ struct LockScreenView: View {
       }
     }
     .padding(14)
+  }
+}
+
+// MARK: - The Siri agent's Live Activity (siri-agent design, phase 4)
+
+struct SiriActivityWidget: Widget {
+  var body: some WidgetConfiguration {
+    ActivityConfiguration(for: SiriActivityAttributes.self) { context in
+      SiriLockScreenView(context: context)
+        .activityBackgroundTint(Color("$widgetBackground"))
+    } dynamicIsland: { context in
+      DynamicIsland {
+        DynamicIslandExpandedRegion(.bottom) {
+          VStack(alignment: .leading, spacing: 6) {
+            if let title = context.state.chatTitle {
+              Text(title).font(.caption.bold()).foregroundStyle(.secondary)
+            }
+            Text(context.state.spoken).font(.footnote).lineLimit(3)
+            SiriButtons(context: context)
+          }
+        }
+      } compactLeading: {
+        Image(systemName: "waveform")
+      } compactTrailing: {
+        if context.state.unread > 0 {
+          Text("\(context.state.unread)").font(.caption2.bold())
+        }
+      } minimal: {
+        Image(systemName: "waveform")
+      }
+    }
+  }
+}
+
+struct SiriLockScreenView: View {
+  let context: ActivityViewContext<SiriActivityAttributes>
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      HStack {
+        Label(context.state.chatTitle ?? "Labee", systemImage: "waveform")
+          .font(.caption.bold())
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+        Spacer()
+        Text(context.state.at, style: .time)
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
+      Text(context.state.spoken)
+        .font(.body)
+        .lineLimit(4)
+      if let line = context.state.runLine {
+        Text(line).font(.caption).foregroundStyle(.secondary)
+      }
+      SiriButtons(context: context)
+    }
+    .padding(14)
+  }
+}
+
+struct SiriButtons: View {
+  let context: ActivityViewContext<SiriActivityAttributes>
+
+  var body: some View {
+    HStack(spacing: 8) {
+      if #available(iOS 26.0, *) {
+        Button(intent: NewsLiveIntent()) {
+          Label(context.state.unread > 0 ? "News (\(context.state.unread))" : "Any news", systemImage: "bell")
+            .font(.footnote.bold())
+        }
+        .buttonStyle(.bordered)
+        if let runId = context.state.runId {
+          Button(intent: DoneStepIntent(runId: runId)) {
+            Label("Done", systemImage: "checkmark").font(.footnote.bold())
+          }
+          .buttonStyle(.borderedProminent)
+          .tint(Color("$accent"))
+        }
+      }
+      Spacer()
+      if let id = context.state.sessionId, let url = URL(string: "labee://session/\(id)?voice=1") {
+        Link(destination: url) {
+          Label("Open", systemImage: "arrow.up.right.square").font(.footnote.bold())
+        }
+        .buttonStyle(.bordered)
+      }
+    }
   }
 }
 

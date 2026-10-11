@@ -1,22 +1,43 @@
-// The phrases (docs/siri-design.md §2.2, run-design §3). Apple allows ten
-// App Shortcuts per app and only entity or enum parameters in a phrase, so
-// the run verbs share one intent with an enum, and free text is asked for.
-// Every phrase carries the app name; that is what keeps "done" from firing
-// during ordinary Siri use.
+// The phrases (docs/siri-agent-design.md §7). Apple allows ten App
+// Shortcuts per app and only entity or enum parameters in a phrase, so free
+// text is asked for, and the run verbs share one intent with an enum. Every
+// phrase carries the app name; "Lab Helper", "Lab Bee" and "Lab Assistant"
+// stand in for it (INAlternativeAppNames), since "Labee" is often misheard.
 import AppIntents
 
 @available(iOS 26.0, *)
 struct LabeeShortcuts: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
     AppShortcut(
-      intent: StartRunIntent(),
+      intent: SayToLabeeIntent(),
       phrases: [
-        "Start \(\.$protocolEntity) in \(.applicationName)",
-        "Run \(\.$protocolEntity) in \(.applicationName)",
-        "\(.applicationName), start \(\.$protocolEntity)",
+        "Tell \(.applicationName)",
+        "Ask \(.applicationName)",
+        "Message \(.applicationName)",
+        "Hey \(.applicationName)",
       ],
-      shortTitle: "Start a run",
-      systemImageName: "play.circle"
+      shortTitle: "Tell Labee",
+      systemImageName: "bubble.left"
+    )
+    AppShortcut(
+      intent: CatchUpIntent(),
+      phrases: [
+        "Any news from \(.applicationName)",
+        "What's new in \(.applicationName)",
+        "\(.applicationName) news",
+        "What's \(.applicationName) doing",
+      ],
+      shortTitle: "Any news",
+      systemImageName: "bell"
+    )
+    AppShortcut(
+      intent: AnswerLabeeIntent(),
+      phrases: [
+        "Answer \(.applicationName)",
+        "Reply to \(.applicationName)",
+      ],
+      shortTitle: "Answer Labee",
+      systemImageName: "arrowshape.turn.up.left"
     )
     AppShortcut(
       intent: RunStepIntent(),
@@ -39,16 +60,6 @@ struct LabeeShortcuts: AppShortcutsProvider {
       systemImageName: "timer"
     )
     AppShortcut(
-      intent: NoteIntent(),
-      phrases: [
-        "Note in \(.applicationName)",
-        "Add a note in \(.applicationName)",
-        "\(.applicationName), note",
-      ],
-      shortTitle: "Note",
-      systemImageName: "note.text"
-    )
-    AppShortcut(
       intent: HowMuchIntent(),
       phrases: [
         "How much \(\.$material) in \(.applicationName)",
@@ -59,42 +70,14 @@ struct LabeeShortcuts: AppShortcutsProvider {
       systemImageName: "scalemass"
     )
     AppShortcut(
-      intent: TellLabeeIntent(),
+      intent: StartRunIntent(),
       phrases: [
-        "Tell \(.applicationName)",
-        "Message \(.applicationName)",
-        "Tell \(.applicationName) in \(\.$chat)",
+        "Start \(\.$protocolEntity) in \(.applicationName)",
+        "Run \(\.$protocolEntity) in \(.applicationName)",
+        "\(.applicationName), start \(\.$protocolEntity)",
       ],
-      shortTitle: "Tell Labee",
-      systemImageName: "bubble.left"
-    )
-    AppShortcut(
-      intent: AskLabeeIntent(),
-      phrases: [
-        "Ask \(.applicationName)",
-        "Ask \(.applicationName) about \(\.$chat)",
-      ],
-      shortTitle: "Ask Labee",
-      systemImageName: "questionmark.bubble"
-    )
-    AppShortcut(
-      intent: AnswerLabeeIntent(),
-      phrases: [
-        "Answer \(.applicationName)",
-        "Reply to \(.applicationName)",
-      ],
-      shortTitle: "Answer Labee",
-      systemImageName: "arrowshape.turn.up.left"
-    )
-    AppShortcut(
-      intent: ChatActionIntent(),
-      phrases: [
-        "\(.applicationName), \(\.$action)",
-        "What's \(.applicationName) doing",
-        "Stop \(.applicationName)",
-      ],
-      shortTitle: "Agent status",
-      systemImageName: "waveform"
+      shortTitle: "Start a run",
+      systemImageName: "play.circle"
     )
     AppShortcut(
       intent: TalkToLabeeIntent(),

@@ -16,6 +16,7 @@ interface NativeModule {
   configure(config: SiriConfig | null): Promise<void>;
   updateShortcuts(): Promise<void>;
   donate(intent: string): Promise<void>;
+  reindex(): Promise<void>;
   startRunActivity(payloadJson: string): Promise<void>;
   syncRunActivity(payloadJson: string): Promise<void>;
   endRunActivity(runId: string): Promise<void>;
@@ -47,6 +48,15 @@ export async function configureSiri(config: SiriConfig | null): Promise<void> {
 export async function refreshSiriShortcuts(): Promise<void> {
   try {
     await module()?.updateShortcuts();
+  } catch {
+    // ignore
+  }
+}
+
+/** Put the chats and runs into the system index (Siri AI, Spotlight). */
+export async function reindexSiri(): Promise<void> {
+  try {
+    await module()?.reindex();
   } catch {
     // ignore
   }

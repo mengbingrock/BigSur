@@ -356,6 +356,24 @@ export async function appendMessage(
   return { idx, turnId, role, content, meta, createdAt: ts };
 }
 
+/** The last assistant line of a chat, one sentence, for lists and the
+ *  phone's search index. One row, not the whole transcript. */
+export async function lastAssistantLine(sessionId: string): Promise<string | null> {
+  const db = await getDb();
+  const row = db
+    .prepare("SELECT content FROM chat_session_messages WHERE session_id = ? AND role = 'assistant' ORDER BY idx DESC LIMIT 1")
+    .get(sessionId);
+  if (!row) return null;
+  const text = String(row.content)
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/[*_`#>|]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!text) return null;
+  const end = text.search(/[.!?](\s|$)/);
+  return (end > 20 ? text.slice(0, end + 1) : text.slice(0, 140)).trim();
+}
+
 /** Merge fields into a message's meta (the Siri session's unread flag). */
 export async function patchMessageMeta(sessionId: string, idx: number, patch: Record<string, unknown>): Promise<void> {
   const db = await getDb();

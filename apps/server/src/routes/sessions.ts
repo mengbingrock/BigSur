@@ -36,7 +36,8 @@ export async function runBadge(sessionId: string): Promise<Record<string, unknow
 
 /** `toSummary` plus the run badge, for the list and get routes. */
 export async function toSummaryWithRun(s: sdb.SessionRow, queued = 0) {
-  return { ...toSummary(s, queued), run: await runBadge(s.id) };
+  const [run, lastLine] = await Promise.all([runBadge(s.id), sdb.lastAssistantLine(s.id).catch(() => null)]);
+  return { ...toSummary(s, queued), run, lastLine };
 }
 
 export function toSummary(s: sdb.SessionRow, queued = 0) {
