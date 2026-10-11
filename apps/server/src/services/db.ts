@@ -5,6 +5,8 @@
 // adapter ensures the same shape at runtime.
 import fs from "node:fs";
 import path from "node:path";
+import { installSiriSchema } from "./siri/store";
+import { installContextSchema } from "./context/schema";
 
 export interface SqlStatement {
   get(...params: unknown[]): Record<string, unknown> | undefined;
@@ -538,6 +540,8 @@ async function openDb(): Promise<SqlDb> {
   // the agent never runs a turn in; everything else is kind NULL.
   ensureColumn(db, "chat_sessions", "kind", "TEXT");
   importLegacyUsersJson(db);
+  installSiriSchema(db);
+  installContextSchema(db);
   return db;
 }
 

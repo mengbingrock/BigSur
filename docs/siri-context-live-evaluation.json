@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-11T05:03:15.379Z",
+  "model": "Claude Haiku via authenticated CLI",
+  "cases": [
+    {
+      "name": "own-history-correction",
+      "passed": true,
+      "expectedSession": "ses_5f9b1935ebb56c9475",
+      "spoken": "The agreed final temperature for cobalt preparation is 42 degrees Celsius, not 37. That correction is in message 50 of this Siri session, and it is marked as final.",
+      "readCalls": [
+        {
+          "tool": "sessions.search",
+          "query": "cobalt preparation temperature"
+        },
+        {
+          "tool": "messages.read",
+          "sessionId": "ses_5f9b1935ebb56c9475",
+          "messageIdx": 50,
+          "hostId": "local"
+        }
+      ],
+      "elapsedMs": 21299
+    },
+    {
+      "name": "archived-cross-session",
+      "passed": true,
+      "expectedSession": "ses_a1d81accb2f860cff8",
+      "spoken": "Lot K27. The archived nickel comparison says K19 failed the purity check, so K27 was used instead. I read that message directly from the archived session.",
+      "readCalls": [
+        {
+          "tool": "sessions.search",
+          "query": "nickel comparison lot"
+        },
+        {
+          "tool": "messages.read",
+          "sessionId": "ses_a1d81accb2f860cff8",
+          "messageIdx": 0,
+          "hostId": "local"
+        }
+      ],
+      "elapsedMs": 17785
+    }
+  ],
+  "calls": 7
+}

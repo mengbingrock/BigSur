@@ -1,0 +1,56 @@
+{
+  "date": "2026-10-11T05:01:48.448Z",
+  "model": "Claude Haiku via authenticated CLI",
+  "cases": [
+    {
+      "name": "own-history-correction",
+      "passed": false,
+      "expectedSession": "ses_0fbb80632f596f5f15",
+      "spoken": "42 degrees Celsius. We corrected it from 37 to 42 for cobalt preparation, and that is the final temperature.",
+      "readCalls": [
+        {
+          "tool": "sessions.search",
+          "query": "cobalt preparation final temperature"
+        }
+      ],
+      "elapsedMs": 13339
+    },
+    {
+      "name": "archived-cross-session",
+      "passed": true,
+      "expectedSession": "ses_4d2163656c289b2fe5",
+      "spoken": "Lot K27. You chose it because lot K19 failed the purity check.",
+      "readCalls": [
+        {
+          "tool": "sessions.search",
+          "mode": "hybrid",
+          "query": "nickel comparison lot",
+          "sessionId": "ses_0fbb80632f596f5f15",
+          "limit": 10
+        },
+        {
+          "tool": "sessions.search",
+          "query": "nickel comparison lot chose",
+          "sessionId": "ses_0fbb80632f596f5f15",
+          "mode": "hybrid",
+          "limit": 10
+        },
+        {
+          "tool": "sessions.search",
+          "mode": "lexical",
+          "query": "nickel lot",
+          "limit": 20
+        },
+        {
+          "tool": "sessions.read",
+          "sessionId": "ses_4d2163656c289b2fe5",
+          "direction": "after",
+          "messageIdx": 0,
+          "limit": 20
+        }
+      ],
+      "elapsedMs": 31664
+    }
+  ],
+  "calls": 7
+}

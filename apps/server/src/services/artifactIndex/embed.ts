@@ -98,6 +98,7 @@ export async function embedBatch(
 
   const res = await fetch(`${target.baseUrl}/embeddings`, {
     method: "POST",
+    signal: AbortSignal.timeout(30000),
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${target.apiKey}`,

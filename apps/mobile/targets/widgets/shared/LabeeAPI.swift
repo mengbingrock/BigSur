@@ -110,6 +110,7 @@ struct SendResult: Decodable {
 /// POST /api/siri/say (siri-agent design §3): a phrase, or a yes to a
 /// confirmation asked a moment ago.
 struct SayBody: Encodable {
+  let requestId = UUID().uuidString
   var text: String? = nil
   var confirmId: String? = nil
   var yes: Bool? = nil

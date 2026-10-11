@@ -166,6 +166,8 @@ export interface TurnOrigin {
   kind: "siri";
   /** The Siri exchange that delegated, so the return can name it. */
   siriTurnId: string;
+  /** Unique delegated operation, including queued turns in the same chat. */
+  delegationId?: string;
   /** What the person said, for the return line. */
   said?: string;
 }

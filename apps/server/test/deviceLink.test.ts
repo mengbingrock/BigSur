@@ -301,6 +301,21 @@ describe("Device Link", () => {
     expect(onBox.devices.find((d) => d.id === device.id)?.status).toBe("revoked");
   });
 
+  it("retrieves authoritative context through the host tunnel and discovers box context from desktop", async () => {
+    const created=await api(`/api/hosts/${hostId}/api/sessions`,{method:"POST",body:JSON.stringify({title:"Context federation sentinel"})});
+    const {session}=await created.json() as {session:{id:string}};
+    const found=await api("/api/context",{method:"POST",body:JSON.stringify({tool:"sessions.search",hostId,query:"Context federation sentinel",limit:1})});
+    expect(found.status).toBe(200);
+    const result=await found.json() as {items:{hostId:string;sessionId:string}[];coverage:{complete:boolean}};
+    expect(result.items[0]).toMatchObject({hostId,sessionId:session.id});expect(result.coverage.complete).toBe(true);
+    const boxCreated=await api("/api/sessions",{method:"POST",body:JSON.stringify({title:"Box context sentinel"})});
+    const local=await boxCreated.json() as {session:{id:string}};
+    const discovered=await fetch(`${desktop.base}/api/context`,{method:"POST",headers:{cookie,"content-type":"application/json"},body:JSON.stringify({tool:"sessions.search",hostId:"box",query:"Box context sentinel"})});
+    expect(discovered.status).toBe(200);
+    const remote=await discovered.json() as {items:{hostId:string;sessionId:string}[]};
+    expect(remote.items[0]).toMatchObject({hostId:"box",sessionId:local.session.id});
+  });
+
   it("serves the mirror when the Mac is offline, and 503s for writes", async () => {
     // Create + run one turn while online so there's something to mirror.
     const { session } = (await (await api(`/api/hosts/${hostId}/api/sessions`, { method: "POST", body: "{}" })).json()) as { session: { id: string } };
@@ -341,6 +356,10 @@ describe("Device Link", () => {
     expect(frames.map(evType)).toContain("turn_ended");
     expect(frames[frames.length - 1]!.data.type).toBe("session_status");
 
+    const offlineContext=await api("/api/context",{method:"POST",body:JSON.stringify({tool:"messages.read",hostId,sessionId:session.id,messageIdx:0})});
+    expect(offlineContext.status).toBe(200);
+    const evidence=await offlineContext.json() as {coverage:{complete:boolean;unavailableHosts:string[]}};
+    expect(evidence.coverage.complete).toBe(false);expect(evidence.coverage.unavailableHosts).toContain(hostId);
     const write = await api(`/api/hosts/${hostId}/api/sessions/${session.id}/turns`, { method: "POST", body: JSON.stringify({ text: "x" }) });
     expect(write.status).toBe(503);
   }, 60000);

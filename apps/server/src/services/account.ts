@@ -41,6 +41,8 @@ export interface DeleteAccountResult {
  *  SQLite (no foreign keys), but users goes last so a crash mid-way leaves an
  *  account that can still sign in and retry rather than a ghost. */
 const EMAIL_TABLES = [
+  "siri_requests", "siri_task_events", "siri_actions", "siri_delegations", "siri_migrations", "siri_tasks",
+  "context_documents", "context_mirror_coverage", "context_generation", "context_vector_generation",
   "protocol_runs",
   "mirror_sessions",
   "mirror_events",
@@ -128,16 +130,16 @@ export async function deleteAccount(rawEmail: string): Promise<DeleteAccountResu
   db.exec("BEGIN");
   try {
     for (const c of CHILD_TABLES) {
-      const r = db
-        .prepare(`DELETE FROM ${c.table} WHERE ${c.key} IN (SELECT id FROM ${c.parent} WHERE email = ?)`)
-        .run(email) as { changes?: number | bigint } | undefined;
-      rows[c.table] = (rows[c.table] ?? 0) + Number(r?.changes ?? 0);
+      const count = Number(db.prepare(`SELECT COUNT(*) n FROM ${c.table} WHERE ${c.key} IN (SELECT id FROM ${c.parent} WHERE email = ?)`).get(email)!.n);
+      db.prepare(`DELETE FROM ${c.table} WHERE ${c.key} IN (SELECT id FROM ${c.parent} WHERE email = ?)`).run(email);
+      // Bun's affected-row count includes FTS trigger writes. Report source
+      // records erased, independent of the SQLite driver and derived indexes.
+      rows[c.table] = (rows[c.table] ?? 0) + count;
     }
     for (const t of ["chat_sessions", "research_runs", ...EMAIL_TABLES]) {
-      const r = db.prepare(`DELETE FROM ${t} WHERE email = ?`).run(email) as
-        | { changes?: number | bigint }
-        | undefined;
-      rows[t] = (rows[t] ?? 0) + Number(r?.changes ?? 0);
+      const count = Number(db.prepare(`SELECT COUNT(*) n FROM ${t} WHERE email = ?`).get(email)!.n);
+      db.prepare(`DELETE FROM ${t} WHERE email = ?`).run(email);
+      rows[t] = (rows[t] ?? 0) + count;
     }
     db.exec("COMMIT");
   } catch (e) {

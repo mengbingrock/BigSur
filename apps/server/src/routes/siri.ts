@@ -9,6 +9,7 @@ import * as sdb from "../services/sessions/db";
 import * as runner from "../services/sessions/runner";
 import { ensureSiriSession, route, type RouteKind } from "../services/siri/router";
 import { markReturnsRead, unreadReturns } from "../services/siri/delivery";
+import { sayWithContext } from "../services/siri/contextRouter";
 import { sayToLabee } from "../services/siri/planner";
 
 const safeBody = <T>() => bodyJson<T>().pipe(Effect.catch(() => Effect.succeed(null as T | null)));
@@ -114,7 +115,7 @@ export const siriSayRoute = HttpRouter.add(
   Effect.gen(function* () {
     const user = yield* sessionUser;
     if (!user) return yield* error("Unauthorized.", 401);
-    const body = yield* safeBody<{ text?: string; device?: string; confirmId?: string; yes?: boolean }>();
+    const body = yield* safeBody<{ text?: string; device?: string; confirmId?: string; yes?: boolean; requestId?: string; taskId?: string }>();
     const text = typeof body?.text === "string" ? body.text.trim() : "";
     if (!text && !body?.confirmId) return yield* error("`text` is required.", 400);
     const request = yield* HttpServerRequest.HttpServerRequest;
@@ -122,12 +123,12 @@ export const siriSayRoute = HttpRouter.add(
     const result = yield* Effect.tryPromise({
       try: () =>
         Promise.race([
-          sayToLabee(user.email, text, { device, ...(body?.confirmId ? { confirmId: body.confirmId, yes: body.yes === true } : {}) }),
+          (process.env.LABEE_SIRI_CONTEXT === "0" ? sayToLabee : sayWithContext)(user.email, text, { device, ...(typeof body?.requestId === "string" ? {requestId:body.requestId} : {}), ...(typeof body?.taskId === "string" ? {taskId:body.taskId} : {}), ...(body?.confirmId ? { confirmId: body.confirmId, yes: body.yes === true } : {}) }),
           new Promise<never>((_, reject) => setTimeout(() => reject(new Error("The Siri agent took too long.")), 15_000)),
         ]),
       catch: (e) => e,
     }).pipe(Effect.map((v) => ({ ok: true as const, v })), Effect.catch((e) => Effect.succeed({ ok: false as const, e })));
-    if (!result.ok) return yield* error(result.e instanceof Error ? result.e.message : String(result.e), 500);
+    if (!result.ok) return yield* error(result.e instanceof Error ? result.e.message : String(result.e), (result.e as {status?:number})?.status ?? 500);
     return yield* json(result.v);
   }),
 );

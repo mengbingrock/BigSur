@@ -447,7 +447,7 @@ export async function answerQuestion(
   email: string,
   sessionId: string,
   answers: AskUserAnswer[],
-  extra: { device?: string; voice?: boolean } = {},
+  extra: { device?: string; voice?: boolean; origin?: TurnRequest["origin"] } = {},
 ): Promise<StartResult> {
   const session = await db.getSession(email, sessionId);
   if (!session) return { ok: false, status: 404, message: "Session not found." };
@@ -469,6 +469,7 @@ export async function answerQuestion(
     text,
     ...(extra.device ? { device: extra.device } : {}),
     ...(extra.voice !== undefined ? { voice: extra.voice } : {}),
+    ...(extra.origin ? { origin: extra.origin } : {}),
   };
   await runTurn({ ...session, pendingQuestion: null }, nextTurnId, req, { fromAnswer: true });
   return { ok: true, turnId: nextTurnId, queued: false };

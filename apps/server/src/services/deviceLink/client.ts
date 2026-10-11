@@ -244,14 +244,27 @@ function runSocket(
 
     const fullSync = async () => {
       if (!accountEmail) return;
-      const all = await sdb.listSessions(accountEmail, { limit: 50 }).catch(() => []);
-      for (const s of all) {
-        send({ t: "mirror", session: toSummary(s) });
-        await pushMessages(s.id);
+      const ids: string[] = [];
+      let afterId = "";
+      for (;;) {
+        const page = await sdb.sessionPage(accountEmail, afterId);
+        if (!page.length) break;
+        for (const s of page) {
+          ids.push(s.id);
+          send({ t: "mirror", session: toSummary(s) });
+          let afterIdx = -1;
+          for (;;) {
+            const messages = await sdb.messagePage(s.id, afterIdx);
+            if (!messages.length) break;
+            send({ t: "mirror", messages: { sessionId: s.id, items: messages as unknown as Record<string, unknown>[] } });
+            afterIdx = messages.at(-1)!.idx;
+            // Give live traffic time while copying a large old transcript.
+            await new Promise(resolve => setTimeout(resolve, 0));
+          }
+        }
+        afterId = page.at(-1)!.id;
       }
-      // Then the complete set, so the box drops anything it holds for this
-      // host that is no longer here — or never was this account's.
-      const ids = (await sdb.listSessions(accountEmail, { limit: 1000 }).catch(() => [])).map((s) => s.id);
+      // Only prune after enumerating the complete account, including archives.
       send({ t: "mirror", sessionIds: ids });
     };
 

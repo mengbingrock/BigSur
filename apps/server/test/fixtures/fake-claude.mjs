@@ -87,6 +87,17 @@ async function main() {
       process.stderr.write("fake failure\n");
       process.exit(1);
     }
+    if (script === "slow") await sleep(delay);
+    if (prompt.startsWith("{") && JSON.parse(prompt).said?.includes("[[context-neon]]")) {
+      const ctx=JSON.parse(prompt); const evidence=ctx.evidence ?? [];
+      let decision;
+      if(!evidence.length) decision={kind:"read",call:{tool:"sessions.search",query:"neon",hostId:"local"}};
+      else if(evidence.length===1) {
+        const hit=evidence[0].result.items.find(i=>i.kind==="message" && i.excerpt.includes("Corrected neon"));
+        decision=hit?{kind:"read",call:{tool:"messages.read",sessionId:hit.sessionId,messageIdx:hit.messageIdx}}:{kind:"clarify",say:"Which experiment?"};
+      } else decision={kind:"answer",say:evidence.at(-1).result.items[0].content};
+      process.stdout.write(JSON.stringify(decision));return;
+    }
     process.stdout.write(fixedReply ?? (script === "echo" ? `You said: ${prompt.slice(-200)}` : "Hello from fake claude. The README is short."));
     return;
   }
