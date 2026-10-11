@@ -7,6 +7,7 @@
 //
 // Nothing here waits on the person: a failed summary falls back to the
 // reply's first words, a failed push is logged, the line is written first.
+import { normalizeQuestions } from "@labee/session-core";
 import { auxModel } from "../llm";
 import { completeText } from "../complete";
 import { isDesktop } from "../llmSettings";
@@ -73,10 +74,9 @@ async function spokenSummary(email: string, title: string, said: string | undefi
 }
 
 function pendingQuestionOf(session: SessionRow | null): { text: string; options: string[] } | null {
-  const input = session?.pendingQuestion?.input as { questions?: Array<{ question?: string; options?: Array<{ label?: string }> }> } | undefined;
-  const first = input?.questions?.[0];
+  const first = normalizeQuestions(session?.pendingQuestion?.input)[0];
   if (!first) return null;
-  return { text: String(first.question ?? "").trim(), options: (first.options ?? []).map((o) => String(o.label ?? "")).filter(Boolean).slice(0, 4) };
+  return { text: first.question, options: first.options.map((o) => o.label).slice(0, 4) };
 }
 
 /** Deliver one ended turn. Exported for tests; the listener below calls it. */

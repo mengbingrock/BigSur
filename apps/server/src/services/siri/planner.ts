@@ -7,7 +7,7 @@
 // Runs are box-owned. On a Mac the run actions go to the box over HTTP (as
 // the run routes do); on the box they are local. Chats are always local:
 // the Siri session and the chats it reaches live on the same server.
-import type { AskUserQuestionItem } from "@labee/session-core";
+import { normalizeQuestions } from "@labee/session-core";
 import { completeText } from "../complete";
 import { auxModel } from "../llm";
 import { boxSessionCookie, isDesktop, proxyServerBase } from "../llmSettings";
@@ -119,9 +119,8 @@ async function openRuns(email: string): Promise<RunPayload[]> {
 }
 
 function waitingOn(s: SessionRow): StateChat["waitingOn"] {
-  const input = s.pendingQuestion?.input as { questions?: AskUserQuestionItem[] } | undefined;
-  const q = input?.questions?.[0];
-  return q ? { question: q.question, options: (q.options ?? []).map((o) => o.label).slice(0, 4) } : null;
+  const q = normalizeQuestions(s.pendingQuestion?.input)[0];
+  return q ? { question: q.question, options: q.options.map((o) => o.label).slice(0, 4) } : null;
 }
 
 export async function gatherState(email: string): Promise<SiriState> {
@@ -392,9 +391,9 @@ export async function executePlan(
         }
         case "chats.answer": {
           const s = await sdb.getSession(email, a.sessionId);
-          const input = s?.pendingQuestion?.input as { questions?: AskUserQuestionItem[] } | undefined;
-          if (!s || !input?.questions?.length) throw new Error("Nothing is waiting on an answer there.");
-          const { answers } = mapSpokenAnswer(input.questions, a.spoken);
+          const questions = normalizeQuestions(s?.pendingQuestion?.input);
+          if (!s || questions.length === 0) throw new Error("Nothing is waiting on an answer there.");
+          const { answers } = mapSpokenAnswer(questions, a.spoken);
           const r = await runner.answerQuestion(email, s.id, answers, { device: opts.device, voice: true });
           if (!r.ok) throw new Error(r.message);
           out.push({ action: a, ok: true, delegated: { sessionId: s.id, title: s.title } });

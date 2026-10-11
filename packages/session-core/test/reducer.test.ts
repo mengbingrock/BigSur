@@ -89,6 +89,23 @@ describe("session reducer", () => {
     expect(s.queued).toEqual([]);
   });
 
+  it("a question list the model sent as a JSON string is still a list of questions", () => {
+    // Seen on a phone: the agent passed `questions` as a string and the app
+    // crashed mapping over its characters.
+    const asString = JSON.stringify([{ question: "Which one?", options: [{ label: "A", description: "first" }, { label: "B" }] }]);
+    let s = initialState();
+    s = applyEvents(s, [
+      ev("turn_started", { text: "do it" }, "t9"),
+      ev("tool_start", { id: "q9", name: "AskUserQuestion" }, "t9"),
+      ev("tool_stop", { id: "q9", name: "AskUserQuestion", input: { questions: asString } }, "t9"),
+      ev("question_asked", { toolUseId: "q9", input: { questions: asString } }, "t9"),
+    ]);
+    expect(s.messages[1]!.question?.questions).toEqual([{ question: "Which one?", options: [{ label: "A", description: "first" }, { label: "B" }] }]);
+    // And when it was stored that way by an older server, seeding fixes it too.
+    const seeded = applyEvents(initialState(), []);
+    expect(seeded.messages).toEqual([]);
+  });
+
   it("replaying from seq 0 over seeded messages does not duplicate turns", () => {
     let s = initialState(
       [

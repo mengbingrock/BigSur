@@ -86,6 +86,59 @@ export interface AskUserAnswer {
   answer: string | string[];
 }
 
+/** The questions of an AskUserQuestion call, whatever shape the model sent:
+ *  an array, a JSON string of one (seen in the wild: the app crashed on it),
+ *  or nothing. Items without a question or with malformed options are
+ *  dropped; options are coerced to `{ label, description? }`. */
+export function normalizeQuestions(raw: unknown): AskUserQuestionItem[] {
+  let list: unknown = raw;
+  if (list && typeof list === "object" && !Array.isArray(list) && "questions" in (list as object)) {
+    list = (list as { questions?: unknown }).questions;
+  }
+  if (typeof list === "string") {
+    try {
+      list = JSON.parse(list);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(list)) return [];
+  const out: AskUserQuestionItem[] = [];
+  for (const item of list) {
+    if (!item || typeof item !== "object") continue;
+    const q = item as { question?: unknown; header?: unknown; options?: unknown; multiSelect?: unknown };
+    const question = typeof q.question === "string" ? q.question.trim() : "";
+    if (!question) continue;
+    let opts: unknown = q.options;
+    if (typeof opts === "string") {
+      try {
+        opts = JSON.parse(opts);
+      } catch {
+        opts = [];
+      }
+    }
+    const options: AskUserQuestionOption[] = Array.isArray(opts)
+      ? opts
+          .map((o): AskUserQuestionOption | null => {
+            if (typeof o === "string") return o.trim() ? { label: o.trim() } : null;
+            if (o && typeof o === "object" && typeof (o as { label?: unknown }).label === "string") {
+              const d = (o as { description?: unknown }).description;
+              return { label: (o as { label: string }).label, ...(typeof d === "string" && d ? { description: d } : {}) };
+            }
+            return null;
+          })
+          .filter((o): o is AskUserQuestionOption => o !== null)
+      : [];
+    out.push({
+      question,
+      options,
+      ...(typeof q.header === "string" && q.header ? { header: q.header } : {}),
+      ...(q.multiSelect === true ? { multiSelect: true } : {}),
+    });
+  }
+  return out;
+}
+
 /** Body of POST /api/sessions/:id/turns. */
 export interface TurnRequest {
   text: string;
