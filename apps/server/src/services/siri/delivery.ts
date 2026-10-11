@@ -105,7 +105,7 @@ export async function deliverReturn(evt: SessionEventEnvelope, session: SessionR
     title: chat.title,
     spoken,
     unread: true,
-    ...(question ? { question } : {}),
+    ...(question ? { asks: question } : {}),
     ...(origin.siriTurnId ? { siriTurnId: origin.siriTurnId } : {}),
     ...(error ? { error: true } : {}),
   });
@@ -149,7 +149,7 @@ export async function unreadReturns(email: string, limit = 5): Promise<ReturnLin
       sessionId: String(m.meta?.sessionId ?? ""),
       title: String(m.meta?.title ?? ""),
       spoken: String(m.meta?.spoken ?? m.content),
-      question: (m.meta?.question as ReturnLine["question"]) ?? null,
+      question: (m.meta?.asks as ReturnLine["question"]) ?? null,
       siriTurnId: (m.meta?.siriTurnId as string | undefined) ?? null,
       createdAt: m.createdAt,
     }));
