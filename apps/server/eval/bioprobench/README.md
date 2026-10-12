@@ -133,3 +133,11 @@ biology refusals from the denominator. It records excluded IDs and subgroup
 counts, retains other failures as zero, and preserves the original official
 metrics and all-question scores for audit. This changes reporting only; it does
 not rerun predictions or select replacement questions.
+
+`runProAgent.py` executes a pinned, external clone of the actual BioProAgent
+controller with CLI model transport and the baseline's frozen retrieved
+passages. See the [upstream-agent experiment](../../../../docs/bioprobench-upstream-proagent.md)
+for the integration boundaries, dependencies, commands, and comparison policy.
+It preserves upstream planner/reflection/revision code and scores full draft
+artifacts. `--limit` runs one integration case per task. Raw per-call checkpoints
+and agent traces stay in the local output directory.

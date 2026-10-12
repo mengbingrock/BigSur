@@ -1,0 +1,7 @@
+# Minimal compatible dependencies for the upstream public agent with CLI model
+# transport. The upstream requirements file mixes incompatible LangChain pins
+# and unrelated GPU packages; this experiment does not install that full stack.
+langchain==0.2.17
+langchain-core==0.2.43
+python-dotenv==1.1.1
+jsonschema==4.25.1

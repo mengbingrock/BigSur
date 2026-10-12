@@ -136,6 +136,38 @@ for r in rows:
 failure_breakdown = {v: {task: {'providerBiologyRefusals': sum('[bio]' in str(r.get('error', '')) for r in rows if r['variant'] == v and r['task'] == task), 'otherCallFailures': sum(bool(r.get('error')) and '[bio]' not in str(r['error']) for r in rows if r['variant'] == v and r['task'] == task)} for task in manifest['selection']} for v in variants}
 report = {**manifest, **summary, 'failureBreakdown': failure_breakdown, 'allQuestionScores': {task: {variant: sum(score(r) for r in rows if r['task'] == task and r['variant'] == variant) / len(manifest['selection'][task]['selected']) for variant in variants} for task in manifest['selection']}, 'commonScorable': common, 'comparisons': comparisons, 'performance': performance, 'orderingCoverageMethod': coverage_method, 'orderingCorpusCoverage': coverage,
           'cases': [{'id': r['sample']['id'], 'task': r['task'], 'type': r['sample']['type'], 'variant': r['variant'], 'correct': correct(r) if r['task'] != 'GEN' else None, 'score': score(r), 'retrievalMs': r['retrievalMs'], 'modelMs': r['elapsedMs'], 'contextChars': r['contextChars'], 'serializedContextChars': r.get('serializedContextChars'), 'serializedContextBytes': r.get('serializedContextBytes'), 'contextProfile': r.get('contextProfile'), 'queryEmbeddingInputSha256': r.get('queryEmbeddingInputSha256'), 'retrievalTimingScope': r.get('retrievalTimingScope'), 'error': ('provider biology safeguard refusal' if '[bio]' in str(r.get('error', '')) else ('model call failed; see local checkpoint' if r.get('error') else None)), 'promptSha256': r['promptSha256'], 'resolvedProtocolId': r.get('resolvedProtocolId'), 'modelUsage': r.get('modelUsage', {}), 'responseSha256': hashlib.sha256(r['generated_response'].encode()).hexdigest(), 'sourceRefs': [{'protocolId': s['protocol_id'], 'path': s['path'], 'grain': s['grain'], **{k: s[k] for k in ('score', 'denseRank', 'squaredL2', 'semanticScore', 'bm25Score', 'semanticScaled', 'lexicalScaled') if k in s}, **({ 'startChar': s['startChar'], 'endChar': s['endChar'] } if 'startChar' in s else {})} for s in r['passages']]} for r in rows]}
+for case in report['cases']:
+    raw = by[case['task'], case['variant'], case['id']]
+    if 'agentAudit' in raw:
+        case['agentAudit'] = raw['agentAudit']
+        trace_file = root / 'traces' / case['id'] / 'trace.json'
+        if trace_file.exists():
+            trace = json.loads(trace_file.read_text())
+            case['agentAudit']['finalScorable'] = scorable(raw)
+            case['agentAudit']['toolArgumentFailures'] = sum(
+                r['status'] == 'failed' and 'validation error' in r['summary']
+                for r in trace['records'])
+            log_file = trace_file.parent / 'upstream.log'
+            if log_file.exists():
+                case['agentAudit']['stoppedByOscillation'] = 'State oscillation detected' in log_file.read_text()
+            phases = defaultdict(int)
+            for call_file in sorted(trace_file.parent.glob('call-*.json')):
+                call = json.loads(call_file.read_text())
+                prompt = call['prompt'].lstrip()
+                phase = ('intent' if prompt.startswith('You are a ProAgent,') else
+                         'planner' if prompt.startswith('You are BioProAgent') else
+                         'reflection' if prompt.startswith('You are a scientific protocol reviewer.') else
+                         'revision' if prompt.startswith(('Revise the protocol text', 'Revise the workflow JSON')) else
+                         'draft' if prompt.startswith('Generate a clear step-by-step scientific protocol draft') else 'other')
+                phases[phase] += 1
+            case['agentAudit']['phaseCallCounts'] = dict(phases)
+            drafts = [r['output'] for r in trace['records']
+                      if r['tool'] == 'generate_scientific_draft' and r['status'] == 'success']
+            if drafts:
+                first = {**raw, 'generated_response': drafts[0], 'error': None}
+                case['agentAudit']['firstDraftScore'] = score(first)
+                case['agentAudit']['firstDraftScorable'] = scorable(first)
+                case['agentAudit']['firstDraftMetric'] = 'token_f1' if case['task'] == 'GEN' else 'accuracy'
 if a.exclude_provider_refusals:
     def without_refusals(selected):
         kept = [r for r in selected if '[bio]' not in str(r.get('error', ''))]
