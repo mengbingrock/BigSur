@@ -1,7 +1,7 @@
 """Run the cloned upstream BioProAgent, with model/retrieval transport adapters.
 
-No copied or rewritten planner, reflection, revision, or state-machine code.
-The upstream repository is an explicit input and remains unmodified.
+The original mode requires unmodified upstream source. --patched requires the
+exact reviewed source diff in patches/proagent-benchmark.patch.
 """
 import argparse
 from concurrent.futures import ThreadPoolExecutor
@@ -19,6 +19,7 @@ import types
 from evidence import append_evidence
 
 VARIANT = 'upstream-proagent'
+FIXED_VARIANT = 'patched-proagent'
 PIN = 'e18586ab4a2a851433bedc0e6940b77470355fd6'
 SYSTEM = ('Answer the benchmark question using the provided evidence when applicable. '
           'Follow the requested answer format. Do not use external tools.')
@@ -152,8 +153,10 @@ def run_one(args, job):
     result = {**job, **sizes, 'contextChars': sizes['serializedContextChars'],
               'model': args.model, 'promptSha256': digest(query), 'generated_response': ''}
     started = time.monotonic()
-    agent = ProAgent(eval_mode=True, llm=llm,
-                     planner_config={'require_confirmation_before_code': True})
+    config = {'require_confirmation_before_code': True}
+    if args.patched:
+        config['benchmark_task'] = job['task']
+    agent = ProAgent(eval_mode=True, llm=llm, planner_config=config)
     state = agent._create_session()
     state.session_id = 'benchmark-' + job['sample']['id']
     state.global_exp_context = query
@@ -177,7 +180,9 @@ def run_one(args, job):
     trace = {'rawFinalResponse': raw_final, 'states': state.state_history,
              'records': records, 'retrievalCalls': retrieval_calls,
              'verification': state.mem_work.get('ks_verification'),
-             'fullFinalDraft': state.mem_work.get('draft'), 'calls': len(llm.calls)}
+             'fullFinalDraft': state.mem_work.get('draft'), 'calls': len(llm.calls),
+             'stopReason': state.mem_work.get('stop_reason'),
+             'revisionCount': state.mem_work.get('revision_count', 0)}
     write_json(directory / 'trace.json', trace)
     result['agentAudit'] = {
         'upstreamRevision': PIN, 'modelCalls': len(llm.calls), 'states': state.state_history,
@@ -186,19 +191,24 @@ def run_one(args, job):
         'retrievalCalls': len(retrieval_calls), 'evidenceSha256': digest(evidence),
         'verificationStatus': (state.mem_work.get('ks_verification') or {}).get('status'),
         'draftChars': len(state.mem_work.get('draft') or ''),
+        'stopReason': trace['stopReason'], 'revisionCount': trace['revisionCount'],
         'outputSource': 'full working-memory draft' if state.mem_work.get('draft') else 'agent final response',
     }
-    write_json(root / 'responses' / f'{VARIANT}-{job["sample"]["id"]}.json', result)
+    write_json(root / 'responses' / f'{job["variant"]}-{job["sample"]["id"]}.json', result)
 
 
 def prepare(args):
     root, base = Path(args.out).resolve(), Path(args.base).resolve()
     revision = subprocess.check_output(['git', '-C', args.agent_source, 'rev-parse', 'HEAD'], text=True).strip()
-    if revision != PIN or subprocess.check_output(['git', '-C', args.agent_source, 'diff', 'HEAD'], text=True):
-        raise ValueError('Use the pinned, unmodified upstream source')
+    source_diff = subprocess.check_output(['git', '-C', args.agent_source, 'diff', '--binary', 'HEAD'], text=True)
+    patch = Path(__file__).with_name('patches') / 'proagent-benchmark.patch'
+    expected = patch.read_text() if args.patched else ''
+    if revision != PIN or source_diff != expected:
+        raise ValueError('Source must match the pinned revision and selected reviewed patch exactly')
+    variant = FIXED_VARIANT if args.patched else VARIANT
     original = json.loads((base / 'manifest.json').read_text())
     jobs = json.loads((base / 'jobs.json').read_text())
-    jobs = [{**j, 'variant': VARIANT} for j in jobs]
+    jobs = [{**j, 'variant': variant} for j in jobs]
     if args.limit:
         jobs = [next(j for j in jobs if j['task'] == task) for task in ('PQA', 'ORD', 'ERR', 'GEN')]
     config = {'source': 'https://github.com/YuyangSunshine/bioproagent', 'revision': PIN,
@@ -209,8 +219,13 @@ def prepare(args):
               'output': 'Full final draft in working memory, avoiding UI truncation',
               'memory': 'Isolated fresh session; empty long-term memory',
               'failurePolicy': 'Stop trial at any provider failure; no retry or fallback-to-pass'}
-    manifest = {**original, 'model': args.model, 'variants': [VARIANT], 'primaryVariant': VARIANT,
-                'indexFiles': {VARIANT: original['indexFiles'][original['primaryVariant']]},
+    if args.patched:
+        config.update(sourcePatchSha256=digest(source_diff),
+                      stopping='Review every draft; stop on pass, unchanged revision, or two completed revisions; tool failures terminate',
+                      planning='Upstream canonical FSM plans for known text tasks; no intent or redundant neural planning calls',
+                      taskPrompts='Task-aware drafting, evidence-grounded review, and format-preserving revision')
+    manifest = {**original, 'model': args.model, 'variants': [variant], 'primaryVariant': variant,
+                'indexFiles': {variant: original['indexFiles'][original['primaryVariant']]},
                 'agentIntegration': config, 'scope': 'Upstream BioProAgent applied to BioProBench tasks with fixed retrieved evidence.'}
     if args.limit:
         manifest['selection'] = {t: {**v, 'selected': [s for s in v['selected'] if any(j['sample']['id'] == s['id'] for j in jobs)]}
@@ -235,6 +250,7 @@ def main():
     p.add_argument('--limit', action='store_true', help='Integration smoke test: first selected case of each task')
     p.add_argument('--job', type=int, help=argparse.SUPPRESS)
     p.add_argument('--live', action='store_true')
+    p.add_argument('--patched', action='store_true', help='Use the reviewed upstream bug fixes and bounded text-task profile')
     args = p.parse_args()
     if not args.live:
         p.error('--live is required')
@@ -243,14 +259,17 @@ def main():
         run_one(args, jobs[args.job])
         return
     root, jobs = prepare(args)
+    variant = FIXED_VARIANT if args.patched else VARIANT
     def run(index):
         job = jobs[index]
-        response = root / 'responses' / f'{VARIANT}-{job["sample"]["id"]}.json'
+        response = root / 'responses' / f'{variant}-{job["sample"]["id"]}.json'
         if response.exists():
             return json.loads(response.read_text())
         cmd = [sys.executable, str(Path(__file__).resolve()), '--agent-source', str(Path(args.agent_source).resolve()),
                '--source', str(Path(args.source).resolve()), '--base', str(Path(args.base).resolve()),
                '--out', str(root), '--model', args.model, '--job', str(index), '--live']
+        if args.patched:
+            cmd.append('--patched')
         directory = root / 'traces' / job['sample']['id']
         directory.mkdir(parents=True, exist_ok=True)
         with (directory / 'upstream.log').open('w') as log:
@@ -266,15 +285,15 @@ def main():
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
         results = list(pool.map(run, range(len(jobs))))
     summary = {'model': args.model, 'totalPredictions': len(results),
-               'callFailures': sum(bool(r.get('error')) for r in results), 'metrics': {VARIANT: {}}}
+               'callFailures': sum(bool(r.get('error')) for r in results), 'metrics': {variant: {}}}
     for task in sorted({j['task'] for j in jobs}):
-        path = root / f'{VARIANT}-{task}.json'
+        path = root / f'{variant}-{task}.json'
         write_json(path, [{**r['sample'], 'generated_response': r['generated_response']} for r in results if r['task'] == task])
-        output = root / f'{VARIANT}-{task}-metrics.json'
+        output = root / f'{variant}-{task}-metrics.json'
         subprocess.run([sys.executable, str(Path(args.source) / 'skills/evaluate-protocol-outputs/scripts/evaluate.py'),
                         '--task', task, '--input', str(path), '--output', str(output),
-                        '--errors', str(root / f'{VARIANT}-{task}-errors.jsonl')], check=True, capture_output=True)
-        summary['metrics'][VARIANT][task] = json.loads(output.read_text())
+                        '--errors', str(root / f'{variant}-{task}-errors.jsonl')], check=True, capture_output=True)
+        summary['metrics'][variant][task] = json.loads(output.read_text())
     write_json(root / 'summary.json', summary)
     print(json.dumps(summary), flush=True)
 

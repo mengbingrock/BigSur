@@ -9,10 +9,11 @@ import unittest
 
 
 class UpstreamTests(unittest.TestCase):
-    def run_fixture(self, refuse=False):
-        upstream = os.environ.get('BIOPROAGENT_SOURCE')
+    def run_fixture(self, refuse=False, patched=False):
+        source_variable = 'BIOPROAGENT_FIXED_SOURCE' if patched else 'BIOPROAGENT_SOURCE'
+        upstream = os.environ.get(source_variable)
         if not upstream:
-            self.skipTest('Set BIOPROAGENT_SOURCE to the pinned source checkout')
+            self.skipTest(f'Set {source_variable} to the selected source checkout')
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / 'Scripts').mkdir()
@@ -20,7 +21,8 @@ class UpstreamTests(unittest.TestCase):
                 'def generate_user_prompt(sample, task): return sample["input"]\n')
             sample = {'id': 'fixture', 'input': 'Order the inert fixture steps.',
                       'output': 'HIDDEN_REFERENCE_NEVER_SEND', 'type': 'easy'}
-            job = {'task': 'GEN', 'variant': 'upstream-proagent', 'sample': sample,
+            variant = 'patched-proagent' if patched else 'upstream-proagent'
+            job = {'task': 'GEN', 'variant': variant, 'sample': sample,
                    'passages': [{'title': 'fixture', 'path': '', 'heading': '', 'text': 'FROZEN_EVIDENCE'}],
                    'retrievalMs': 1}
             (root / 'jobs.json').write_text(json.dumps([job]))
@@ -47,7 +49,7 @@ elif 'scientific protocol reviewer' in p:
     if os.environ.get('FIXTURE_REFUSE'):
         print(json.dumps({'result':'[bio] fixture refusal','is_error':True})); sys.exit(1)
     answer = 'done' if 'REVISED_FIXTURE' in p else 'Revision needed: reorder the fixture sequence.'
-elif 'Revise the protocol text' in p:
+elif 'Revise the protocol text' in p or 'Revise the benchmark answer' in p:
     answer = 'REVISED_FIXTURE' + 'x' * 6000
 else:
     assert 'FROZEN_EVIDENCE' in p
@@ -61,9 +63,9 @@ print(json.dumps({'result':answer,'modelUsage':{'fake':{'inputTokens':10,'output
                 env['FIXTURE_REFUSE'] = '1'
             subprocess.run([sys.executable, str(Path(__file__).with_name('runProAgent.py')),
                             '--agent-source', upstream, '--source', tmp, '--base', tmp,
-                            '--out', tmp, '--model', 'fake', '--job', '0', '--live'],
+                            '--out', tmp, '--model', 'fake', '--job', '0', '--live'] + (['--patched'] if patched else []),
                            cwd=tmp, env=env, capture_output=True, check=True)
-            result = json.loads((root / 'responses/upstream-proagent-fixture.json').read_text())
+            result = json.loads((root / f'responses/{variant}-fixture.json').read_text())
             trace = json.loads((root / 'traces/fixture/trace.json').read_text())
             return result, trace
 
@@ -83,6 +85,22 @@ print(json.dumps({'result':answer,'modelUsage':{'fake':{'inputTokens':10,'output
         self.assertEqual(result['generated_response'], '')
         self.assertIsNone(trace['verification'])
         self.assertNotIn('RECTIFY_DRAFT', trace['states'])
+
+    def test_patched_runner_full_artifact_without_gold_or_planner_calls(self):
+        result, trace = self.run_fixture(patched=True)
+        self.assertNotIn('error', result)
+        self.assertEqual(trace['calls'], 4)
+        self.assertEqual(trace['stopReason'], 'draft_verified')
+        self.assertEqual(result['agentAudit']['retrievalCalls'], 1)
+        self.assertEqual(result['agentAudit']['toolCounts']['modify_protocol'], 1)
+        self.assertGreater(len(result['generated_response']), 6000)
+
+    def test_patched_runner_stops_at_refusal_without_retry(self):
+        result, trace = self.run_fixture(refuse=True, patched=True)
+        self.assertIn('[bio]', result['error'])
+        self.assertEqual(result['generated_response'], '')
+        self.assertIsNone(trace['verification'])
+        self.assertEqual(trace['calls'], 2)
 
 
 if __name__ == '__main__':

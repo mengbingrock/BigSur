@@ -157,8 +157,8 @@ for case in report['cases']:
                 phase = ('intent' if prompt.startswith('You are a ProAgent,') else
                          'planner' if prompt.startswith('You are BioProAgent') else
                          'reflection' if prompt.startswith('You are a scientific protocol reviewer.') else
-                         'revision' if prompt.startswith(('Revise the protocol text', 'Revise the workflow JSON')) else
-                         'draft' if prompt.startswith('Generate a clear step-by-step scientific protocol draft') else 'other')
+                         'revision' if prompt.startswith(('Revise the protocol text', 'Revise the workflow JSON', 'Revise the benchmark answer')) else
+                         'draft' if prompt.startswith(('Generate a clear step-by-step scientific protocol draft', 'Generate the answer to the benchmark task.')) else 'other')
                 phases[phase] += 1
             case['agentAudit']['phaseCallCounts'] = dict(phases)
             drafts = [r['output'] for r in trace['records']
