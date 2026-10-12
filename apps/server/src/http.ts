@@ -18,6 +18,8 @@ import { oauthRoutes } from "./routes/oauth";
 import { mcpProxyRoute, mcpTokenRoute } from "./routes/protocolsMcp";
 import { researchRoutes } from "./routes/research";
 import { runRoutes } from "./routes/runs";
+import { siriActionRoute } from "./routes/siriAction";
+import { contextRoute } from "./routes/context";
 import { siriRoutes } from "./routes/siri";
 import { askRoutes } from "./routes/ask";
 import { sessionRoutes } from "./routes/sessions";
@@ -45,6 +47,8 @@ export const routesLayer = Layer.mergeAll(
   ...researchRoutes,
   ...runRoutes,
   ...siriRoutes,
+  contextRoute,
+  siriActionRoute,
   ...askRoutes,
   ...sessionRoutes,
   ...linkRoutes,

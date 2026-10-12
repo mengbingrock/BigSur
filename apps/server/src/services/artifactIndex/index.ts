@@ -15,6 +15,8 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { Skill } from "@labee/contracts";
+import { PROTOCOL_INDEX_VERSION, markdownHierarchy } from "../protocolHierarchy";
+import { expandProtocolEvidence, resolveProtocolIdentity } from "../protocolRetrieval";
 import { getDb } from "../db";
 import { getAllSkills } from "../skills";
 import {
@@ -34,7 +36,7 @@ import { chunkArtifact, chunkProtocol, embeddingText, summaryText, type Chunk, t
 function contentHash(s: Skill): string {
   return createHash("sha256")
     .update(
-      [s.name, s.description, s.body, s.problem ?? "", s.method ?? "", s.application ?? "",
+      [PROTOCOL_INDEX_VERSION, s.name, s.description, s.body, s.problem ?? "", s.method ?? "", s.application ?? "",
         (s.domains ?? []).join(","), (s.keywords ?? []).join(",")].join("\u0000"),
     )
     .digest("hex");
@@ -462,13 +464,14 @@ async function scoreChunks(
   q: string,
   email: string | undefined,
   opts: { kind?: "skill" | "protocol"; grain?: Grain | "any" },
-): Promise<{ scored: ScoredChunk[]; mode: SearchMode; visible: Map<string, Skill> } | null> {
+): Promise<{ scored: ScoredChunk[]; mode: SearchMode; visible: Map<string, Skill>; resolvedProtocolId: string | null } | null> {
   const visible = new Map(
     getAllSkills(email)
       .filter((s) => !opts.kind || s.artifactKind === opts.kind)
       .map((s) => [indexKey(s), s]),
   );
-  const chunks = (await loadChunks()).filter((c) => visible.has(c.sourcePath));
+  const identity = resolveProtocolIdentity(q, [...visible].filter(([, s]) => s.artifactKind === "protocol").map(([id, s]) => ({ id, title: s.name })));
+  const chunks = (await loadChunks()).filter((c) => visible.has(c.sourcePath) && (!identity || c.sourcePath === identity));
   if (chunks.length === 0) return null;
 
   const target = await resolveEmbedTarget(email);
@@ -478,7 +481,7 @@ async function scoreChunks(
   const want = opts.grain ?? queryGrain(q);
 
   const scored: ScoredChunk[] = chunks.map((c) => {
-    const bm = lexical.get(chunkKey(c.sourcePath, c.idx)) ?? 0;
+    const bm = lexical.get(chunkKey(c.sourcePath, c.idx)) ?? (identity ? 0.01 : 0);
     const cos = dense && c.vector && queryVector ? cosine(queryVector, c.vector) : null;
     let score = cos !== null ? cos + LEXICAL_WEIGHT * bm : bm;
     // The grain the question is after moves up; for a how-to the summary
@@ -488,7 +491,7 @@ async function scoreChunks(
     if (want === "section" && c.grain === "summary") score -= GRAIN_BONUS;
     return { chunk: c, score, related: (cos ?? 0) > 0.5 || bm > 0.5 };
   });
-  return { scored, mode: dense ? "semantic" : "lexical", visible };
+  return { scored, mode: dense ? "semantic" : "lexical", visible, resolvedProtocolId: identity };
 }
 
 /**
@@ -617,25 +620,26 @@ export interface Passage {
   score: number;
   path: string;
   grain: Grain;
+  nodeIds?: string[];
+  revision?: string;
 }
 
 /**
- * Top chunks for a query, ungrouped. Search wants one row per protocol;
- * Ask wants passages, and more than one from the same protocol is normal when
- * an answer spans two sections. Hybrid like search; null when nothing is
- * indexed.
+ * Protocol passages expand ranked nodes into revision-linked source context.
+ * Generic skill passages remain individual chunks. Hybrid like search; null
+ * when nothing is indexed.
  */
 export async function retrievePassages(
   query: string,
   email?: string,
-  opts?: { kind?: "skill" | "protocol"; limit?: number; grain?: Grain | "any" },
+  opts?: { kind?: "skill" | "protocol"; limit?: number; grain?: Grain | "any"; expand?: boolean },
 ): Promise<Passage[] | null> {
   const q = query.trim();
   if (!q) return [];
   const result = await scoreChunks(q, email, { ...(opts?.kind ? { kind: opts.kind } : {}), ...(opts?.grain ? { grain: opts.grain } : {}) });
   if (!result) return null;
   const { scored, visible } = result;
-  return scored
+  const ranked = scored
     .filter((s) => s.score > 0)
     .map((s) => {
       const skill = visible.get(s.chunk.sourcePath)!;
@@ -649,6 +653,26 @@ export async function retrievePassages(
         grain: s.chunk.grain,
       };
     })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, Math.min(Math.max(opts?.limit ?? 8, 1), 30));
+    .sort((a, b) => b.score - a.score);
+  if (!(opts?.expand ?? Boolean(result.resolvedProtocolId)))
+    return ranked.slice(0, Math.min(Math.max(opts?.limit ?? 8, 1), 30));
+  const output: Passage[] = [];
+  const skillsBySlug = new Map([...visible.values()].map((s) => [s.slug, s]));
+  const seen = new Set<string>();
+  let remaining = 8000;
+  for (const p of ranked) {
+    const skill = skillsBySlug.get(p.slug)!;
+    if (skill.artifactKind !== "protocol") output.push(p);
+    else if (!seen.has(p.slug)) {
+      seen.add(p.slug);
+      const nodes = markdownHierarchy(skill.body);
+      const seeds = ranked.filter((c) => c.slug === p.slug && c.grain !== "summary").slice(0, 3).map((c) => `${c.grain}:${c.path}`);
+      const evidence = expandProtocolEvidence({ id: p.slug, title: p.name, nodes }, seeds.length ? seeds : nodes.filter((n) => !n.parentId).map((n) => n.id), q, remaining);
+      if (!evidence.length) continue;
+      remaining -= JSON.stringify(evidence).length;
+      output.push({ ...p, text: evidence.map((n) => `[${n.nodeId}] ${n.heading}\n${n.text}`).join("\n\n"), nodeIds: evidence.map((n) => n.nodeId), revision: createHash("sha256").update(skill.body).digest("hex") });
+    }
+    if (output.length >= Math.min(Math.max(opts?.limit ?? 8, 1), 30)) break;
+  }
+  return output;
 }

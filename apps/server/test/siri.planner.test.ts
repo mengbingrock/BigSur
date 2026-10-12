@@ -27,6 +27,7 @@ beforeAll(async () => {
     LABEE_SEED_PROTOCOLS: "true",
     // The fake model speaks one-shot only; the warm process is a real-CLI thing.
     LABEE_SIRI_WARM: "0",
+    LABEE_SIRI_CONTEXT: "0",
   });
 }, 30000);
 

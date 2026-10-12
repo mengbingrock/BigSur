@@ -38,3 +38,7 @@ AuthKey_*.p8
 
 # local Stripe test key for scripts/stripe-verify-local.sh
 scripts/.stripe-test.env
+
+# Generated evaluation reports stay local; commit Markdown summaries instead.
+/docs/bioprobench-*.json
+/docs/siri-context-*.json

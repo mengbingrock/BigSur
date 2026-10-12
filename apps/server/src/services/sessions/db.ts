@@ -446,3 +446,13 @@ export async function removeQueued(sessionId: string, id: string): Promise<boole
     .run(sessionId, id) as { changes?: number } | undefined;
   return Number(res?.changes ?? 0) > 0;
 }
+
+/** Keyset pages for replication; no implicit recent-session horizon. */
+export async function sessionPage(email: string, afterId = "", limit = 100): Promise<SessionRow[]> {
+  const db = await getDb();
+  return db.prepare("SELECT * FROM chat_sessions WHERE email=? AND id>? ORDER BY id LIMIT ?").all(email,afterId,limit).map(rowToSession);
+}
+export async function messagePage(sessionId: string, afterIdx = -1, limit = 50): Promise<SessionMessageRow[]> {
+  const db = await getDb();
+  return db.prepare("SELECT * FROM chat_session_messages WHERE session_id=? AND idx>? ORDER BY idx LIMIT ?").all(sessionId,afterIdx,limit).map(r=>({idx:Number(r.idx),turnId:r.turn_id as string|null,role:r.role as SessionMessageRow["role"],content:String(r.content),meta:parseJson(r.meta,null),createdAt:String(r.created_at)}));
+}

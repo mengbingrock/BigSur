@@ -174,10 +174,12 @@ export async function openAIComplete(opts: {
   model: string;
   system: string;
   user: string;
+  timeoutMs?: number;
 }): Promise<string> {
   const { apiKey, model, system, user } = opts;
   const res = await fetch(`${OPENAI_API_BASE}/chat/completions`, {
     method: "POST",
+    signal: AbortSignal.timeout(opts.timeoutMs ?? 60000),
     headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model,

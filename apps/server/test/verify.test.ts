@@ -138,6 +138,9 @@ describe("confidence on an answer", () => {
     expect(r.confidence).toBe(0.85);
     expect(r.answer).not.toContain("CONFIDENCE");
     expect(r.citations[0]?.path).toBeDefined();
+    const named = await ask.askLibrary("what CO2 for 'HEK293T maintenance'?", EMAIL, { kind: "protocol" });
+    expect(named.citations[0]?.nodeIds?.length).toBeGreaterThan(0);
+    expect(named.citations[0]?.revision).toMatch(/^[a-f0-9]{64}$/);
   });
 });
 

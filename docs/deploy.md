@@ -46,6 +46,22 @@ GOOGLE_REDIRECT_URI=https://your.host/api/auth/google/callback  # optional; deri
 One client can hold several redirect URIs, so the production and local-dev
 entries live side by side — a separate OAuth client for dev isn't needed.
 
+#### Troubleshooting “Google sign-in could not be verified”
+
+The callback must receive the short-lived state cookie created before leaving
+for Google. Starting at `127.0.0.1` and returning to `localhost` (or starting at
+`www.labee.online` and returning to `labee.online`) loses that host-only cookie.
+The start route now redirects to the configured callback origin **before**
+creating the cookie. Vite preserves the browser's Host header to avoid a loop
+when the backend checks that origin.
+
+For local development, run Vite at the registered callback origin, normally
+`http://localhost:5733`. A preview on another port will move to that origin for
+sign-in, so it must be running. A different callback port requires updating both
+`GOOGLE_REDIRECT_URI` and Google's authorized redirect URI. Expired cookies or
+starting another sign-in in a second tab can also invalidate the state; retry
+from the sign-in page.
+
 #### Troubleshooting `Error 400: redirect_uri_mismatch`
 
 Google compares the redirect URI **byte for byte**: scheme, host, port, and path

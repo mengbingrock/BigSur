@@ -214,12 +214,12 @@ function settle(mem: Memory, outcome: string): Memory {
 
 /** A delegated chat returned (delivery.ts calls this): the exchange settles
  *  once nothing else is pending on it. */
-export async function settleDelegation(email: string, siriTurnId: string, outcome: string): Promise<void> {
+export async function settleDelegation(email: string, siriTurnId: string, outcome: string, sessionId?: string): Promise<void> {
   const siri = await ensureSiriSession(email);
   const mem = await loadMemory(siri);
   const open = mem.open;
   if (!open) return;
-  const d = open.delegated.find((x) => x.siriTurnId === siriTurnId);
+  const d = open.delegated.find((x) => x.siriTurnId === siriTurnId && (!sessionId || x.sessionId === sessionId));
   if (!d) return;
   d.returned = true;
   if (open.delegated.every((x) => x.returned) && !open.pending) await saveMemory(siri, settle(mem, outcome));
@@ -386,7 +386,7 @@ export function needsConfirmation(plan: Plan, state: SiriState): string | null {
   return null;
 }
 
-function describe(a: Action, state: SiriState): string {
+export function describe(a: Action, state: SiriState): string {
   const run = (id: string) => state.runs.find((r) => r.id === id)?.protocol ?? "the run";
   const chat = (id: string) => `"${state.chats.find((c) => c.id === id)?.title ?? "the chat"}"`;
   switch (a.do) {
@@ -420,7 +420,7 @@ export interface Executed {
   said?: string;
   error?: string;
   /** A chat turn was started: the return comes later. */
-  delegated?: { sessionId: string; title: string };
+  delegated?: { sessionId: string; title: string; delegationId?: string; turnId?: string; queueId?: string };
 }
 
 interface StepLike {
@@ -514,7 +514,7 @@ async function runAction(email: string, a: Extract<Action, { runId: string }>, d
 export async function executePlan(
   email: string,
   plan: Plan,
-  opts: { siriTurnId: string; device: string; said: string },
+  opts: { siriTurnId: string; device: string; said: string; delegationId?: string },
 ): Promise<Executed[]> {
   const out: Executed[] = [];
   for (const a of plan.actions) {
@@ -544,16 +544,16 @@ export async function executePlan(
         case "chats.send": {
           const s = await sdb.getSession(email, a.sessionId);
           if (!s) throw new Error("Chat not found.");
-          const r = await runner.startTurn(email, s.id, { text: a.text, device: opts.device, voice: true, origin: { kind: "siri", siriTurnId: opts.siriTurnId, said: opts.said } });
+          const r = await runner.startTurn(email, s.id, { text: a.text, device: opts.device, voice: true, origin: { kind: "siri", siriTurnId: opts.siriTurnId, said: opts.said, ...(opts.delegationId ? {delegationId:opts.delegationId} : {}) } });
           if (!r.ok) throw new Error(r.message);
-          out.push({ action: a, ok: true, delegated: { sessionId: s.id, title: s.title }, said: `Sent to "${s.title}". I'll tell you when it answers.` });
+          out.push({ action: a, ok: true, delegated: { sessionId: s.id, title: s.title, ...(opts.delegationId ? {delegationId:opts.delegationId} : {}), ...(r.queued ? {queueId:r.queueId} : {turnId:r.turnId}) }, said: `Sent to "${s.title}". I'll tell you when it answers.` });
           break;
         }
         case "chats.new": {
           const s = await sdb.createSession({ email, title: a.title.slice(0, 64) });
-          const r = await runner.startTurn(email, s.id, { text: a.text, device: opts.device, voice: true, origin: { kind: "siri", siriTurnId: opts.siriTurnId, said: opts.said } });
+          const r = await runner.startTurn(email, s.id, { text: a.text, device: opts.device, voice: true, origin: { kind: "siri", siriTurnId: opts.siriTurnId, said: opts.said, ...(opts.delegationId ? {delegationId:opts.delegationId} : {}) } });
           if (!r.ok) throw new Error(r.message);
-          out.push({ action: a, ok: true, delegated: { sessionId: s.id, title: s.title }, said: `Started "${s.title}". I'll tell you when it answers.` });
+          out.push({ action: a, ok: true, delegated: { sessionId: s.id, title: s.title, ...(opts.delegationId ? {delegationId:opts.delegationId} : {}), ...(r.queued ? {queueId:r.queueId} : {turnId:r.turnId}) }, said: `Started "${s.title}". I'll tell you when it answers.` });
           break;
         }
         case "chats.answer": {
@@ -561,9 +561,9 @@ export async function executePlan(
           const questions = normalizeQuestions(s?.pendingQuestion?.input);
           if (!s || questions.length === 0) throw new Error("Nothing is waiting on an answer there.");
           const { answers } = mapSpokenAnswer(questions, a.spoken);
-          const r = await runner.answerQuestion(email, s.id, answers, { device: opts.device, voice: true });
+          const r = await runner.answerQuestion(email, s.id, answers, { device: opts.device, voice: true, origin: {kind:"siri",siriTurnId:opts.siriTurnId,said:opts.said,...(opts.delegationId ? {delegationId:opts.delegationId} : {})} });
           if (!r.ok) throw new Error(r.message);
-          out.push({ action: a, ok: true, delegated: { sessionId: s.id, title: s.title }, said: `Answered "${s.title}".` });
+          out.push({ action: a, ok: true, delegated: { sessionId: s.id, title: s.title, ...(opts.delegationId ? {delegationId:opts.delegationId} : {}), ...(r.queued ? {queueId:r.queueId} : {turnId:r.turnId}) }, said: `Answered "${s.title}".` });
           break;
         }
         case "chats.stop": {

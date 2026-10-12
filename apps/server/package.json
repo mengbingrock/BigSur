@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "eval": "bun run eval/cli.ts",
+    "index:context": "bun run scripts/indexContext.ts",
     "ingest-library": "bun run scripts/ingestLibrary.ts"
   },
   "dependencies": {

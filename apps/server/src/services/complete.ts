@@ -26,6 +26,7 @@ export async function completeText(opts: {
       model: opts.openaiModel,
       system: opts.system,
       user: opts.user,
+      timeoutMs: opts.timeoutMs,
     });
   }
   return runClaudeText({

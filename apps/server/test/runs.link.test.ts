@@ -156,4 +156,18 @@ describe("a run for a session held on a Mac", () => {
     const r = (await (await api(`/api/runs/${runId}`)).json()) as { events: { type: string }[] };
     expect(r.events.filter((e) => e.type === "abandoned")).toHaveLength(1);
   }, 30000);
+  it("the context router starts a Mac-only protocol once, with a receipt on the box", async () => {
+    const action={do:"runs.start",protocolSlug:"user--chemically-competent-cells-tss"};
+    const endpoint=`/api/hosts/${hostId}/api/siri/action`;
+    const inspected=await post(endpoint,{mode:"inspect",action});
+    expect(inspected.status,await inspected.clone().text()).toBe(200);
+    const version=(await inspected.json()).version;
+    const request={mode:"execute",action,expected:version,operationId:"linked-siri-start",taskId:"linked-siri-task"};
+    const first=await post(endpoint,request);expect(first.status).toBe(200);
+    const result=await first.json();expect(result.ok,JSON.stringify(result)).toBe(true);
+    const repeated=await (await post(endpoint,request)).json();expect(repeated).toEqual(result);
+    const list=(await (await api("/api/runs")).json()).runs as {hostId:string;status:string}[];
+    expect(list.filter(r=>r.hostId===hostId && r.status==="running")).toHaveLength(1);
+  },30000);
+
 });

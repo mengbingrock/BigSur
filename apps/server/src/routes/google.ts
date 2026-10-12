@@ -67,6 +67,14 @@ export const googleStartRoute = HttpRouter.add(
     const url = yield* requestUrl;
     const origin = yield* requestOrigin;
     const redirectUri = resolveRedirectUri(origin);
+    // State cookies are host-only. Start on the callback origin so aliases
+    // (www, localhost vs 127.0.0.1) cannot lose the cookie on Google's return.
+    const callbackOrigin = new URL(redirectUri).origin;
+    if (new URL(origin).origin !== callbackOrigin) {
+      const start = new URL("/api/auth/google", callbackOrigin);
+      start.search = url.search;
+      return yield* redirectTo(start.toString());
+    }
     const state = crypto.randomUUID();
     const next = safeNext(url.searchParams.get("next"));
     const { verifier, challenge } = generatePkce();

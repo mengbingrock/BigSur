@@ -1,15 +1,15 @@
 // Search over the shared library.
 //
-// Words first, then meaning: BM25 picks a few hundred candidate chunks, and
-// only those are scored by embedding. The library is too large to hold every
-// vector in memory the way the personal index does, and the purpose-layer
-// summary of each protocol makes word overlap with a goal-phrased question
-// likely enough that the prefilter rarely hides the right protocol.
+// Resolve an explicit, unambiguous protocol name before ranking its nodes.
+// Otherwise BM25 shortlists chunks globally for embedding reranking. This
+// lexical gate can miss zero-word-overlap matches; it is not dense retrieval.
 import { getDb } from "../db";
 import { cosine, embedBatch, resolveEmbedTarget } from "../artifactIndex/embed";
 import { ftsExpression, queryGrain, snippetOf, type SearchMode } from "../artifactIndex/index";
 import type { Grain } from "../artifactIndex/chunk";
-import { libraryHeaders, loadLibraryChunks } from "./store";
+import { libraryHeaders, loadLibraryChunks, ensureLibraryHierarchy, getLibraryProtocol } from "./store";
+import { expandProtocolEvidence, resolveProtocolIdentity } from "../protocolRetrieval";
+import { markdownHierarchy } from "../protocolHierarchy";
 
 export interface LibraryHit {
   id: string;
@@ -36,6 +36,8 @@ export interface LibraryPassage {
   score: number;
   path: string;
   grain: Grain;
+  nodeIds?: string[];
+  revision?: string;
 }
 
 /** How many chunks the words shortlist for the embedding to rank. */
@@ -54,18 +56,24 @@ interface Scored {
   related: boolean;
 }
 
-async function scoreCandidates(q: string, email?: string, opts: { grain?: Grain | "any" } = {}): Promise<{ scored: Scored[]; mode: SearchMode } | null> {
+async function scoreCandidates(q: string, email?: string, opts: { grain?: Grain | "any" } = {}): Promise<{ scored: Scored[]; mode: SearchMode; resolvedProtocolId?: string | null } | null> {
+  await ensureLibraryHierarchy();
   const expr = ftsExpression(q);
   if (!expr) return null;
   const db = await getDb();
+  const identity = resolveProtocolIdentity(q, db.prepare("SELECT id,title FROM library_protocols").all() as Array<{ id: string; title: string }>);
   let rows: Array<{ protocol_id: string; idx: number; s: number }>;
   try {
     rows = db
       .prepare(
         "SELECT protocol_id, idx, bm25(library_chunks_fts, 0, 0, 2.0, 1.0) AS s " +
-          "FROM library_chunks_fts WHERE library_chunks_fts MATCH ? ORDER BY s LIMIT ?",
+          "FROM library_chunks_fts WHERE library_chunks_fts MATCH ? " +
+          (identity ? "AND protocol_id = ? " : "") + "ORDER BY s LIMIT ?",
       )
-      .all(expr, CANDIDATES) as Array<{ protocol_id: string; idx: number; s: number }>;
+      .all(...(identity ? [expr, identity, CANDIDATES] : [expr, CANDIDATES])) as Array<{ protocol_id: string; idx: number; s: number }>;
+    // Protocol names/IDs need not occur in individual procedure nodes.
+    if (identity && rows.length === 0)
+      rows = db.prepare("SELECT protocol_id,idx,-1 AS s FROM library_chunks WHERE protocol_id=? ORDER BY idx LIMIT ?").all(identity, CANDIDATES) as typeof rows;
   } catch {
     return null;
   }
@@ -87,7 +95,7 @@ async function scoreCandidates(q: string, email?: string, opts: { grain?: Grain 
     if (want === "section" && c.grain === "summary") score -= GRAIN_BONUS;
     return { protocolId: c.protocolId, idx: c.idx, heading: c.heading, text: c.text, grain: c.grain, path: c.path, score, related: (cos ?? 0) > 0.5 || words > 0.5 };
   });
-  return { scored, mode: dense ? "semantic" : "lexical" };
+  return { scored, mode: dense ? "semantic" : "lexical", resolvedProtocolId: identity };
 }
 
 /** One row per library protocol, ranked. Null when the query has no words. */
@@ -140,17 +148,35 @@ export async function searchLibrary(
 /** Top library chunks for a question, for Ask. */
 export async function libraryPassages(
   query: string,
-  opts: { limit?: number; email?: string } = {},
+  opts: { limit?: number; email?: string; contextChars?: number; expand?: boolean } = {},
 ): Promise<LibraryPassage[]> {
   const q = query.trim();
   if (!q) return [];
   const result = await scoreCandidates(q, opts.email);
   if (!result) return [];
-  const top = result.scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score).slice(0, Math.min(Math.max(opts.limit ?? 4, 1), 30));
+  const top = result.scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score);
   const headers = await libraryHeaders(top.map((s) => s.protocolId));
-  return top.flatMap((s) => {
+  // Broad expansion did not improve the fresh four-task benchmark. Keep the
+  // prior evidence path unless identity is resolved or expansion is explicit.
+  if (!(opts.expand ?? Boolean(result.resolvedProtocolId)))
+    return top.slice(0, Math.min(Math.max(opts.limit ?? 4, 1), 30)).flatMap((s) => {
+      const h = headers.get(s.protocolId);
+      return h ? [{ id: s.protocolId, title: h.title, source: h.source, url: h.sourceUrl, license: h.license, heading: s.heading, text: s.text, score: s.score, path: s.path, grain: s.grain }] : [];
+    });
+  const passages: LibraryPassage[] = [];
+  let remaining = Math.max(0, Math.min(opts.contextChars ?? 8000, 32000));
+  for (const id of new Set(top.map((s) => s.protocolId))) {
+    const s = top.find((s) => s.protocolId === id)!;
     const h = headers.get(s.protocolId);
-    if (!h) return [];
-    return [{ id: s.protocolId, title: h.title, source: h.source, url: h.sourceUrl, license: h.license, heading: s.heading, text: s.text, score: s.score, path: s.path, grain: s.grain }];
-  });
+    const record = await getLibraryProtocol(id);
+    if (!h || !record) continue;
+    const nodes = record.hierarchy ?? markdownHierarchy(record.body);
+    const seeds = top.filter((c) => c.protocolId === id && c.grain !== "summary").slice(0, 3).map((c) => `${c.grain}:${c.path}`);
+    const evidence = expandProtocolEvidence({ id, title: h.title, nodes }, seeds.length ? seeds : nodes.filter((n) => !n.parentId).map((n) => n.id), q, remaining);
+    if (!evidence.length) continue;
+    remaining -= JSON.stringify(evidence).length;
+    passages.push({ id, title: h.title, source: h.source, url: h.sourceUrl, license: h.license, heading: s.heading, text: evidence.map((n) => `[${n.nodeId}] ${n.heading}\n${n.text}`).join("\n\n"), score: s.score, path: s.path, grain: s.grain, nodeIds: evidence.map((n) => n.nodeId), revision: record.contentHash });
+    if (passages.length >= Math.min(Math.max(opts.limit ?? 4, 1), 30)) break;
+  }
+  return passages;
 }

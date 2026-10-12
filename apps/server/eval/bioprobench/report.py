@@ -1,0 +1,196 @@
+"""Produce a shareable report without copying corpus text or reference answers."""
+import argparse
+from collections import defaultdict
+import hashlib
+import json
+import math
+from pathlib import Path
+import random
+import re
+import sqlite3
+import statistics
+import sys
+from evidence import render_prompt
+
+p = argparse.ArgumentParser()
+p.add_argument('--out', required=True)
+p.add_argument('--report', required=True)
+p.add_argument('--source', required=True)
+p.add_argument('--base', help='Original corpus index directory for follow-up evaluations')
+p.add_argument('--baseline-report', help='Stored report with identical corpus, tasks, model and sample IDs for a development comparison')
+p.add_argument('--exclude-provider-refusals', action='store_true', help='Add primary scores excluding provider biology refusals; retain other failures as zero and preserve original metrics')
+a = p.parse_args()
+root = Path(a.out)
+manifest = json.loads((root / 'manifest.json').read_text())
+summary = json.loads((root / 'summary.json').read_text())
+summary['callFailures'] = summary.pop('transportErrors', summary.get('callFailures', 0))
+rows = [json.loads(f.read_text()) for f in (root / 'responses').glob('*.json')]
+for row in rows:
+    # Reconstruct exact serialization for older checkpoints without measurements.
+    _, sizes = render_prompt('', row)
+    row.update(sizes)
+
+sys.path.insert(0, str(Path(a.source) / 'skills/evaluate-protocol-outputs/scripts'))
+from normalize import normalize_record, canonical_task
+from ordering import validate_pair
+from generation import as_text, token_overlap
+variants = sorted(summary['metrics'])
+primary = manifest.get('primaryVariant') or next((v for v in ('paper-hybrid-nebius', 'paper-context', 'expanded', 'hierarchy') if v in variants), variants[0])
+index_root = Path(a.base) if a.base else root
+
+def score(row):
+    if row.get('error'):
+        return 0.0
+    if row['task'] != 'GEN':
+        return float(correct(row))
+    try:
+        normalized = normalize_record({**row['sample'], 'generated_response': row['generated_response']}, canonical_task(row['task']), 'bioprobench', 'auto', {'id': 'id'})
+        return token_overlap(as_text(normalized['reference']), as_text(normalized['prediction']))[2]
+    except Exception:
+        return 0.0
+
+def correct(row):
+    try:
+        normalized = normalize_record({**row['sample'], 'generated_response': row['generated_response']}, canonical_task(row['task']), 'bioprobench', 'auto', {'id': 'id'})
+        if row['task'] == 'ORD':
+            validate_pair(normalized['prediction'], normalized['reference'])
+        return normalized['prediction'] == normalized['reference']
+    except Exception:
+        return False
+
+def scorable(row):
+    if row.get('error'):
+        return False
+    try:
+        normalized = normalize_record({**row['sample'], 'generated_response': row['generated_response']}, canonical_task(row['task']), 'bioprobench', 'auto', {'id': 'id'})
+        if row['task'] == 'ORD':
+            validate_pair(normalized['prediction'], normalized['reference'])
+        return True
+    except Exception:
+        return False
+
+by = {(r['task'], r['variant'], r['sample']['id']): r for r in rows}
+comparisons = {}
+for task in manifest['selection']:
+    comparisons[task] = {}
+    ids = [r['id'] for r in manifest['selection'][task]['selected']]
+    for baseline in [v for v in variants if v != primary]:
+        pairs = [(score(by[(task, primary, i)]), score(by[(task, baseline, i)])) for i in ids]
+        changes = [x-y for x,y in pairs]
+        wins, losses = sum(x > 0 for x in changes), sum(x < 0 for x in changes)
+        rng = random.Random(20261010)
+        boot = sorted(sum(rng.choices(changes, k=len(changes)))/len(changes) for _ in range(10000))
+        discordant = wins + losses
+        probability = min(1, 2 * sum(math.comb(discordant, k) for k in range(min(wins, losses)+1)) / 2**discordant) if discordant else 1
+        comparisons[task][baseline] = {'pairedDelta': statistics.mean(changes), 'wins': wins, 'losses': losses, 'ties': len(changes)-discordant, 'bootstrap95CI': [boot[250], boot[9749]], 'exactMcNemarP': probability if task != 'GEN' else None, 'metric': 'token_f1' if task == 'GEN' else 'all-selected accuracy', 'primary': primary}
+
+common = {}
+for task in manifest['selection']:
+    ids = [r['id'] for r in manifest['selection'][task]['selected']]
+    valid = [i for i in ids if all(scorable(by[(task, v, i)]) for v in variants)]
+    common[task] = {'scored': len(valid), 'excluded': len(ids)-len(valid), 'metric': 'token_f1' if task == 'GEN' else 'accuracy', 'scores': {v: sum(score(by[(task, v, i)]) for i in valid) / len(valid) if valid else None for v in variants}}
+
+performance = {}
+def input_tokens(row):
+    # Provider counts cover the whole CLI request, including system overhead,
+    # questions and cached input. They are not evidence-only token counts.
+    usage = row.get('modelUsage', {})
+    if not usage:
+        return None
+    return sum(u.get('inputTokens', 0) + u.get('cacheReadInputTokens', 0) + u.get('cacheCreationInputTokens', 0) for u in usage.values())
+
+for variant in variants:
+    selected = [r for r in rows if r['variant'] == variant]
+    files = manifest.get('indexFiles', {}).get(variant, [f'{variant if variant != "expanded" else "hierarchy"}.sqlite'])
+    performance[variant] = {'indexBytes': sum((index_root / f).stat().st_size for f in files), 'medianRetrievalMs': statistics.median(r['retrievalMs'] for r in selected), 'medianModelMs': statistics.median(r['elapsedMs'] for r in selected), 'meanContextChars': statistics.mean(r['contextChars'] for r in selected), 'meanPassages': statistics.mean(len(r['passages']) for r in selected)}
+    performance[variant]['byTask'] = {task: {
+        'meanSerializedContextChars': statistics.mean(r.get('serializedContextChars', r['contextChars']) for r in selected if r['task'] == task),
+        'meanPassages': statistics.mean(len(r['passages']) for r in selected if r['task'] == task),
+        'medianModelMs': statistics.median(r['elapsedMs'] for r in selected if r['task'] == task),
+    } for task in manifest['selection']}
+    for task, stats in performance[variant]['byTask'].items():
+        counts = [n for r in selected if r['task'] == task and (n := input_tokens(r)) is not None]
+        stats['meanProviderTotalInputTokens'] = statistics.mean(counts) if counts else None
+        stats['providerTokenUsageSamples'] = len(counts)
+        stats['tokenCountScope'] = 'Whole CLI request including system/question/cache; evidence-only token count unavailable'
+
+# Match both protocol and subsection titles. Record source identity separately
+# from retrieval success; unresolved exact titles are not proven missing sources.
+from coverage import catalog, match_source
+alias_file = index_root / 'source-aliases.json'
+if alias_file.exists():
+    aliases = json.loads(alias_file.read_text())
+    coverage_method = 'Exact normalized root or section title; unresolved availability is unknown'
+else:
+    db = sqlite3.connect(index_root / 'hierarchy.sqlite')
+    aliases = [{'protocolId': pid, 'title': title, 'nodeId': None, 'path': ''} for pid, title in db.execute('SELECT DISTINCT protocol_id,title FROM chunks')]
+    coverage_method = 'Legacy index: root titles only; section coverage not audited'
+titles = catalog(aliases)
+coverage = {}
+for r in rows:
+    if r['task'] != 'ORD':
+        continue
+    entry = coverage.setdefault(r['sample']['id'], {**match_source(r['sample'], titles), 'retrievedTarget': {}})
+    entry['retrievedTarget'][r['variant']] = any(p['protocol_id'] in entry['protocolIds'] for p in r['passages']) if entry['protocolIds'] else None
+
+failure_breakdown = {v: {task: {'providerBiologyRefusals': sum('[bio]' in str(r.get('error', '')) for r in rows if r['variant'] == v and r['task'] == task), 'otherCallFailures': sum(bool(r.get('error')) and '[bio]' not in str(r['error']) for r in rows if r['variant'] == v and r['task'] == task)} for task in manifest['selection']} for v in variants}
+report = {**manifest, **summary, 'failureBreakdown': failure_breakdown, 'allQuestionScores': {task: {variant: sum(score(r) for r in rows if r['task'] == task and r['variant'] == variant) / len(manifest['selection'][task]['selected']) for variant in variants} for task in manifest['selection']}, 'commonScorable': common, 'comparisons': comparisons, 'performance': performance, 'orderingCoverageMethod': coverage_method, 'orderingCorpusCoverage': coverage,
+          'cases': [{'id': r['sample']['id'], 'task': r['task'], 'type': r['sample']['type'], 'variant': r['variant'], 'correct': correct(r) if r['task'] != 'GEN' else None, 'score': score(r), 'retrievalMs': r['retrievalMs'], 'modelMs': r['elapsedMs'], 'contextChars': r['contextChars'], 'serializedContextChars': r.get('serializedContextChars'), 'serializedContextBytes': r.get('serializedContextBytes'), 'contextProfile': r.get('contextProfile'), 'queryEmbeddingInputSha256': r.get('queryEmbeddingInputSha256'), 'retrievalTimingScope': r.get('retrievalTimingScope'), 'error': ('provider biology safeguard refusal' if '[bio]' in str(r.get('error', '')) else ('model call failed; see local checkpoint' if r.get('error') else None)), 'promptSha256': r['promptSha256'], 'resolvedProtocolId': r.get('resolvedProtocolId'), 'modelUsage': r.get('modelUsage', {}), 'responseSha256': hashlib.sha256(r['generated_response'].encode()).hexdigest(), 'sourceRefs': [{'protocolId': s['protocol_id'], 'path': s['path'], 'grain': s['grain'], **{k: s[k] for k in ('score', 'denseRank', 'squaredL2', 'semanticScore', 'bm25Score', 'semanticScaled', 'lexicalScaled') if k in s}, **({ 'startChar': s['startChar'], 'endChar': s['endChar'] } if 'startChar' in s else {})} for s in r['passages']]} for r in rows]}
+for case in report['cases']:
+    raw = by[case['task'], case['variant'], case['id']]
+    if 'agentAudit' in raw:
+        case['agentAudit'] = raw['agentAudit']
+        trace_file = root / 'traces' / case['id'] / 'trace.json'
+        if trace_file.exists():
+            trace = json.loads(trace_file.read_text())
+            case['agentAudit']['finalScorable'] = scorable(raw)
+            case['agentAudit']['toolArgumentFailures'] = sum(
+                r['status'] == 'failed' and 'validation error' in r['summary']
+                for r in trace['records'])
+            log_file = trace_file.parent / 'upstream.log'
+            if log_file.exists():
+                case['agentAudit']['stoppedByOscillation'] = 'State oscillation detected' in log_file.read_text()
+            phases = defaultdict(int)
+            for call_file in sorted(trace_file.parent.glob('call-*.json')):
+                call = json.loads(call_file.read_text())
+                prompt = call['prompt'].lstrip()
+                phase = ('intent' if prompt.startswith('You are a ProAgent,') else
+                         'planner' if prompt.startswith('You are BioProAgent') else
+                         'reflection' if prompt.startswith('You are a scientific protocol reviewer.') else
+                         'revision' if prompt.startswith(('Revise the protocol text', 'Revise the workflow JSON', 'Revise the benchmark answer')) else
+                         'draft' if prompt.startswith(('Generate a clear step-by-step scientific protocol draft', 'Generate the answer to the benchmark task.')) else 'other')
+                phases[phase] += 1
+            case['agentAudit']['phaseCallCounts'] = dict(phases)
+            drafts = [r['output'] for r in trace['records']
+                      if r['tool'] == 'generate_scientific_draft' and r['status'] == 'success']
+            if drafts:
+                first = {**raw, 'generated_response': drafts[0], 'error': None}
+                case['agentAudit']['firstDraftScore'] = score(first)
+                case['agentAudit']['firstDraftScorable'] = scorable(first)
+                case['agentAudit']['firstDraftMetric'] = 'token_f1' if case['task'] == 'GEN' else 'accuracy'
+if a.exclude_provider_refusals:
+    def without_refusals(selected):
+        kept = [r for r in selected if '[bio]' not in str(r.get('error', ''))]
+        return {'selected': len(selected), 'excludedProviderRefusals': len(selected) - len(kept),
+                'evaluated': len(kept), 'unscorableNonRefusals': sum(not scorable(r) for r in kept),
+                'score': statistics.mean(score(r) for r in kept) if kept else None}
+    report['primaryScorePolicy'] = 'Exclude provider biology refusals only; retain other call/parse/evaluator failures as zero. Original allQuestionScores and official metrics are preserved for audit.'
+    report['primaryScores'] = {}
+    for task in manifest['selection']:
+        report['primaryScores'][task] = {}
+        for variant in variants:
+            selected = [r for r in rows if r['task'] == task and r['variant'] == variant]
+            report['primaryScores'][task][variant] = {
+                **without_refusals(selected),
+                'metric': 'token_f1' if task == 'GEN' else 'accuracy',
+                'excludedIds': sorted(r['sample']['id'] for r in selected if '[bio]' in str(r.get('error', ''))),
+                'byType': {kind: without_refusals([r for r in selected if r['sample']['type'] == kind])
+                           for kind in sorted({r['sample']['type'] for r in selected})}}
+if a.baseline_report:
+    from compareReports import compare_report
+    report['storedBaselineComparison'] = compare_report(report, a.baseline_report)
+# Keep metadata readable and each audit case on one line for reviewable diffs.
+metadata = json.dumps({k: v for k, v in report.items() if k != 'cases'}, indent=2)
+case_lines = ',\n'.join('    ' + json.dumps(c, separators=(',', ':')) for c in report['cases'])
+Path(a.report).write_text(metadata[:-2] + ',\n  \"cases\": [\n' + case_lines + '\n  ]\n}\n')
+print(json.dumps({**({'primaryScores': report['primaryScores']} if a.exclude_provider_refusals else {}), 'allQuestionScores': report['allQuestionScores'], 'metrics': summary['metrics'], 'comparisons': comparisons, 'performance': performance, 'orderingCoverage': {'parsed': sum(v['titleParsed'] for v in coverage.values()), 'available': sum(v['sourceAvailable'] is True for v in coverage.values()), 'retrieved': {variant: sum(v['retrievedTarget'][variant] is True for v in coverage.values()) for variant in variants}}}, indent=2))

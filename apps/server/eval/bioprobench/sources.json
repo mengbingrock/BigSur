@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "scope": "Isolated evaluation corpus. Source texts only; never train/test task answers. The public mirror supplies Bio-protocol.json missing from the official main release; the two other files match the official release byte-for-byte. This is not the full private BioProBench corpus.",
+  "licenseNote": "Mirror card advertises CC BY 4.0; official dataset card advertises CC BY-NC 4.0. Retain conservative isolated benchmark designation; do not use this manifest for production library licensing.",
+  "sources": [
+    {
+      "file": "Protocol-exchange.json",
+      "source": "Protocol-exchange",
+      "url": "https://huggingface.co/datasets/bowenxian/BioProBench/resolve/c9ae37cac1b789eda6f3ffa62047fce92c286fbb/Protocol-exchange.json",
+      "revision": "c9ae37cac1b789eda6f3ffa62047fce92c286fbb",
+      "sha256": "5ed3b7f1120af7442b06e50a14c4dc654dfe096fbb7db93e834433f2b43806e9",
+      "license": "CC BY-NC 4.0; isolated benchmark only",
+      "expectedRawRecords": 933
+    },
+    {
+      "file": "Protocol-io.json",
+      "source": "Protocol-io",
+      "url": "https://huggingface.co/datasets/bowenxian/BioProBench/resolve/c9ae37cac1b789eda6f3ffa62047fce92c286fbb/Protocol-io.json",
+      "revision": "c9ae37cac1b789eda6f3ffa62047fce92c286fbb",
+      "sha256": "9f0e6cdeebce322a1282c29637399e5e5012b2a68e4bf88fda21d617ccef98a3",
+      "license": "CC BY-NC 4.0; isolated benchmark only",
+      "expectedRawRecords": 9585
+    },
+    {
+      "file": "Bio-protocol.json",
+      "source": "Bio-protocol",
+      "url": "https://huggingface.co/datasets/bowenxian/BioProBench/resolve/c9ae37cac1b789eda6f3ffa62047fce92c286fbb/Bio-protocol.json",
+      "revision": "c9ae37cac1b789eda6f3ffa62047fce92c286fbb",
+      "sha256": "f67a78bd536e670a68d800950af3e9e2b2b0a0ffbe3d55c6534fa5c48af6e760",
+      "license": "CC BY-NC 4.0; isolated benchmark only",
+      "expectedRawRecords": 4157
+    }
+  ]
+}

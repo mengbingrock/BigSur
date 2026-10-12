@@ -95,9 +95,18 @@ export async function embedBatch(
 ): Promise<Float32Array[]> {
   if (texts.length === 0) return [];
   if (useFake()) return texts.map(fakeEmbed);
+  // Deep protocols can contain thousands of nodes. Bound each real provider
+  // request independently of the size of a complete protocol.
+  if (texts.length > 32) {
+    const result: Float32Array[] = [];
+    for (let start = 0; start < texts.length; start += 32)
+      result.push(...await embedBatch(texts.slice(start, start + 32), target));
+    return result;
+  }
 
   const res = await fetch(`${target.baseUrl}/embeddings`, {
     method: "POST",
+    signal: AbortSignal.timeout(30000),
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${target.apiKey}`,

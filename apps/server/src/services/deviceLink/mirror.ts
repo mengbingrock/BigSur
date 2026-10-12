@@ -23,6 +23,7 @@ export async function insertMirrorEvent(email: string, hostId: string, event: Re
   db.prepare(
     "INSERT OR IGNORE INTO mirror_events (email, host_id, session_id, seq, data) VALUES (?, ?, ?, ?, ?)",
   ).run(email, hostId, sessionId, seq, JSON.stringify(event));
+  db.prepare("INSERT INTO context_mirror_coverage VALUES(?,?,?,-1,?,?) ON CONFLICT(email,host_id,session_id) DO UPDATE SET event_through=MAX(event_through,excluded.event_through),synced_at=excluded.synced_at").run(email,hostId,sessionId,seq,now());
   db.prepare(
     "UPDATE mirror_sessions SET last_seq = MAX(last_seq, ?), updated_at = ? WHERE email = ? AND host_id = ? AND id = ?",
   ).run(seq, now(), email, hostId, sessionId);
@@ -35,6 +36,8 @@ export async function upsertMirrorMessages(email: string, hostId: string, sessio
       "ON CONFLICT(email, host_id, session_id, idx) DO UPDATE SET data = excluded.data",
   );
   for (const m of items) stmt.run(email, hostId, sessionId, Number(m.idx ?? 0), JSON.stringify(m));
+  const through = items.reduce((n,m) => Math.max(n,Number(m.idx ?? -1)), -1);
+  db.prepare("INSERT INTO context_mirror_coverage VALUES(?,?,?, ?,0,?) ON CONFLICT(email,host_id,session_id) DO UPDATE SET message_through=MAX(message_through,excluded.message_through),synced_at=excluded.synced_at").run(email,hostId,sessionId,through,now());
 }
 
 /** Forget a session the host deleted: summary, events and messages. */

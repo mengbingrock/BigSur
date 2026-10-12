@@ -1,9 +1,6 @@
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import type { Skill } from "@labee/contracts";
-import { Hero } from "~/components/Hero";
-import { apiGet } from "~/lib/api";
+import { BrandHome } from "~/components/BrandHome";
 import { useCurrentUser } from "~/lib/auth";
 
 export const Route = createFileRoute("/")({
@@ -22,12 +19,6 @@ function Home() {
     if (!isLoading && user) navigate({ to: "/protocols", replace: true });
   }, [isLoading, user, navigate]);
 
-  const { data } = useQuery({
-    queryKey: ["skills"],
-    queryFn: () => apiGet<{ skills: Skill[] }>("/api/skills"),
-    enabled: !isLoading && !user,
-  });
-
   if (isLoading || user) {
     return (
       <div className="flex h-full w-full items-center justify-center py-24 text-sm text-ink-light">
@@ -35,5 +26,5 @@ function Home() {
       </div>
     );
   }
-  return <Hero skillCount={data?.skills.length ?? 0} />;
+  return <BrandHome />;
 }

@@ -1,3 +1,5 @@
+> The default router implementation is now described in [Siri context implementation](siri-context-implementation.md). Fixed snapshot/one-read behavior below remains the legacy fallback selected by `LABEE_SIRI_CONTEXT=0`.
+
 # The Siri agent: Labee from the lock screen
 
 *Design, 2026-10-10, revised the same day. Follows `siri-design.md`

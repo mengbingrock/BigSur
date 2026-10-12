@@ -72,61 +72,50 @@ function fenceAware(body: string): Line[] {
 const HEADING = /^(#{1,6})\s+(.*?)\s*#*\s*$/;
 const ORDERED = /^(\s*)(\d+)[.)]\s+(.*)$/;
 
-/** Parse the lines of one section body into prose and steps. A numbered item
- *  starts a step; a numbered item indented under a step is a sub-step; an
- *  indented continuation line belongs to the step above it; everything else
- *  is prose. Sub-steps nest one level — deeper indents fold into the
- *  sub-step, which keeps the paths readable. */
-function parseBody(lines: Line[], sectionPath: string): { prose: string; steps: Step[] } {
+/** Preserve arbitrarily nested numbered steps and their continuation blocks. */
+function parseBody(
+  lines: Line[],
+  sectionPath: string,
+): { prose: string; steps: Step[] } {
   const prose: string[] = [];
   const steps: Step[] = [];
-  let current: Step | null = null;
-  let currentSub: Step | null = null;
-  let stepIndent = 0;
-
-  const flushProseBreak = () => {
-    current = null;
-    currentSub = null;
-  };
-
+  const stack: Array<{ step: Step; indent: number }> = [];
   for (const line of lines) {
     const m = line.inFence ? null : ORDERED.exec(line.text);
     if (m) {
-      const indent = m[1]!.length;
-      const text = m[3]!.trim();
-      if (current && indent > stepIndent) {
-        const sub: Step = { path: `${current.path}.${current.substeps.length + 1}`, text, substeps: [] };
-        current.substeps.push(sub);
-        currentSub = sub;
-        continue;
-      }
-      const step: Step = { path: `${sectionPath}.${steps.length + 1}`, text, substeps: [] };
-      steps.push(step);
-      current = step;
-      currentSub = null;
-      stepIndent = indent;
+      const indent = m[1]!.replace(/\t/g, "    ").length;
+      while (stack.length && stack.at(-1)!.indent >= indent) stack.pop();
+      const parent = stack.at(-1)?.step;
+      const siblings = parent ? parent.substeps : steps;
+      const step: Step = {
+        path: `${parent?.path ?? sectionPath}.${siblings.length + 1}`,
+        text: m[3]!.trim(),
+        substeps: [],
+      };
+      siblings.push(step);
+      stack.push({ step, indent });
       continue;
     }
-    // A blank line ends a step only if what follows is not indented under it;
-    // keep it simple: blank lines inside a step list are swallowed, and any
-    // non-indented, non-numbered text returns to prose.
     const trimmed = line.text.trim();
-    if (current && trimmed === "") continue;
-    if (current && /^\s+\S/.test(line.text) && !line.inFence) {
-      const target = currentSub ?? current;
-      target.text = `${target.text} ${trimmed}`.trim();
+    if (!trimmed && stack.length) continue;
+    if (stack.length && /^\s+\S/.test(line.text)) {
+      const indent = line.text.match(/^\s*/)![0].replace(/\t/g, "    ").length;
+      while (stack.length > 1 && stack.at(-1)!.indent >= indent) stack.pop();
+      const target = stack.at(-1)!.step;
+      target.text += `\n${line.text.slice(Math.min(indent, stack.at(-1)!.indent + 3))}`;
       continue;
     }
-    if (trimmed !== "" || prose.length > 0) {
-      prose.push(line.text);
-    }
-    if (trimmed !== "") flushProseBreak();
+    if (trimmed || prose.length) prose.push(line.text);
+    if (trimmed) stack.length = 0;
   }
-  return { prose: prose.join("\n").replace(/\s+$/, ""), steps };
+  return { prose: prose.join("\n").trimEnd(), steps };
 }
 
 /** Split the file into a preamble and a flat list of headed blocks. */
-function blocks(body: string): { preamble: Line[]; headed: Array<{ depth: number; title: string; lines: Line[] }> } {
+function blocks(body: string): {
+  preamble: Line[];
+  headed: Array<{ depth: number; title: string; lines: Line[] }>;
+} {
   const preamble: Line[] = [];
   const headed: Array<{ depth: number; title: string; lines: Line[] }> = [];
   let cur: { depth: number; title: string; lines: Line[] } | null = null;
@@ -145,25 +134,51 @@ function blocks(body: string): { preamble: Line[]; headed: Array<{ depth: number
 export function parseTree(body: string): ProtocolTree {
   const { preamble, headed } = blocks(body);
   const tree: ProtocolTree = {
-    preamble: preamble.map((l) => l.text).join("\n").trim(),
+    preamble: preamble
+      .map((l) => l.text)
+      .join("\n")
+      .trim(),
     sections: [],
   };
-  if (headed.length === 0) return tree;
+  if (headed.length === 0) {
+    if (preamble.some((l) => !l.inFence && ORDERED.test(l.text))) {
+      const parsed = parseBody(preamble, "1");
+      return {
+        preamble: "",
+        sections: [
+          {
+            path: "1",
+            title: "Procedure",
+            heading: "Procedure",
+            ...parsed,
+            children: [],
+          },
+        ],
+      };
+    }
+    return tree;
+  }
 
-  const base = Math.min(...headed.map((h) => h.depth));
-  // Stack of open sections by relative level (0 = top).
-  const stack: Section[] = [];
+  const stack: Array<{ section: Section; depth: number }> = [];
   for (const h of headed) {
-    const level = Math.min(h.depth - base, 1); // sections and one level of children
-    while (stack.length > level) stack.pop();
-    const parent = stack[stack.length - 1];
+    while (stack.length && stack.at(-1)!.depth >= h.depth) stack.pop();
+    const parent = stack.at(-1)?.section;
     const siblings = parent ? parent.children : tree.sections;
-    const path = parent ? `${parent.path}.${siblings.length + 1}` : String(siblings.length + 1);
+    const path = parent
+      ? `${parent.path}.${siblings.length + 1}`
+      : String(siblings.length + 1);
     const heading = parent ? `${parent.heading} › ${h.title}` : h.title;
     const { prose, steps } = parseBody(h.lines, path);
-    const section: Section = { path, title: h.title, heading, prose, steps, children: [] };
+    const section: Section = {
+      path,
+      title: h.title,
+      heading,
+      prose,
+      steps,
+      children: [],
+    };
     siblings.push(section);
-    stack.push(section);
+    stack.push({ section, depth: h.depth });
   }
   return tree;
 }
@@ -173,8 +188,10 @@ export function parseTree(body: string): ProtocolTree {
 function renderSteps(steps: readonly Step[], indent = ""): string {
   return steps
     .map((s, i) => {
-      const head = `${indent}${i + 1}. ${s.text}`;
-      return s.substeps.length ? `${head}\n${renderSteps(s.substeps, `${indent}   `)}` : head;
+      const head = `${indent}${i + 1}. ${s.text.replace(/\n/g, `\n${indent}   `)}`;
+      return s.substeps.length
+        ? `${head}\n${renderSteps(s.substeps, `${indent}   `)}`
+        : head;
     })
     .join("\n");
 }
@@ -207,7 +224,9 @@ export function sectionText(s: Section): string {
 
 /** A step with its sub-steps, as one readable unit. */
 export function stepText(s: Step): string {
-  return s.substeps.length ? `${s.text}\n${renderSteps(s.substeps, "   ")}` : s.text;
+  return s.substeps.length
+    ? `${s.text}\n${renderSteps(s.substeps, "   ")}`
+    : s.text;
 }
 
 /** Every section in reading order, children after their parent. */
@@ -223,9 +242,12 @@ export function allSections(tree: ProtocolTree): Section[] {
 
 /** Every step in reading order with the section it belongs to. Sub-steps are
  *  part of their step; they are not listed on their own. */
-export function allSteps(tree: ProtocolTree): Array<{ section: Section; step: Step }> {
+export function allSteps(
+  tree: ProtocolTree,
+): Array<{ section: Section; step: Step }> {
   const out: Array<{ section: Section; step: Step }> = [];
-  for (const section of allSections(tree)) for (const step of section.steps) out.push({ section, step });
+  for (const section of allSections(tree))
+    for (const step of section.steps) out.push({ section, step });
   return out;
 }
 
@@ -233,7 +255,10 @@ export function allSteps(tree: ProtocolTree): Array<{ section: Section; step: St
 export function stepAt(tree: ProtocolTree, path: string): Step | null {
   for (const { step } of allSteps(tree)) {
     if (step.path === path) return step;
-    for (const sub of step.substeps) if (sub.path === path) return sub;
+    const find = (s: Step): Step | null =>
+      s.path === path ? s : (s.substeps.map(find).find(Boolean) ?? null);
+    const found = find(step);
+    if (found) return found;
   }
   return null;
 }

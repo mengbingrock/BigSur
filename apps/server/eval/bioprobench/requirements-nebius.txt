@@ -1,0 +1,5 @@
+# Isolated evaluation dependencies, tested with Python 3.12.
+faiss-cpu==1.15.1
+numpy==2.5.4
+rank-bm25==0.2.2
+packaging==26.3

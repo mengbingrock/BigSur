@@ -1,0 +1,487 @@
+diff --git a/main_evaluate.py b/main_evaluate.py
+index 199bdbf..06de8b2 100644
+--- a/main_evaluate.py
++++ b/main_evaluate.py
+@@ -9,6 +9,7 @@ Core Improvements:
+ 4. Comprehensive error handling
+ """
+ 
++import hashlib
+ import json
+ import uuid
+ import threading
+@@ -88,6 +89,10 @@ class ProAgent:
+         self.max_consecutive_failures = 3
+         self.max_tool_retries = 3
+         self.oscillation_detection_window = 4
++        self.benchmark_task = self.planner_config.get("benchmark_task")
++        if self.benchmark_task not in {None, "PQA", "ORD", "ERR", "GEN"}:
++            raise ValueError("Unknown benchmark task")
++        self.max_revisions = 2
+         
+         # --- [Ablation Logic] Dynamically Remove Tools ---
+         if self.ablation_config.get("no_rag"):
+@@ -112,6 +117,7 @@ class ProAgent:
+         
+         # Initialize Planner
+         self.planner = AdaptivePlanner(self.tools_description, llm=self.llm)
++        self.planner.benchmark_task = self.benchmark_task
+         self.planner.require_confirmation_before_code = bool(
+             self.planner_config.get("require_confirmation_before_code", False)
+         )
+@@ -406,7 +412,27 @@ class ProAgent:
+     ) -> ExecutionRecord:
+         """Execute Single Node"""
+         tool_name = step_data.get("tool_name", "unknown")
+-        raw_args = step_data.get("args", {})
++        raw_args = dict(step_data.get("args", {}))
++        schema = self.available_tools[tool_name].args_schema if tool_name in self.available_tools else None
++        if schema:
++            defaults = {
++                "query": state.mem_work.get("user_query"), "session_id": state.session_id,
++                "keywords": "", "exp_info": state.mem_work.get("exp_info"),
++                "knowledge": state.mem_work.get("knowledge"),
++                "protocol_text": state.mem_work.get("draft"),
++                "protocol": state.mem_work.get("draft"),
++                "request": state.mem_work.get("ks_verification"),
++                "question": "Scientific draft passed review. Proceed to code generation?",
++            }
++            for name in schema.__fields__:
++                if name not in raw_args and defaults.get(name) is not None:
++                    raw_args[name] = defaults[name]
++            if self.benchmark_task:
++                for name, value in {"query": state.mem_work["user_query"],
++                                    "task_type": self.benchmark_task,
++                                    "knowledge": state.mem_work.get("knowledge", "")}.items():
++                    if name in schema.__fields__:
++                        raw_args[name] = value
+         
+         print(f"\n>> Step {step_idx}: {tool_name}")
+         
+@@ -425,37 +451,11 @@ class ProAgent:
+                 raw_args, state.mem_work, local_step_outputs
+             )
+             
+-            # 2. Check if critical parameters are missing
++            # Missing references must never become fabricated prompt content.
+             if missing_refs:
+-                critical_params = {
+-                    "reflect_on_protocol": ["protocol_text"],
+-                    "modify_protocol": ["protocol"],
+-                    "validate_machine_code": ["exp_flow_json"],
+-                    "fix_machine_code": ["machine_code"],
+-                    "generate_machine_code": ["aligned_protocol"],
+-                }
+-                
+-                critical_missing = []
+-                for ref in missing_refs:
+-                    ref_clean = ref.replace("$", "")
+-                    param_list = critical_params.get(tool_name, [])
+-                    # Check if any parameter references this missing ref
+-                    for param_name in param_list:
+-                        if raw_args.get(param_name) == ref:
+-                            critical_missing.append(ref)
+-                            break
+-                
+-                if critical_missing:
+-                    print(f"❌ Missing critical data: {critical_missing}")
+-                    return ExecutionRecord(
+-                        tool=tool_name,
+-                        status="blocked",
+-                        summary=f"Missing critical data: {critical_missing}",
+-                        output={"error": "missing_dependency", "refs": critical_missing}
+-                    )
+-                else:
+-                    print(f"❌ Non-critical data missing: {missing_refs}, continuing execution")
+-            
++                return ExecutionRecord(tool=tool_name, status="blocked",
++                    summary=f"Missing dependency: {missing_refs}", output=None)
++
+             # 3. Type validation and correction
+             args = self._validate_and_coerce_args(tool_name, args)
+ 
+@@ -465,6 +465,9 @@ class ProAgent:
+                 args["session_id"] = state.session_id
+ 
+ 
++            # Validate against the live tool schema before invocation.
++            args = self.available_tools[tool_name].args_schema.parse_obj(args).dict()
++
+             # 5. Print arguments
+             self._print_args(args)
+ 
+@@ -487,7 +490,7 @@ class ProAgent:
+ 
+ 
+             # 10. Check tool return status
+-            if isinstance(output, dict) and output.get("status") == "fail":
++            if isinstance(output, dict) and output.get("status") == "fail" and tool_name not in {"reflect_on_protocol", "validate_machine_code"}:
+                 return ExecutionRecord(
+                     tool=tool_name,
+                     status="failed",
+@@ -598,7 +601,14 @@ class ProAgent:
+                 if len(state.draft_history) > 5:
+                     state.draft_history.pop(0)
+             
+-            state.current_draft = draft_content[:5000]
++            previous = state.current_draft
++            if tool_name == "modify_protocol":
++                state.mem_work["revision_count"] = state.mem_work.get("revision_count", 0) + 1
++                state.mem_work["revision_unchanged"] = draft_content.strip() == (previous or "").strip()
++            state.mem_work.pop("ks_verification", None)
++            state.mem_work.pop("reviewed_draft_sha256", None)
++            state.mem_work.pop("sigma_sci", None)
++            state.current_draft = draft_content
+             state.mem_work["draft"] = draft_content
+             state.mem_work["current_draft"] = draft_content
+             print(f"📝 Draft updated (version {len(state.draft_history) + 1})")
+@@ -612,6 +622,8 @@ class ProAgent:
+         elif tool_name == "reflect_on_protocol":
+             # Store Layer-1 verification (K_s) snapshot and sigma_sci in {-1, 1}
+             state.mem_work["ks_verification"] = output
++            state.mem_work["reviewed_draft_sha256"] = hashlib.sha256(
++                str(state.mem_work.get("draft", "")).encode()).hexdigest()
+             if isinstance(output, dict):
+                 status = str(output.get("status", "")).lower()
+                 state.mem_work["sigma_sci"] = 1 if status in {"pass", "done", "success"} else -1
+@@ -658,16 +670,18 @@ class ProAgent:
+         """Detect state oscillation"""
+         state.state_history.append(current_state.value)
+ 
+-        # Only look at the recent window
+-        recent = state.state_history[-self.oscillation_detection_window:]
+-
+-        if len(recent) >= self.oscillation_detection_window:
+-            # Detect A-B-A-B pattern
+-            unique_states = set(recent)
+-            if len(unique_states) <= 2:
+-                print(f"❌ State oscillation detected: {recent}")
+-                return True
+-
++        # Repeated state names are normal during review/revision. Stop only
++        # when the same state AND artifact/verification snapshot recur unchanged.
++        snapshot = {key: state.mem_work.get(key) for key in
++                    ("draft", "knowledge", "ks_verification", "machine_code", "kp_verification")}
++        fingerprint = hashlib.sha256(json.dumps([current_state.value, snapshot],
++                                               sort_keys=True, default=str).encode()).hexdigest()
++        history = state.mem_work.setdefault("progress_fingerprints", [])
++        history.append(fingerprint)
++        if history.count(fingerprint) >= 3:
++            print("No-progress cycle detected")
++            state.mem_work["stop_reason"] = "no_progress"
++            return True
+         return False
+ 
+ 
+@@ -694,6 +708,14 @@ class ProAgent:
+         Returns:
+             (Whether to terminate, Termination reason)
+         """
++        if self.benchmark_task and tool_name == "reflect_on_protocol":
++            if isinstance(output, dict) and output.get("status") == "pass":
++                return True, "draft_verified"
++            if state.mem_work.get("revision_unchanged"):
++                return True, "revision_unchanged"
++            if state.mem_work.get("revision_count", 0) >= self.max_revisions:
++                return True, "revision_budget_exhausted"
++
+         # 1. Explicit termination tools
+         if tool_name == "add_memory":
+             return True, "task_completed"
+@@ -732,6 +754,9 @@ class ProAgent:
+     
+     def _build_final_response(self, state: SessionState, reason: str) -> str:
+         """Build final response"""
++        state.mem_work["stop_reason"] = reason
++        if self.benchmark_task:
++            return state.mem_work.get("draft", "")
+         if reason == "task_completed":
+             if state.current_draft:
+                 return f"✅Task completed! \n\n**Experiment Plan:**\n{state.current_draft[:3000]}"
+@@ -795,7 +820,13 @@ class ProAgent:
+         
+         # Intent recognition
+         chat_history_str = self._format_chat_history(state.chat_history[-6:])
+-        intent_type, chat_response = self.planner.classify_intent(user_query, chat_history_str)
++        state.mem_work["user_query"] = user_query
++        if self.benchmark_task:
++            intent_type, chat_response = "task", ""
++            state.mem_work["exp_info"] = user_query
++            state.global_exp_context = user_query
++        else:
++            intent_type, chat_response = self.planner.classify_intent(user_query, chat_history_str)
+         
+         print(f"🎯 Intent recognized: {intent_type}")
+         
+@@ -866,8 +897,6 @@ class ProAgent:
+                     break
+                 continue
+             
+-            consecutive_failures = 0
+-            
+             # 5. Print plan
+             plan_tools = [s.get("tool_name", "?") for s in plan]
+             print(f"📝 Plan ({len(plan)} steps): {plan_tools}")
+@@ -884,7 +913,8 @@ class ProAgent:
+                 #  Check tool retry limit
+                 if self._check_tool_retry_limit(state, tool_name):
+                     print(f"⚠️ Skip {tool_name} (retry limit exceeded)")
+-                    continue
++                    loop_should_break = True
++                    break
+ 
+ 
+                 result = self._execute_step(step_idx, step, state, local_step_outputs)
+@@ -892,6 +922,13 @@ class ProAgent:
+ 
+                 # Add to execution history
+                 state.mem_episodic.append(result)
++                if result.status in {"failed", "blocked"}:
++                    state.tool_attempt_counts[tool_name] = state.tool_attempt_counts.get(tool_name, 0) + 1
++                    if self.benchmark_task:
++                        state.mem_work["stop_reason"] = "tool_failure"
++                        raise RuntimeError(result.summary)
++                else:
++                    state.tool_attempt_counts[tool_name] = 0
+ 
+ 
+                 # Handle execution result
+@@ -941,6 +978,8 @@ class ProAgent:
+                     final_answer = self._build_recovery_response(state, "max_retries_exceeded")
+                     break
+                 # Otherwise continue next loop, let planner re-plan
++            else:
++                consecutive_failures = 0
+         
+         # Ensure return value
+         if not final_answer:
+diff --git a/src/capabilities/verification/engine.py b/src/capabilities/verification/engine.py
+index 5747c7b..9723868 100644
+--- a/src/capabilities/verification/engine.py
++++ b/src/capabilities/verification/engine.py
+@@ -34,17 +34,24 @@ class RuleViolation:
+     message: str
+ 
+ 
+-def unified_reflector(query: str, content: str, task_type: str) -> str:
++def unified_reflector(query: str, content: str, task_type: str, knowledge: str = "") -> str:
++    criteria = {
++        "PQA": "Check the selected choice against the question and evidence, exact choice text, confidence, and answer tags.",
++        "ORD": "Check dependency order and that every original index occurs exactly once, with required tags and no extra text.",
++        "ERR": "Check the True/False judgment against the target step and its context. Evaluate stated information, not missing details; check answer tags.",
++        "GEN": "Check requested steps, their logical order and support in the evidence. Respect the requested scope and one-step-per-line format; do not demand extra sections.",
++    }.get(task_type, "Check logical completeness, controls, and parameter clarity.")
+     prompt = (
+-        'You are a scientific protocol reviewer. '\
+-        'Check logical completeness, controls, and parameter clarity. '\
+-        'If acceptable output only: done. Otherwise provide concise revision suggestions.\\n\\n'
+-        f'TaskType: {task_type}\\nUserQuery: {query}\\nProtocolDraft:\\n{content}'
++        "You are a scientific protocol reviewer. " + criteria +
++        " If the answer is acceptable, output only: done. Otherwise provide concise, specific "
++        "revision suggestions grounded in the task or evidence. Do not request changes merely for style.\n\n"
++        f"TaskType: {task_type}\nUserQuery:\n{query}\nRetrieved evidence:\n{knowledge}\nDraft:\n{content}"
+     )
+-    try:
+-        return quality_llm.invoke(prompt).content.strip()
+-    except Exception:
+-        return 'done'
++    # Provider/runtime errors are execution failures, never verification passes.
++    response = quality_llm.invoke(prompt).content.strip()
++    if not response:
++        raise ValueError("Empty reviewer response")
++    return response
+ 
+ 
+ class ProtocolValidator:
+diff --git a/src/core/planner_transfer_matrix.py b/src/core/planner_transfer_matrix.py
+index d43452d..c2e389f 100644
+--- a/src/core/planner_transfer_matrix.py
++++ b/src/core/planner_transfer_matrix.py
+@@ -96,6 +96,7 @@ class AdaptivePlanner:
+         self.tools_description = tools_description
+         self.llm = llm
+         self.no_rag = False
++        self.benchmark_task = None
+         self.require_confirmation_before_code = False
+         self.force_skip_reflection = False 
+         self.force_skip_validator = False
+@@ -164,33 +165,16 @@ if it is task, only output: [TASK]
+ 
+         # 2. Layer-1 Neuro-Scientific Verification (K_s) signals
+         
+-        # A. Prioritize checking the most recent history records
+-        for record in reversed(history):
+-            if record.tool == "reflect_on_protocol" and record.status == "success":
+-                output = record.output
+-                if isinstance(output, str):
+-                    if output.strip().lower() == "done":
+-                        s.sigma_sci_pos = True
+-                    else:
+-                        s.sigma_sci_neg = True
+-                elif isinstance(output, dict):
+-                    status = output.get("status", "").lower()
+-                    if status == "pass" or status == "done":
+-                        s.sigma_sci_pos = True
+-                    else:
+-                        s.sigma_sci_neg = True
+-                break
+-        
+-        # B. Supplemental check from M_work[K_s]
+-        if not s.sigma_sci_pos and not s.sigma_sci_neg:
+-            validation_data = data.get(self.KS_KEY)
+-            if isinstance(validation_data, dict):
+-                status = validation_data.get("status", "").lower()
+-                if status == "pass" or status == "done" or status == "success":
+-                    s.sigma_sci_pos = True
+-                else:
+-                    s.sigma_sci_neg = True
+-                
++        # Only the working-memory verdict for the current artifact is authoritative.
++        # A successful old review must not validate a revised draft.
++        import hashlib
++        draft_hash = hashlib.sha256(str(data.get("draft", "")).encode()).hexdigest()
++        validation_data = data.get(self.KS_KEY)
++        if isinstance(validation_data, dict) and data.get("reviewed_draft_sha256") == draft_hash:
++            status = validation_data.get("status", "").lower()
++            s.sigma_sci_pos = status in {"pass", "done", "success"}
++            s.sigma_sci_neg = status == "fail"
++
+         # 3. Layer-2 Symbolic-Physical Verification (K_p) signals
+         
+         # A. Check history records
+@@ -270,6 +254,9 @@ if it is task, only output: [TASK]
+         # 1. Get clean signals
+         signals = self._extract_signals(ctx)
+ 
++        if self.benchmark_task and signals.sigma_draft and signals.sigma_sci_pos:
++            return AgentState.SUCCESS
++
+         # Priority matrix (ACL_26 naming, evaluated top-down).
+         decision_matrix: List[Tuple[Callable[[ContextSignals], bool], AgentState]] = [
+             # Priority 1: σ_phys- ∧ σ_code -> RECTIFY_CODE
+@@ -431,6 +418,11 @@ if it is task, only output: [TASK]
+         if current_state == AgentState.CHATTING:
+             return self._get_default_plan(current_state, ctx), current_state, 0
+         
++        # A known text benchmark has an unambiguous next action in this FSM.
++        # Reuse the upstream canonical plans instead of asking an LLM to restate them.
++        if self.benchmark_task:
++            return self._get_default_plan(current_state, ctx), current_state, 0
++
+         # 3. Attempt to call LLM to generate plan
+         try:
+             prompt = build_planner_prompt(
+@@ -580,7 +572,7 @@ if it is task, only output: [TASK]
+                     args["protocol"] = "$draft"
+                 
+                 if not args.get("request"):
+-                     args["request"] = "$last_tool_output(reflect_on_protocol)"
++                     args["request"] = "$ks_verification"
+ 
+             # =========================================================
+             # Rule 3: Validation requires reference to Code Gen or Fix results
+diff --git a/src/tools/tool_definitions.py b/src/tools/tool_definitions.py
+index a3da1e8..f16a7b1 100644
+--- a/src/tools/tool_definitions.py
++++ b/src/tools/tool_definitions.py
+@@ -1,4 +1,4 @@
+-﻿# src/tools/definitions.py
++# src/tools/definitions.py
+ 
+ import json
+ import re
+@@ -218,7 +218,7 @@ def retrieve_knowledge(query: str, keywords: str, session_id: str) -> str:
+     return output
+ 
+ @tool
+-def generate_scientific_draft(query: str, exp_info: str, knowledge: str, doc_content: Optional[str] = None) -> str:
++def generate_scientific_draft(query: str, exp_info: str, knowledge: str, doc_content: Optional[str] = None, task_type: str = "GEN_SCIENTIFIC") -> str:
+     """
+     Call this tool to generate a universal, scientifically rigorous experimental protocol draft (plain-text SOP) based on user requirements and knowledge.
+     This stage does not consider automated equipment; only scientific logic is focused on.
+@@ -234,12 +234,18 @@ def generate_scientific_draft(query: str, exp_info: str, knowledge: str, doc_con
+         local_info="", 
+         document=doc_content or ""
+     )
++    if task_type in {"PQA", "ORD", "ERR", "GEN"}:
++        summary_prompt_formatted = (
++            "Generate the answer to the benchmark task. Follow the user's exact answer format. "
++            "Use evidence when relevant; do not add an SOP, commentary, or extra sections unless requested.\n"
++            f"TaskType: {task_type}\nUserQuery:\n{query}\nRetrieved evidence:\n{knowledge}"
++        )
+     protocol_summary = quality_llm.invoke(summary_prompt_formatted).content
+     print("--- Scientific draft generation completed ---")
+     return protocol_summary
+ 
+ @tool
+-def reflect_on_protocol(query: str, protocol_text: str, task_type="GEN_SCIENTIFIC") -> dict:
++def reflect_on_protocol(query: str, protocol_text: str, task_type: str = "GEN_SCIENTIFIC", knowledge: str = "") -> dict:
+     """
+     Call this tool to review the generated [Protocol Text Draft] (Reflector).
+     Supports differentiated inspection strategies for multiple task types.
+@@ -247,7 +253,7 @@ def reflect_on_protocol(query: str, protocol_text: str, task_type="GEN_SCIENTIFI
+     """
+     print(f"--- Tool: Reflect on Protocol [Type: {task_type}] ---")
+ 
+-    full_response = unified_reflector(query, protocol_text, task_type)
++    full_response = unified_reflector(query, protocol_text, task_type, knowledge)
+ 
+     final_conclusion = ""
+ 
+@@ -262,12 +268,9 @@ def reflect_on_protocol(query: str, protocol_text: str, task_type="GEN_SCIENTIFI
+ 
+     clean_status = final_conclusion.replace(".", "").strip().upper()
+ 
+-    pass_indicators = ["DONE", "PASS", "OK"]
+-    is_passed = any(indicator in clean_status for indicator in pass_indicators)
+-    
+-    if not is_passed and len(final_conclusion) < 20 and "suggestion" not in final_conclusion:
+-        is_passed = clean_status in ["DONE", "PASS", "OK"]
+-    
++    # Exact verdicts only: "NOT PASS" and "looks OK but ..." are critiques.
++    is_passed = clean_status in {"DONE", "PASS", "OK"}
++
+     if is_passed:
+         return {"status": "pass", "message": "PASS"}
+     else:
+@@ -284,7 +287,7 @@ def reflect_on_protocol(query: str, protocol_text: str, task_type="GEN_SCIENTIFI
+ 
+ 
+ @tool
+-def modify_protocol(protocol: str, request: dict) -> str:
++def modify_protocol(protocol: str, request: dict, query: str = "", knowledge: str = "", task_type: str = "GEN_SCIENTIFIC") -> str:
+     """
+     Call this tool to revise the protocol per [Modification Suggestions] (from Reflector/Validator).
+     parameters: protocol: str, request: dict
+@@ -341,6 +344,14 @@ def modify_protocol(protocol: str, request: dict) -> str:
+         query="[N/A]", 
+         suggestion=error_string
+     )
++    if task_type in {"PQA", "ORD", "ERR", "GEN"}:
++        prompt = (
++            "Revise the benchmark answer using the review. Correct supported errors; "
++            "retain correct content. Preserve the exact answer format in the original task. "
++            "Output only the complete revised answer.\n"
++            f"TaskType: {task_type}\nOriginal task:\n{query}\nRetrieved evidence:\n{knowledge}\n"
++            f"Current answer:\n{protocol}\nReview:\n{error_string}"
++        )
+     return quality_llm.invoke(prompt).content
+ 
+ @tool
+@@ -570,11 +581,8 @@ tool_list = [
+ 
+ def get_tools_description() -> str:
+     """Generate tool description"""
+-    curated = _load_tool_descriptions()
+-    if curated:
+-        return curated
+-
+-    desc = ""
+-    for tool in tool_list:
+-        desc += f"{tool.name}: {tool.description}\n"
+-    return desc
++    return "\n".join(
++        f"{item.name}: {item.description}\nArguments JSON Schema: "
++        + json.dumps(item.args_schema.schema(), ensure_ascii=False)
++        for item in tool_list
++    )

@@ -61,6 +61,8 @@ export interface BaseQuantity {
 }
 
 export interface ProtocolSnapshot {
+  /** Original revision for hierarchical retrieval; optional for older runs. */
+  sourceMarkdown?: string;
   steps: Step[];
   materials: Material[];
   /** A volume/mass the procedure is written for, for scaling (design §4.2). */
@@ -424,6 +426,7 @@ export function parseProtocol(markdown: string): ProtocolSnapshot {
 
   return {
     steps,
+    sourceMarkdown: markdown,
     materials: materialsFrom(secs),
     base: baseFrom(steps),
     loose,

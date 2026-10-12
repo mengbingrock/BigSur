@@ -155,7 +155,14 @@ async function handleMirror(conn: HostConn, frame: Extract<HostToBox, { t: "mirr
       // (a spoken summary, through `notify`); the generic pushes would double it.
       const siriOrigin = (evt.data?.origin as { kind?: string } | undefined)?.kind === "siri";
       if (siriOrigin) {
-        // nothing: the host's `notify` frame carries the return
+        // The host sends the notification; the box settles its own task.
+        if (evt.type === "turn_ended") {
+          const origin=evt.data?.origin as {siriTurnId?:string;delegationId?:string};
+          if(origin.siriTurnId) {
+            const {settleTaskDelegation}=await import("../services/siri/store");
+            await settleTaskDelegation(email,origin.siriTurnId,sessionId,String(evt.data?.content ?? ""),Boolean(evt.data?.question),origin.delegationId);
+          }
+        }
       } else if (evt.type === "question_asked") {
         // The buttons are generic slots; the body lists the options and the
         // data carries their labels so a press maps back to an answer.

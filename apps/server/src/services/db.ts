@@ -5,6 +5,8 @@
 // adapter ensures the same shape at runtime.
 import fs from "node:fs";
 import path from "node:path";
+import { installSiriSchema } from "./siri/store";
+import { installContextSchema } from "./context/schema";
 
 export interface SqlStatement {
   get(...params: unknown[]): Record<string, unknown> | undefined;
@@ -460,6 +462,8 @@ async function openDb(): Promise<SqlDb> {
       "model TEXT NOT NULL DEFAULT '', " +
       "ingested_at TEXT NOT NULL);",
   );
+  ensureColumn(db, "library_protocols", "hierarchy_json", "TEXT");
+  ensureColumn(db, "library_protocols", "index_version", "TEXT NOT NULL DEFAULT ''");
   db.exec(
     "CREATE TABLE IF NOT EXISTS library_chunks (" +
       "protocol_id TEXT NOT NULL, " +
@@ -538,6 +542,8 @@ async function openDb(): Promise<SqlDb> {
   // the agent never runs a turn in; everything else is kind NULL.
   ensureColumn(db, "chat_sessions", "kind", "TEXT");
   importLegacyUsersJson(db);
+  installSiriSchema(db);
+  installContextSchema(db);
   return db;
 }
 

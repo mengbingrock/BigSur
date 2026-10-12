@@ -35,6 +35,7 @@ export interface ReturnLine {
 interface Origin {
   kind: "siri";
   siriTurnId?: string;
+  delegationId?: string;
   said?: string;
 }
 
@@ -80,12 +81,22 @@ function pendingQuestionOf(session: SessionRow | null): { text: string; options:
 }
 
 /** Deliver one ended turn. Exported for tests; the listener below calls it. */
-export async function deliverReturn(evt: SessionEventEnvelope, session: SessionRow | null): Promise<ReturnLine | null> {
+const delivering = new Map<string,Promise<ReturnLine|null>>();
+export function deliverReturn(evt: SessionEventEnvelope, session: SessionRow | null): Promise<ReturnLine|null> {
+  const key=`${evt.sessionId}:${evt.seq}`;
+  const existing=delivering.get(key);if(existing)return existing;
+  const work=deliverReturnOnce(evt,session).finally(()=>delivering.delete(key));delivering.set(key,work);return work;
+}
+async function deliverReturnOnce(evt: SessionEventEnvelope, session: SessionRow | null): Promise<ReturnLine | null> {
   const origin = evt.data.origin as Origin | undefined;
   if (evt.type !== "turn_ended" || origin?.kind !== "siri") return null;
   const chat = session ?? (await sdb.getSessionById(evt.sessionId));
   if (!chat) return null;
   const email = chat.email;
+  const { getDb } = await import("../db");
+  const db = await getDb();
+  const returnEventId = `${evt.sessionId}:${evt.seq}`;
+  if (db.prepare("SELECT 1 FROM chat_session_messages m JOIN chat_sessions s ON s.id=m.session_id WHERE s.email=? AND (json_extract(m.meta,'$.returnEventId')=? OR (json_extract(m.meta,'$.returnEventId') IS NULL AND json_extract(m.meta,'$.kind')='return' AND json_extract(m.meta,'$.sessionId')=? AND json_extract(m.meta,'$.siriTurnId')=?))").get(email,returnEventId,chat.id,origin.siriTurnId ?? '')) return null;
   const content = typeof evt.data.content === "string" ? evt.data.content : "";
   const error = typeof evt.data.error === "string" ? evt.data.error : null;
   const question = evt.data.question ? pendingQuestionOf(chat) : null;
@@ -101,6 +112,8 @@ export async function deliverReturn(evt: SessionEventEnvelope, session: SessionR
   const line = question ? `← "${chat.title}" asks: ${spoken}` : `← "${chat.title}": ${spoken}`;
   const row = await sdb.appendSystemMessage(siri.id, line, {
     kind: "return",
+    returnEventId,
+    ...(origin.delegationId ? {delegationId:origin.delegationId} : {}),
     sessionId: chat.id,
     title: chat.title,
     spoken,
@@ -128,7 +141,9 @@ export async function deliverReturn(evt: SessionEventEnvelope, session: SessionR
   // The exchange that delegated this chat can settle now (planner.ts).
   if (origin.siriTurnId) {
     const { settleDelegation } = await import("./planner");
-    await settleDelegation(email, origin.siriTurnId, spoken).catch(() => {});
+    await settleDelegation(email, origin.siriTurnId, spoken, chat.id).catch(() => {});
+    const { settleTaskDelegation } = await import("./store");
+    await settleTaskDelegation(email, origin.siriTurnId, chat.id, spoken, Boolean(question), origin.delegationId);
   }
 
   return { idx: row.idx, sessionId: chat.id, title: chat.title, spoken, question, siriTurnId: origin.siriTurnId ?? null, createdAt: row.createdAt };
@@ -151,14 +166,24 @@ export async function pushOut(email: string, push: PushMessage): Promise<void> {
 /** A planner answer that came after Siri's budget (design §4): the person
  *  heard "give me a moment", so the answer goes the same way a chat's return
  *  does — a line in the Siri session, unread, and an announced push. */
-export async function announceLate(email: string, spoken: string, siriTurnId: string): Promise<void> {
+const lateDeliveries = new Map<string,Promise<void>>();
+export function announceLate(email: string, spoken: string, siriTurnId: string, result?: {status: string;confirmId?:string}): Promise<void> {
+  const key=`${email}:${siriTurnId}`;
+  const pending=lateDeliveries.get(key);if(pending)return pending;
+  const work=announceLateOnce(email,spoken,siriTurnId,result).finally(()=>lateDeliveries.delete(key));
+  lateDeliveries.set(key,work);return work;
+}
+async function announceLateOnce(email: string, spoken: string, siriTurnId: string, result?: {status: string;confirmId?:string}): Promise<void> {
   const siri = await ensureSiriSession(email);
-  await sdb.appendSystemMessage(siri.id, `← ${spoken}`, { kind: "return", sessionId: siri.id, title: "Labee", spoken, unread: true, siriTurnId });
+  const { getDb } = await import("../db");
+  const db = await getDb();
+  if (db.prepare("SELECT 1 FROM chat_session_messages WHERE session_id=? AND json_extract(meta,'$.kind')='return' AND json_extract(meta,'$.siriTurnId')=? AND json_extract(meta,'$.sessionId')=?").get(siri.id,siriTurnId,siri.id)) return;
+  await sdb.appendSystemMessage(siri.id, `← ${spoken}`, { kind: "return", sessionId: siri.id, title: "Labee", spoken, unread: true, siriTurnId, ...(result?.status === "confirm" ? {asks:{text:spoken,options:["Yes","No"]},confirmId:result.confirmId} : {}) });
   await pushOut(email, {
     title: "Labee",
     body: spoken,
-    data: { sessionId: siri.id, kind: "done", origin: "siri", siriTurnId },
-    categoryId: "labee.reply",
+    data: { sessionId: siri.id, kind: result?.status === "confirm" ? "question" : "done", origin: "siri", siriTurnId, ...(result?.confirmId ? {confirmId:result.confirmId,options:["Yes","No"]} : {}) },
+    categoryId: result?.status === "confirm" ? "labee.question" : "labee.reply",
     interruptionLevel: "time-sensitive",
   });
 }
@@ -202,4 +227,27 @@ export function startSiriDelivery(): void {
     if (evt.type !== "turn_ended") return;
     void deliverReturn(evt, session).catch((e) => console.warn("[siri] return failed:", e instanceof Error ? e.message : e));
   });
+}
+
+/** Restart recovery uses the durable turn-ended event, not a live listener.
+ * Only the owner delivers; mirror events settle tasks without duplicate push. */
+let recovering: Promise<void> | null = null;
+export function recoverSiriReturns(): Promise<void> {
+  if(recovering)return recovering;
+  recovering=(async()=>{
+    const {getDb}=await import("../db");const db=await getDb();
+    const rows=db.prepare(`SELECT e.* FROM chat_session_events e JOIN chat_sessions s ON s.id=e.session_id
+      WHERE e.type='turn_ended' AND json_extract(e.data,'$.origin.kind')='siri'
+      AND NOT EXISTS(SELECT 1 FROM chat_session_messages m JOIN chat_sessions owner ON owner.id=m.session_id
+        WHERE owner.email=s.email AND (json_extract(m.meta,'$.returnEventId')=e.session_id || ':' || e.seq OR (json_extract(m.meta,'$.returnEventId') IS NULL AND json_extract(m.meta,'$.kind')='return' AND json_extract(m.meta,'$.sessionId')=e.session_id AND json_extract(m.meta,'$.siriTurnId')=json_extract(e.data,'$.origin.siriTurnId'))))
+      ORDER BY e.created_at LIMIT 10`).all();
+    for(const r of rows)await deliverReturn({sessionId:String(r.session_id),seq:Number(r.seq),turnId:r.turn_id as string|null,type:"turn_ended",data:JSON.parse(String(r.data)),ts:String(r.created_at)},null);
+    const {settleTaskDelegation}=await import("./store");
+    for(const d of db.prepare("SELECT * FROM siri_delegations WHERE status='working'").all()){
+      const local=db.prepare("SELECT e.data FROM chat_session_events e JOIN chat_sessions s ON s.id=e.session_id WHERE s.email=? AND e.session_id=? AND e.type='turn_ended' AND json_extract(e.data,'$.origin.delegationId')=? ORDER BY e.seq DESC LIMIT 1").get(d.email,d.session_id,d.id);
+      const mirrored=local?null:db.prepare("SELECT data FROM mirror_events WHERE email=? AND host_id=? AND session_id=? AND json_extract(data,'$.type')='turn_ended' AND json_extract(data,'$.data.origin.delegationId')=? ORDER BY seq DESC LIMIT 1").get(d.email,d.host_id,d.session_id,d.id);
+      const data=local?JSON.parse(String(local.data)):mirrored?JSON.parse(String(mirrored.data)).data:null;
+      if(data)await settleTaskDelegation(String(d.email),String(d.origin_id),String(d.session_id),String(data.content ?? ""),Boolean(data.question),String(d.id));
+    }
+  })().finally(()=>{recovering=null;});return recovering;
 }

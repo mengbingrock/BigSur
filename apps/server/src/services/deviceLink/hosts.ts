@@ -123,3 +123,23 @@ export function dispatchHostFrame(conn: HostConn, frame: HostToBox): void {
     }
   }
 }
+
+/** Bounded JSON RPC over the existing authenticated device tunnel. */
+export function requestHostJson<T>(conn: HostConn, path: string, body: unknown, timeoutMs = 15000): Promise<T> {
+  const id = newRequestId();
+  return new Promise((resolve, reject) => {
+    let status = 0; let size = 0; const chunks: Buffer[] = [];
+    const finish = (error?: Error) => { clearTimeout(timer); conn.pending.delete(id); if (error) reject(error); };
+    const timer = setTimeout(() => { finish(new Error("Context host timed out.")); conn.send({t:"abort",id}); }, timeoutMs);
+    conn.pending.set(id, {
+      onHead: frame => { status = frame.status; },
+      onChunk: frame => { const b=Buffer.from(frame.data,"base64");size+=b.length;if(size>1_000_000) {finish(new Error("Context response too large."));conn.send({t:"abort",id});} else chunks.push(b); },
+      onEnd: frame => {
+        finish();
+        if(frame.error) { reject(new Error(frame.error));return; }
+        try { const data=JSON.parse(Buffer.concat(chunks).toString()); if(status<200 || status>=300) throw Object.assign(new Error(data.error ?? `Context host answered ${status}.`),{status});resolve(data); } catch(e) { reject(e); }
+      },
+    });
+    try { conn.send({t:"req",id,method:"POST",path,headers:{"content-type":"application/json"},body:Buffer.from(JSON.stringify(body)).toString("base64"),user:conn.email}); } catch(e) { finish(e instanceof Error?e:new Error(String(e))); }
+  });
+}

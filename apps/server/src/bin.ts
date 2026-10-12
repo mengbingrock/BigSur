@@ -50,6 +50,8 @@ if (process.argv.includes("--mcp-library")) {
   // Siri: a turn the Siri agent delegated is returned to the person's ear
   // when it ends (docs/siri-agent-design.md §5).
   startSiriDelivery();
+  const { startContextRouter } = await import("./services/siri/contextRouter");
+  startContextRouter();
 
   runServer.pipe(NodeRuntime.runMain);
 }
