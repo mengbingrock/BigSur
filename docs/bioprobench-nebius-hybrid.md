@@ -5,6 +5,10 @@ Factory to the existing paper-context corpus. It uses the same frozen 96
 questions and `claude-opus-5-5` generator as the preceding experiment. Production
 retrieval is unchanged.
 
+A subsequent [50-per-task evaluation](bioprobench-nebius-paper-50.md) keeps this
+retrieval configuration and tests 200 fresh questions. The results below remain
+the original 96-question comparison.
+
 ## Index and retrieval
 
 | Setting | Implementation |

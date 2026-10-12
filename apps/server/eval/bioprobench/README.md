@@ -118,3 +118,12 @@ See [implementation and results](../../../../docs/bioprobench-paper-context.md).
 `paper-hybrid-nebius` variant using dense top 60, `rank-bm25`, 60/40 score fusion
 and task-specific top 5/top 3 evidence. It retains the frozen questions and the
 existing model runner. See [implementation, assumptions and commands](../../../../docs/bioprobench-nebius-hybrid.md).
+
+To select a fresh stratified sample, add `--per-task 50 --exclude-report` followed
+by the explicit prior report paths to `prepareNebiusHybrid.py`. This keeps the
+same paper-style dense top-60 ranker and requires an empty output directory.
+It excludes prior IDs, verifies task checksums, allocates exact proportional
+subtype counts (ERR also stratifies by correctness status), and records the
+selection seed and exclusion-report hashes. Do not use `--baseline-report` to
+compare different question selections as paired results. See the
+[50-per-task run](../../../../docs/bioprobench-nebius-paper-50.md).

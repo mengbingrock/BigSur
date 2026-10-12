@@ -79,12 +79,19 @@ def frozen_jobs(base, source, original):
     return jobs
 
 
-def prepare(base, embeddings, source, out, client):
+def prepare(base, embeddings, source, out, client, per_task=None, exclude_reports=()):
     original, spec = source_spec(base)
     state = json.loads((embeddings / 'embedding-manifest.json').read_text())
     if state.get('status') != 'ready' or state['spec'] != spec:
         raise ValueError('Complete matching Nebius indexes are required before retrieval')
-    jobs = frozen_jobs(base, source, original)
+    if per_task is None:
+        if exclude_reports:
+            raise ValueError('--exclude-report requires --per-task')
+        jobs = frozen_jobs(base, source, original)
+        selection, sampling = original['selection'], None
+    else:
+        from freshSelection import fresh_jobs
+        jobs, selection, sampling = fresh_jobs(source, original, per_task, exclude_reports)
     if out.exists() and any(out.iterdir()):
         raise ValueError('Use a new empty evaluation output directory')
     # Verify both artifacts before making any paid query-embedding requests.
@@ -136,12 +143,16 @@ def prepare(base, embeddings, source, out, client):
         raise ValueError('Source changed during retrieval')
     out.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(base / 'source-aliases.json', out / 'source-aliases.json')
-    write_json(out / 'manifest.json', {**original, 'date': datetime.now(timezone.utc).isoformat(),
+    metadata = {k: v for k, v in original.items() if not sampling or k != 'frozenSelectionSha256'}
+    write_json(out / 'manifest.json', {**metadata, 'date': datetime.now(timezone.utc).isoformat(),
+               'selection': selection,
+               **({'sampling': sampling, 'selectionSha256': digest(json.dumps(selection, sort_keys=True, separators=(',', ':'))),
+                   'split': 'Fresh deterministic stratified questions excluding all supplied prior evaluation reports and the base selection'} if sampling else {}),
                'variants': [VARIANT], 'primaryVariant': VARIANT, 'indexFiles': {VARIANT: index_files},
                'embeddingBuild': state, 'queryEmbeddingUsageBefore': before, 'queryEmbeddingUsageAfter': after,
                'hybridRetrieval': RETRIEVAL, 'retrieval': 'Nebius Qwen3-Embedding-8B, FAISS IndexFlatL2 top 60, rank-bm25, 60/40 min-max score fusion, task-specific k; no character cap.',
                'assumptions': original['assumptions'] + ' Hybrid reconstruction choices: Qwen 8B variant, normalized vectors, cosine derived from L2, per-candidate-set min-max scaling, BM25Okapi with Unicode word tokenization. These details are unspecified by the paper.',
-               'scope': 'Paper-style hybrid retrieval reconstruction on the available corpus; not exact original ProAgent replication. Frozen development questions; same Opus generator.',
+               'scope': 'Paper-style hybrid retrieval reconstruction on the available corpus; not exact original ProAgent replication. ' + ('Fresh questions, frozen before retrieval; same Opus generator.' if sampling else 'Frozen development questions; same Opus generator.'),
                'retrievalTimingScope': 'FAISS + BM25 + fusion; cached query embedding time excluded'})
     write_json(out / 'jobs.json', prepared)
     print(json.dumps({'ready': True, 'jobs': len(prepared), 'queryEmbeddingUsage': after}))
@@ -152,10 +163,13 @@ def main():
     for name in ('base', 'embeddings', 'source', 'out'):
         p.add_argument('--' + name, required=True)
     p.add_argument('--api-key-file')
+    p.add_argument('--per-task', type=int, help='Select this many fresh questions per task instead of reusing the base selection')
+    p.add_argument('--exclude-report', nargs='+', default=[], help='Prior evaluation reports whose selected IDs must be excluded')
     p.add_argument('--live', action='store_true', help='Allow query embedding calls; otherwise cache-only')
     args = p.parse_args()
     client = NebiusClient(load_key(args.api_key_file)) if args.live else None
-    prepare(Path(args.base).resolve(), Path(args.embeddings).resolve(), Path(args.source).resolve(), Path(args.out).resolve(), client)
+    prepare(Path(args.base).resolve(), Path(args.embeddings).resolve(), Path(args.source).resolve(), Path(args.out).resolve(), client,
+            args.per_task, args.exclude_report)
 
 
 if __name__ == '__main__':

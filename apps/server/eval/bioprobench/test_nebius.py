@@ -136,13 +136,13 @@ class NebiusTests(unittest.TestCase):
                               is_correct=False, corrupted_text='alpha', corrected_text='SECRET',
                               context={}, instruction='alpha', input='reference', output='SECRET')
                 filename = source / 'Data' / f'{task}_test.json'
-                filename.write_text(json.dumps([sample]))
+                filename.write_text(json.dumps([sample, {**sample, 'id': task + '-fresh'}]))
                 checksums[filename.name] = builder.file_hash(filename)
                 selection[task] = {'selected': [{'id': task, 'type': 'fixture'}]}
                 jobs.append(dict(task=task, variant='paper-context', sample=sample))
             manifest = dict(contextPolicyVersion='paper-context-v1', variants=['paper-context'],
                             protocols=6, counts={'small': 6, 'large': 6}, checksums=checksums, selection=selection,
-                            sourceAudit=[], assumptions='Synthetic fixture, no live model calls')
+                            sourceAudit=[], assumptions='Synthetic fixture, no live model calls', frozenSelectionSha256='old-selection')
             (base / 'manifest.json').write_text(json.dumps(manifest))
             (base / 'jobs.json').write_text(json.dumps(jobs))
             (base / 'source-aliases.json').write_text('[]')
@@ -169,6 +169,12 @@ class NebiusTests(unittest.TestCase):
             for j in prepared:
                 self.assertEqual(len(j['passages']), 5 if j['task'] in ['PQA', 'ERR'] else 3)
                 self.assertGreater(sum(len(p['text']) for p in j['passages']), 8000)
+            fresh = root / 'fresh-evaluation'
+            prepare(base, out, source, fresh, client, per_task=1, exclude_reports=[base / 'manifest.json'])
+            fresh_manifest = json.loads((fresh / 'manifest.json').read_text())
+            self.assertNotIn('frozenSelectionSha256', fresh_manifest)
+            self.assertEqual(fresh_manifest['sampling']['perTask'], 1)
+            self.assertTrue(all(j['sample']['id'].endswith('-fresh') for j in json.loads((fresh / 'jobs.json').read_text())))
             (out / 'paper-small.faiss').write_bytes(b'corrupt')
             with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
                 prepare(base, out, source, root / 'bad-evaluation', client)
