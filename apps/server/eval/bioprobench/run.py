@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import subprocess
 import time
-from evidence import append_evidence
+from evidence import render_prompt
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--source', required=True)
@@ -34,7 +34,7 @@ jobs.sort(key=lambda job: hashlib.sha256(f"run-v1:{job['sample']['id']}:{job['va
 def run(job):
     file = responses / f"{job['variant']}-{job['sample']['id']}.json"
     prompt = module.generate_user_prompt(job['sample'], job['task'])
-    prompt, context_measurements = append_evidence(prompt, job['passages'])
+    prompt, context_measurements = render_prompt(prompt, job)
     prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()
     if file.exists():
         saved = json.loads(file.read_text())
@@ -45,7 +45,7 @@ def run(job):
         return {**saved, '_reused': True}
     started = time.monotonic()
     result = {**job, **context_measurements, 'model': args.model, 'promptSha256': hashlib.sha256(prompt.encode()).hexdigest()}
-    if job['variant'] in ('paper-context', 'paper-hybrid-nebius'):
+    if job['variant'] in ('paper-context', 'paper-hybrid-nebius', 'plain-no-rag'):
         result['contextChars'] = context_measurements['serializedContextChars']
     try:
         child = subprocess.run([os.environ.get('CLAUDE_BIN', 'claude'), '-p', '--system-prompt', 'Answer the benchmark question using the provided evidence when applicable. Follow the requested answer format. Do not use external tools.', '--model', args.model, '--tools', '', '--output-format', 'json', '--no-session-persistence'], input=prompt, capture_output=True, text=True, timeout=180, cwd='/private/tmp')

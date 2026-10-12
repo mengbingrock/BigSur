@@ -10,7 +10,7 @@ import re
 import sqlite3
 import statistics
 import sys
-from evidence import append_evidence
+from evidence import render_prompt
 
 p = argparse.ArgumentParser()
 p.add_argument('--out', required=True)
@@ -27,7 +27,7 @@ summary['callFailures'] = summary.pop('transportErrors', summary.get('callFailur
 rows = [json.loads(f.read_text()) for f in (root / 'responses').glob('*.json')]
 for row in rows:
     # Reconstruct exact serialization for older checkpoints without measurements.
-    _, sizes = append_evidence('', row['passages'])
+    _, sizes = render_prompt('', row)
     row.update(sizes)
 
 sys.path.insert(0, str(Path(a.source) / 'skills/evaluate-protocol-outputs/scripts'))

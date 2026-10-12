@@ -148,3 +148,11 @@ state, preserves task answer formats, and uses the upstream canonical FSM plans
 with at most two revisions for known benchmark tasks. See the
 [fixes and follow-up evaluation](../../../../docs/bioprobench-proagent-fixes.md)
 for the changed planning policy and reproduction commands.
+
+`prepareNoRag.py --base <existing-run> --out <empty-directory>` freezes the same
+questions for a `plain-no-rag` baseline. Run it with the existing `run.py`: this
+variant sends only the official question prompt, rejects retrieved passages,
+and records zero retrieval/context usage. See the
+[no-RAG experiment](../../../../docs/bioprobench-no-rag.md).
+`compareBaselines.py` produces paired comparisons against named stored reports
+and a common-case table excluding refusals in any arm.

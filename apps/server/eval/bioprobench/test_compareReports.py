@@ -4,9 +4,27 @@ from pathlib import Path
 import tempfile
 import unittest
 from compareReports import compare_report, paired_nonrefusals
+from compareBaselines import compare
 
 
 class ComparisonTests(unittest.TestCase):
+    def test_common_table_uses_union_across_all_arms(self):
+        common = dict(sourceAudit=[], checksums={}, model='same',
+                      selection={'PQA': {'selected': [{'id': x} for x in 'abcd']}})
+        with tempfile.TemporaryDirectory() as directory:
+            files = {}
+            for name, refused in [('no-rag', 'a'), ('rag', 'b'), ('agent', 'c')]:
+                rows = [dict(task='PQA', variant=name, id=x, score=0 if x == 'd' else 1,
+                             error='provider biology safeguard refusal' if x == refused else
+                                   'other error' if x == 'd' else None) for x in 'dcba']
+                report = dict(common, variants=[name], primaryVariant=name, cases=rows)
+                files[name] = Path(directory)/f'{name}.json'
+                files[name].write_text(json.dumps(report))
+            result = compare(files['no-rag'], {k: files[k] for k in ('rag', 'agent')})
+            self.assertEqual(result['commonCases']['PQA']['includedIds'], ['d'])
+            self.assertEqual(result['commonCases']['PQA']['scores'], dict(current=0, rag=0, agent=0))
+            self.assertEqual(result['commonCases']['PQA']['excludedAnyArmRefusal'], 3)
+
     def test_union_of_refusals_excluded_but_other_failures_retained(self):
         refusal = 'provider biology safeguard refusal'
         def row(id_, score, error=None):
