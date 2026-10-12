@@ -1,9 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import {
-  Outlet,
-  createRootRouteWithContext,
-  useRouterState,
-} from "@tanstack/react-router";
+import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 import { SiteShell } from "~/components/SiteShell";
 import { useCurrentUser } from "~/lib/auth";
 
@@ -16,14 +12,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 function RootLayout() {
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname,
-  });
   const { data: user, isLoading } = useCurrentUser();
 
-  // Only the public home gets a standalone page. Keep the application shell
-  // for signed-in users and every other route; wait for auth before showing it.
-  if (pathname === "/" && (isLoading || !user)) {
+  // Show the application sidebar only after authentication is confirmed.
+  if (isLoading || !user) {
     return (
       <div className="h-dvh w-full overflow-y-auto">
         <Outlet />
