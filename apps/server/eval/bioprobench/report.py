@@ -18,6 +18,7 @@ p.add_argument('--report', required=True)
 p.add_argument('--source', required=True)
 p.add_argument('--base', help='Original corpus index directory for follow-up evaluations')
 p.add_argument('--baseline-report', help='Stored report with identical corpus, tasks, model and sample IDs for a development comparison')
+p.add_argument('--exclude-provider-refusals', action='store_true', help='Add primary scores excluding provider biology refusals; retain other failures as zero and preserve original metrics')
 a = p.parse_args()
 root = Path(a.out)
 manifest = json.loads((root / 'manifest.json').read_text())
@@ -135,6 +136,24 @@ for r in rows:
 failure_breakdown = {v: {task: {'providerBiologyRefusals': sum('[bio]' in str(r.get('error', '')) for r in rows if r['variant'] == v and r['task'] == task), 'otherCallFailures': sum(bool(r.get('error')) and '[bio]' not in str(r['error']) for r in rows if r['variant'] == v and r['task'] == task)} for task in manifest['selection']} for v in variants}
 report = {**manifest, **summary, 'failureBreakdown': failure_breakdown, 'allQuestionScores': {task: {variant: sum(score(r) for r in rows if r['task'] == task and r['variant'] == variant) / len(manifest['selection'][task]['selected']) for variant in variants} for task in manifest['selection']}, 'commonScorable': common, 'comparisons': comparisons, 'performance': performance, 'orderingCoverageMethod': coverage_method, 'orderingCorpusCoverage': coverage,
           'cases': [{'id': r['sample']['id'], 'task': r['task'], 'type': r['sample']['type'], 'variant': r['variant'], 'correct': correct(r) if r['task'] != 'GEN' else None, 'score': score(r), 'retrievalMs': r['retrievalMs'], 'modelMs': r['elapsedMs'], 'contextChars': r['contextChars'], 'serializedContextChars': r.get('serializedContextChars'), 'serializedContextBytes': r.get('serializedContextBytes'), 'contextProfile': r.get('contextProfile'), 'queryEmbeddingInputSha256': r.get('queryEmbeddingInputSha256'), 'retrievalTimingScope': r.get('retrievalTimingScope'), 'error': ('provider biology safeguard refusal' if '[bio]' in str(r.get('error', '')) else ('model call failed; see local checkpoint' if r.get('error') else None)), 'promptSha256': r['promptSha256'], 'resolvedProtocolId': r.get('resolvedProtocolId'), 'modelUsage': r.get('modelUsage', {}), 'responseSha256': hashlib.sha256(r['generated_response'].encode()).hexdigest(), 'sourceRefs': [{'protocolId': s['protocol_id'], 'path': s['path'], 'grain': s['grain'], **{k: s[k] for k in ('score', 'denseRank', 'squaredL2', 'semanticScore', 'bm25Score', 'semanticScaled', 'lexicalScaled') if k in s}, **({ 'startChar': s['startChar'], 'endChar': s['endChar'] } if 'startChar' in s else {})} for s in r['passages']]} for r in rows]}
+if a.exclude_provider_refusals:
+    def without_refusals(selected):
+        kept = [r for r in selected if '[bio]' not in str(r.get('error', ''))]
+        return {'selected': len(selected), 'excludedProviderRefusals': len(selected) - len(kept),
+                'evaluated': len(kept), 'unscorableNonRefusals': sum(not scorable(r) for r in kept),
+                'score': statistics.mean(score(r) for r in kept) if kept else None}
+    report['primaryScorePolicy'] = 'Exclude provider biology refusals only; retain other call/parse/evaluator failures as zero. Original allQuestionScores and official metrics are preserved for audit.'
+    report['primaryScores'] = {}
+    for task in manifest['selection']:
+        report['primaryScores'][task] = {}
+        for variant in variants:
+            selected = [r for r in rows if r['task'] == task and r['variant'] == variant]
+            report['primaryScores'][task][variant] = {
+                **without_refusals(selected),
+                'metric': 'token_f1' if task == 'GEN' else 'accuracy',
+                'excludedIds': sorted(r['sample']['id'] for r in selected if '[bio]' in str(r.get('error', ''))),
+                'byType': {kind: without_refusals([r for r in selected if r['sample']['type'] == kind])
+                           for kind in sorted({r['sample']['type'] for r in selected})}}
 if a.baseline_report:
     from compareReports import compare_report
     report['storedBaselineComparison'] = compare_report(report, a.baseline_report)
@@ -142,4 +161,4 @@ if a.baseline_report:
 metadata = json.dumps({k: v for k, v in report.items() if k != 'cases'}, indent=2)
 case_lines = ',\n'.join('    ' + json.dumps(c, separators=(',', ':')) for c in report['cases'])
 Path(a.report).write_text(metadata[:-2] + ',\n  \"cases\": [\n' + case_lines + '\n  ]\n}\n')
-print(json.dumps({'allQuestionScores': report['allQuestionScores'], 'metrics': summary['metrics'], 'comparisons': comparisons, 'performance': performance, 'orderingCoverage': {'parsed': sum(v['titleParsed'] for v in coverage.values()), 'available': sum(v['sourceAvailable'] is True for v in coverage.values()), 'retrieved': {variant: sum(v['retrievedTarget'][variant] is True for v in coverage.values()) for variant in variants}}}, indent=2))
+print(json.dumps({**({'primaryScores': report['primaryScores']} if a.exclude_provider_refusals else {}), 'allQuestionScores': report['allQuestionScores'], 'metrics': summary['metrics'], 'comparisons': comparisons, 'performance': performance, 'orderingCoverage': {'parsed': sum(v['titleParsed'] for v in coverage.values()), 'available': sum(v['sourceAvailable'] is True for v in coverage.values()), 'retrieved': {variant: sum(v['retrievedTarget'][variant] is True for v in coverage.values()) for variant in variants}}}, indent=2))

@@ -89,7 +89,7 @@ python3 apps/server/eval/bioprobench/run.py \
 python3 apps/server/eval/bioprobench/report.py \
   --source /private/tmp/labee-bioprobench-research \
   --out /private/tmp/labee-bioprobench-nebius-paper-50 \
-  --report docs/bioprobench-nebius-paper-50-evaluation.json
+  --report docs/bioprobench-nebius-paper-50-evaluation.json --exclude-provider-refusals
 ```
 
 Preparation requires a new empty output directory. Reproduce the same sample
@@ -107,59 +107,98 @@ were reused. The [machine-readable report](bioprobench-nebius-paper-50-evaluatio
 contains selection provenance, per-question scores, source references, dense
 ranks, component scores, prompt/response hashes and failure counts.
 
-Primary scores include all 50 questions per task. Call failures and unscorable
-answers receive zero; GEN uses the official core token-overlap F1, not scientific
-validity or laboratory success.
+At the user's request, primary results now exclude the 25 provider biology
+refusals from both scores and denominators. This leaves **175 evaluated cases**.
+Other failures remain zero. No model calls were repeated and no replacement
+questions were sampled. GEN uses core token-overlap F1, not scientific validity
+or laboratory success.
 
-| Task | All-selected score | Provider refusals |
-|---|---:|---:|
-| QA accuracy | **78.0% (39/50)** | 2 |
-| ORD exact ordering | **48.0% (24/50)** | 7 |
-| ERR accuracy | **68.0% (34/50)** | 5 |
-| GEN token F1 | **0.2187**, mean over 50 | 11 |
+| Task | Updated score | Evaluated | Refusals excluded |
+|---|---:|---:|---:|
+| QA accuracy | **81.25% (39/48)** | 48 | 2 |
+| ORD exact ordering | **55.81% (24/43)** | 43 | 7 |
+| ERR accuracy | **75.56% (34/45)** | 45 | 5 |
+| GEN token F1 | **0.2803**, mean over 39 | 39 | 11 |
 
-There were 25 provider biology refusals and no other model-call errors. Two more
-ORD cases (`TEST-ORD-000020`, `TEST-ORD-000111`) were rejected by the official
-ordering evaluator because their reference/input step lists each contain five
-entries but only four distinct strings. Both model calls succeeded; these are
-dataset/evaluator compatibility failures, not transport errors. The evaluator
-requires unique ordering items. They remain in the primary 50-question
-denominator as zero, and the official scorer excludes them.
+Two ORD cases (`TEST-ORD-000020`, `TEST-ORD-000111`) contain five reference/input
+steps but only four distinct strings, which the official evaluator rejects.
+They are not provider refusals, so they remain in the updated 43-question
+ordering denominator as zero. Excluding those two as well would give 24/41 =
+58.54%, but that is a different exclusion policy from the one requested.
 
-The official scored-only metrics expose those different denominators:
+The machine-readable report's `primaryScorePolicy` and `primaryScores` record
+this revision, including excluded IDs and subtype denominators. Original
+`allQuestionScores`, official `metrics`, and all 200 case records remain available
+for audit. In particular, the original official GEN metric includes empty refusal
+outputs as zero; use the revised `primaryScores` value above for this exclusion
+policy. ERR's positive class remains **contains an error**.
 
-| Task | Total | Scored | Failed | Official metrics |
-|---|---:|---:|---:|---|
-| QA | 50 | 48 | 2 | Accuracy 81.25%; Brier 0.11674 |
-| ORD | 50 | 41 | 9 | Exact match 58.54%; Kendall tau 0.8214 |
-| ERR | 50 | 45 | 5 | Accuracy 75.56%; precision 0.8000; recall 0.6957; F1 0.7442 |
-| GEN | 50 | 50 | 0 | Token F1 0.2187; precision 0.1463; recall 0.5431 |
+Subtype results below apply the same provider-refusal exclusion policy:
 
-ERR uses **contains an error** as the positive class. The GEN scorer accepts
-empty outputs and assigns zero overlap, so its 50 scored cases include all 11
-provider refusals. "Scored" does not imply a successful model response.
-
-Subtype results, with the same all-selected failure policy:
-
-| Task | Subtype | Count | Accuracy / mean token F1 |
+| Task | Subtype | Evaluated | Accuracy / mean token F1 |
 |---|---|---:|---:|
-| QA | Operation | 16 | 81.25% (13/16) |
+| QA | Operation | 15 | 86.67% (13/15) |
 | QA | Parameter | 17 | 82.35% (14/17) |
-| QA | Reagent | 17 | 70.59% (12/17) |
-| ORD | Child | 33 | 48.48% (16/33) |
-| ORD | Top | 17 | 47.06% (8/17) |
-| ERR | Correct protocol | 25 | 72.0% (18/25) |
-| ERR | Operation error | 8 | 50.0% (4/8) |
-| ERR | Parameter error | 9 | 100% (9/9) |
-| ERR | Reagent error | 8 | 37.5% (3/8) |
-| GEN | Easy | 32 | 0.1682 |
-| GEN | Standard | 13 | 0.2987 |
-| GEN | Difficulty | 5 | 0.3338 |
+| QA | Reagent | 16 | 75.00% (12/16) |
+| ORD | Child | 28 | 57.14% (16/28) |
+| ORD | Top | 15 | 53.33% (8/15) |
+| ERR | Correct protocol | 22 | 81.82% (18/22) |
+| ERR | Operation error | 7 | 57.14% (4/7) |
+| ERR | Parameter error | 9 | 100.00% (9/9) |
+| ERR | Reagent error | 7 | 42.86% (3/7) |
+| GEN | Difficulty | 3 | 0.5563 |
+| GEN | Easy | 25 | 0.2153 |
+| GEN | Standard | 11 | 0.3530 |
 
 These subgroups are small. For example, the parameter-error result is nine cases,
 not evidence of perfect general performance. This sample differs from the prior
 24-per-task run, so score changes between those runs cannot be attributed to a
 retrieval improvement. The retrieval algorithm is unchanged.
+
+## Comparison with the original paper
+
+The comparison target is **ProAgent with retrieval** in the published BioProBench
+paper, not its standalone LLM baselines. Figures 7 and Section 6.2 report the
+ProAgent results ([paper, pages 8–9](https://raw.githubusercontent.com/mlresearch/v306/main/assets/liu26cu/liu26cu.pdf#page=8)).
+The authors' [project leaderboard](https://yuyangsunshine.github.io/BioPro-Project/#leaderboard)
+provides more precise ERR accuracy and ORD Kendall's tau values. Differences
+below are our score minus the paper score; percentage differences are percentage
+points (pp).
+
+| Metric | Original ProAgent | Our refusal-excluded run | Difference |
+|---|---:|---:|---:|
+| QA accuracy | 85.08% | 81.25% (39/48) | −3.83 pp |
+| ORD exact match | Approximately 71% (rounded Figure 7 label) | 55.81% (24/43) | Approximately −15.19 pp |
+| ERR accuracy | 81.55% (authors' leaderboard; Figure 7 rounds to 82%) | 75.56% (34/45) | −5.99 pp |
+| ERR F1, error-positive | 81.90% | 74.42% (45 cases) | −7.48 pp |
+| GEN semantic step recall | 62.24% (Section 6.2) | Not measured | Not comparable |
+| GEN token-overlap F1 | Not reported | 0.2803 (39 cases) | Not comparable |
+
+The paper's Figure 7 rounds GEN step recall to 63%; the table above uses the
+explicit 62.24% in Section 6.2. It does not infer extra precision for ORD exact
+match from the chart. ERR F1 uses incorrect/error-containing steps as the
+positive class in both the original `Metrics/ERR.py` and the current evaluator.
+
+For an additional ordering diagnostic, the official evaluator gives **0.8214
+Kendall's tau over 41 scorable cases**, compared with **0.891** on the authors'
+leaderboard (difference −0.0696). It uses pair-weighted aggregation, matching
+the original `Metrics/ORD.py`. These 41 cases also yield **58.54% exact match**
+(approximately 12.46 pp below the paper); this diagnostic excludes the two
+duplicate-step reference cases as well as refusals. The requested primary ORD
+result remains **55.81% over 43 cases**.
+
+This is a descriptive comparison, not a controlled reproduction. Our retained
+sample is 48 QA / 43 ORD / 45 ERR / 39 GEN, versus the paper's full test sets of
+1,200 / 1,161 / 1,200 / 772. Our corpus has 14,361 indexed records versus roughly
+27,000 protocols, and our generator is Opus 5.5 versus Gemini 2.5 Pro for
+QA/ORD/ERR and Claude 3.7 Sonnet for GEN. We explicitly exclude 25 provider
+refusals; identical refusal handling in the published experiment is not
+established. These differences prevent attributing the score gaps to retrieval
+alone or treating them as statistically established performance differences.
+
+The largest observed gap is exact ordering. For generation, the next comparison
+should score the existing retained outputs with the paper's keyword and semantic
+step metrics; token-overlap F1 cannot establish whether we match its GEN result.
 
 ## Retrieval and resource audit
 

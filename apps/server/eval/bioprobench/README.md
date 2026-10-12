@@ -127,3 +127,9 @@ subtype counts (ERR also stratifies by correctness status), and records the
 selection seed and exclusion-report hashes. Do not use `--baseline-report` to
 compare different question selections as paired results. See the
 [50-per-task run](../../../../docs/bioprobench-nebius-paper-50.md).
+
+`report.py --exclude-provider-refusals` adds `primaryScores` that exclude provider
+biology refusals from the denominator. It records excluded IDs and subgroup
+counts, retains other failures as zero, and preserves the original official
+metrics and all-question scores for audit. This changes reporting only; it does
+not rerun predictions or select replacement questions.

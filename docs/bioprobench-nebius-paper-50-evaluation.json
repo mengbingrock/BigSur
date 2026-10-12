@@ -3768,6 +3768,174 @@
       }
     }
   },
+  "primaryScorePolicy": "Exclude provider biology refusals only; retain other call/parse/evaluator failures as zero. Original allQuestionScores and official metrics are preserved for audit.",
+  "primaryScores": {
+    "PQA": {
+      "paper-hybrid-nebius": {
+        "selected": 50,
+        "excludedProviderRefusals": 2,
+        "evaluated": 48,
+        "unscorableNonRefusals": 0,
+        "score": 0.8125,
+        "metric": "accuracy",
+        "excludedIds": [
+          "TEST-PQA-000083",
+          "TEST-PQA-000874"
+        ],
+        "byType": {
+          "operation": {
+            "selected": 16,
+            "excludedProviderRefusals": 1,
+            "evaluated": 15,
+            "unscorableNonRefusals": 0,
+            "score": 0.8666666666666667
+          },
+          "parameter": {
+            "selected": 17,
+            "excludedProviderRefusals": 0,
+            "evaluated": 17,
+            "unscorableNonRefusals": 0,
+            "score": 0.8235294117647058
+          },
+          "reagent": {
+            "selected": 17,
+            "excludedProviderRefusals": 1,
+            "evaluated": 16,
+            "unscorableNonRefusals": 0,
+            "score": 0.75
+          }
+        }
+      }
+    },
+    "ORD": {
+      "paper-hybrid-nebius": {
+        "selected": 50,
+        "excludedProviderRefusals": 7,
+        "evaluated": 43,
+        "unscorableNonRefusals": 2,
+        "score": 0.5581395348837209,
+        "metric": "accuracy",
+        "excludedIds": [
+          "TEST-ORD-000008",
+          "TEST-ORD-000046",
+          "TEST-ORD-000059",
+          "TEST-ORD-000509",
+          "TEST-ORD-000597",
+          "TEST-ORD-000685",
+          "TEST-ORD-000748"
+        ],
+        "byType": {
+          "child": {
+            "selected": 33,
+            "excludedProviderRefusals": 5,
+            "evaluated": 28,
+            "unscorableNonRefusals": 2,
+            "score": 0.5714285714285714
+          },
+          "top": {
+            "selected": 17,
+            "excludedProviderRefusals": 2,
+            "evaluated": 15,
+            "unscorableNonRefusals": 0,
+            "score": 0.5333333333333333
+          }
+        }
+      }
+    },
+    "ERR": {
+      "paper-hybrid-nebius": {
+        "selected": 50,
+        "excludedProviderRefusals": 5,
+        "evaluated": 45,
+        "unscorableNonRefusals": 0,
+        "score": 0.7555555555555555,
+        "metric": "accuracy",
+        "excludedIds": [
+          "TEST-ERR-000257",
+          "TEST-ERR-000559",
+          "TEST-ERR-000952",
+          "TEST-ERR-000998",
+          "TEST-ERR-001055"
+        ],
+        "byType": {
+          "correct": {
+            "selected": 25,
+            "excludedProviderRefusals": 3,
+            "evaluated": 22,
+            "unscorableNonRefusals": 0,
+            "score": 0.8181818181818182
+          },
+          "operation": {
+            "selected": 8,
+            "excludedProviderRefusals": 1,
+            "evaluated": 7,
+            "unscorableNonRefusals": 0,
+            "score": 0.5714285714285714
+          },
+          "parameter": {
+            "selected": 9,
+            "excludedProviderRefusals": 0,
+            "evaluated": 9,
+            "unscorableNonRefusals": 0,
+            "score": 1.0
+          },
+          "reagent": {
+            "selected": 8,
+            "excludedProviderRefusals": 1,
+            "evaluated": 7,
+            "unscorableNonRefusals": 0,
+            "score": 0.42857142857142855
+          }
+        }
+      }
+    },
+    "GEN": {
+      "paper-hybrid-nebius": {
+        "selected": 50,
+        "excludedProviderRefusals": 11,
+        "evaluated": 39,
+        "unscorableNonRefusals": 0,
+        "score": 0.2803481546052696,
+        "metric": "token_f1",
+        "excludedIds": [
+          "TEST-GEN-000081",
+          "TEST-GEN-000163",
+          "TEST-GEN-000172",
+          "TEST-GEN-000274",
+          "TEST-GEN-000280",
+          "TEST-GEN-000291",
+          "TEST-GEN-000397",
+          "TEST-GEN-000667",
+          "TEST-GEN-000668",
+          "TEST-GEN-000694",
+          "TEST-GEN-000768"
+        ],
+        "byType": {
+          "difficulty": {
+            "selected": 5,
+            "excludedProviderRefusals": 2,
+            "evaluated": 3,
+            "unscorableNonRefusals": 0,
+            "score": 0.5562829790894521
+          },
+          "easy": {
+            "selected": 32,
+            "excludedProviderRefusals": 7,
+            "evaluated": 25,
+            "unscorableNonRefusals": 0,
+            "score": 0.21526762972636457
+          },
+          "standard": {
+            "selected": 13,
+            "excludedProviderRefusals": 2,
+            "evaluated": 11,
+            "unscorableNonRefusals": 0,
+            "score": 0.35300348628891304
+          }
+        }
+      }
+    }
+  },
   "cases": [
     {"id":"TEST-GEN-000549","task":"GEN","type":"standard","variant":"paper-hybrid-nebius","correct":null,"score":0.5284974093264249,"retrievalMs":14.893542043864727,"modelMs":12646,"contextChars":11796,"serializedContextChars":11796,"serializedContextBytes":11848,"contextProfile":"large","queryEmbeddingInputSha256":"5a6fd28db1d7167d10f310a7be28f06609047c491165434b95f5fe2d320efb37","retrievalTimingScope":"FAISS + BM25 + fusion; query embedding is cached and excluded","error":null,"promptSha256":"219ca225d30b47cf1cc8f4c74168b5479d6d7e39f3dfd55e3f94beb275c6f958","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":765,"cacheReadInputTokens":162004,"cacheCreationInputTokens":12575,"webSearchRequests":0,"costUSD":0.1483088,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":133,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"b301a57d961edfcc348c8f659c3fef88b1c43c56e5182216bed019302f32f435","sourceRefs":[{"protocolId":"Bio-protocol:Bio-protocol-52","path":"","grain":"section","score":1.0,"denseRank":1,"squaredL2":0.5089530944824219,"semanticScore":0.7455234527587891,"bm25Score":243.5515027874487,"semanticScaled":1.0,"lexicalScaled":1.0,"startChar":4000,"endChar":8853},{"protocolId":"Bio-protocol:Bio-protocol-52","path":"","grain":"section","score":0.6594387291082597,"denseRank":3,"squaredL2":0.6436779499053955,"semanticScore":0.6781610250473022,"bm25Score":212.74100515937158,"semanticScaled":0.6185112285876408,"lexicalScaled":0.720829979889188,"startChar":0,"endChar":5000},{"protocolId":"Protocol-io:Protocol.io-1710","path":"","grain":"section","score":0.5299750991930042,"denseRank":2,"squaredL2":0.6402792930603027,"semanticScore":0.6798603534698486,"bm25Score":175.42731765218608,"semanticScaled":0.6281349125041392,"lexicalScaled":0.3827353792263017,"startChar":0,"endChar":1333}]},
     {"id":"TEST-ERR-000704","task":"ERR","type":"operation","variant":"paper-hybrid-nebius","correct":true,"score":1.0,"retrievalMs":26.145458221435547,"modelMs":6484,"contextChars":9005,"serializedContextChars":9005,"serializedContextBytes":9046,"contextProfile":"small","queryEmbeddingInputSha256":"7620bd08b8b4b577e9d55bab0923338818825fe88cb8feab4900edfea6bf41b5","retrievalTimingScope":"FAISS + BM25 + fusion; query embedding is cached and excluded","error":null,"promptSha256":"23f0ee22da67a778a07e40938834ffd1337eac86f747f789c5778fa073b9cb1e","resolvedProtocolId":null,"modelUsage":{"claude-opus-5-5":{"inputTokens":2,"outputTokens":60,"cacheReadInputTokens":162004,"cacheCreationInputTokens":10808,"webSearchRequests":0,"costUSD":0.12007280000000001,"contextWindow":1000000,"maxOutputTokens":128000,"thinkingTokens":39,"canonicalModel":"claude-opus-5-5","provider":"firstParty","costBasis":"list"}},"responseSha256":"35dc9400a573baf3e661f7b5b1501d826dcead2db49396ca7792b1c9aeab7853","sourceRefs":[{"protocolId":"Protocol-io:Protocol.io-6738","path":"","grain":"section","score":0.8983474035485363,"denseRank":1,"squaredL2":0.5628613233566284,"semanticScore":0.7185693383216858,"bm25Score":124.22353244883243,"semanticScaled":1.0,"lexicalScaled":0.7458685088713407,"startChar":9600,"endChar":11600},{"protocolId":"Protocol-io:Protocol.io-6156","path":"","grain":"section","score":0.6825201950755466,"denseRank":5,"squaredL2":0.6119723320007324,"semanticScore":0.6940138339996338,"bm25Score":129.3784258181403,"semanticScaled":0.5914243068882244,"lexicalScaled":0.8191640273565299,"startChar":1600,"endChar":3600},{"protocolId":"Bio-protocol:Bio-protocol-1089","path":"","grain":"section","score":0.626345724054538,"denseRank":2,"squaredL2":0.5844180583953857,"semanticScore":0.7077909708023071,"bm25Score":95.31817861309854,"semanticScaled":0.820660210350932,"lexicalScaled":0.3348739946099471,"startChar":14400,"endChar":15492},{"protocolId":"Protocol-io:Protocol.io-766","path":"","grain":"section","score":0.6180156017852886,"denseRank":3,"squaredL2":0.6066234111785889,"semanticScore":0.6966882944107056,"bm25Score":113.34231920347243,"semanticScaled":0.635924289532537,"lexicalScaled":0.591152570164416,"startChar":6400,"endChar":7551},{"protocolId":"Protocol-io:Protocol.io-394","path":"","grain":"section","score":0.5924831932530601,"denseRank":7,"squaredL2":0.6208710670471191,"semanticScore":0.6895644664764404,"bm25Score":121.35768973999983,"semanticScaled":0.5173918864640514,"lexicalScaled":0.705120153436573,"startChar":1600,"endChar":3600}]},
