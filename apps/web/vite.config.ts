@@ -19,7 +19,9 @@ export default defineConfig({
     strictPort: true,
     hmr: { protocol: "ws", host: "localhost" },
     proxy: {
-      "/api": { target: apiTarget, changeOrigin: true },
+      // OAuth compares the browser origin with its configured callback origin.
+      // Preserve Host so the backend sees Vite's origin, not its own API port.
+      "/api": { target: apiTarget, changeOrigin: false },
     },
   },
   build: {
