@@ -45,7 +45,7 @@ def run(job):
         return {**saved, '_reused': True}
     started = time.monotonic()
     result = {**job, **context_measurements, 'model': args.model, 'promptSha256': hashlib.sha256(prompt.encode()).hexdigest()}
-    if job['variant'] == 'paper-context':
+    if job['variant'] in ('paper-context', 'paper-hybrid-nebius'):
         result['contextChars'] = context_measurements['serializedContextChars']
     try:
         child = subprocess.run([os.environ.get('CLAUDE_BIN', 'claude'), '-p', '--system-prompt', 'Answer the benchmark question using the provided evidence when applicable. Follow the requested answer format. Do not use external tools.', '--model', args.model, '--tools', '', '--output-format', 'json', '--no-session-persistence'], input=prompt, capture_output=True, text=True, timeout=180, cwd='/private/tmp')

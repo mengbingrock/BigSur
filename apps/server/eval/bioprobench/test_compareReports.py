@@ -21,6 +21,13 @@ class ComparisonTests(unittest.TestCase):
             file.write_text(json.dumps(old))
             result = compare_report(current, file)['tasks']['PQA']['flat']
             self.assertEqual((result['pairedDelta'], result['wins'], result['losses']), (0.5, 1, 0))
+            hybrid = copy.deepcopy(current)
+            hybrid['primaryVariant'] = 'paper-hybrid-nebius'
+            hybrid['variants'] = ['paper-hybrid-nebius']
+            for case in hybrid['cases']:
+                case['variant'] = 'paper-hybrid-nebius'
+            result = compare_report(hybrid, file)['tasks']['PQA']['flat']
+            self.assertEqual((result['primaryScore'], result['baselineScore']), (0.5, 0))
             for field in common:
                 changed = copy.deepcopy(current)
                 changed[field] = None

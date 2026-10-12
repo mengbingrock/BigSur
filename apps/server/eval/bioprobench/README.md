@@ -109,3 +109,12 @@ serialized context characters/UTF-8 bytes and keeps provider token usage; those
 tokens include the entire CLI request, not just retrieved evidence. This mode
 does not implement the paper's dense/hybrid ranker or task-specific model choice.
 See [implementation and results](../../../../docs/bioprobench-paper-context.md).
+
+## Nebius Qwen hybrid mode
+
+`buildNebiusIndex.py` embeds the two paper-context indexes using Nebius
+`Qwen/Qwen3-Embedding-8B` and publishes resumable, checksum-verified FAISS
+`IndexFlatL2` indexes. `prepareNebiusHybrid.py` creates a separate
+`paper-hybrid-nebius` variant using dense top 60, `rank-bm25`, 60/40 score fusion
+and task-specific top 5/top 3 evidence. It retains the frozen questions and the
+existing model runner. See [implementation, assumptions and commands](../../../../docs/bioprobench-nebius-hybrid.md).
