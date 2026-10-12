@@ -1,5 +1,8 @@
 # Opus 5.5 and protocol context expansion
 
+> Generated JSON reports and downloaded datasets are local artifacts excluded from Git.
+> References and commands below use local report paths; Markdown summaries remain in the repository.
+
 Work is isolated on `feat/siri-context-retrieval`, following the hierarchy implementation in `a6fb940`. The exact model `claude-opus-5-5` was accepted by the authenticated CLI and confirmed in its `modelUsage` metadata. The model release is documented by [Anthropic](https://www.anthropic.com/claude-opus-5-5).
 
 ## Implementation
@@ -16,7 +19,7 @@ The shared-library semantic path still reranks a lexical shortlist. This work do
 
 The full server suite passed 339 tests across 47 files. Focused tests cover title ambiguity/ID boundaries, original node order, complete text under budgets, distractor exclusion, revision conflicts, and citation node/revision references. Server and mobile typechecks and the server build passed; the build retains the existing gray-matter direct-eval warning.
 
-The real router passed 5/5 synthetic cases using Opus 5.5, including a correction buried in 1,000 messages and an archived session behind 210 recent sessions. All five checks required reading the expected source. The three protocol cases checked parameter, conditional context and step order; the final case used tree navigation and revision-bound context expansion. See [router report](siri-context-opus-evaluation.json).
+The real router passed 5/5 synthetic cases using Opus 5.5, including a correction buried in 1,000 messages and an archived session behind 210 recent sessions. All five checks required reading the expected source. The three protocol cases checked parameter, conditional context and step order; the final case used tree navigation and revision-bound context expansion. See router report (`siri-context-opus-evaluation.json`, local artifact).
 
 ## Benchmark design
 
@@ -37,7 +40,7 @@ Each variant had two provider biology refusals and one duplicate-step reference 
 
 Unique identity routing activated on 24/35 questions. Of the 11 unresolved titles, eight have multiple exact-title source records, and three also match other full protocol names in the query. The conservative resolver declines to choose among them. Expanded evidence included the intended title in 26/35 cases overall, and used 6,752 serialized characters on average versus 3,914 for the prior hierarchy. This supports both identified failure modes: source selection and context underfilling.
 
-See [development evaluation](bioprobench-opus-development-evaluation.json). The earlier Haiku hierarchy run also scored 23/35, but single stochastic runs with different refusal patterns do not establish model equivalence. No Opus flat-window predictions were run on this development set; do not compare the old Haiku flat result as though the model were held constant.
+See development evaluation (`bioprobench-opus-development-evaluation.json`, local artifact). The earlier Haiku hierarchy run also scored 23/35, but single stochastic runs with different refusal patterns do not establish model equivalence. No Opus flat-window predictions were run on this development set; do not compare the old Haiku flat result as though the model were held constant.
 
 ### Fresh four-task experiment
 
@@ -54,7 +57,7 @@ No fresh-task comparison demonstrates a reliable improvement. Expansion versus h
 
 There were 45 provider biology safeguard refusals across the 288 calls and no other call failures. PQA/ORD/ERR failures are excluded by official scored metrics but included as incorrect above. The official GEN core scorer accepts an empty prediction and assigns token F1 zero, so it reports 24 scored even when calls were refused; the separate failure breakdown preserves that distinction. On the 17 GEN questions with usable responses across all variants, token F1 was 0.287 flat, 0.285 hierarchy and 0.277 expansion. Generated text overlap is not a scientific correctness score.
 
-See [original fresh evaluation](bioprobench-opus-evaluation.json). Expanded accounting includes source-reference metadata that is omitted from the model's displayed evidence, so budgets are nominally comparable rather than exactly token-matched. The evaluation uses the production identity/expansion helpers but omits production grain bonuses, embedding reranking and agent navigation.
+See original fresh evaluation (`bioprobench-opus-evaluation.json`, local artifact). Expanded accounting includes source-reference metadata that is omitted from the model's displayed evidence, so budgets are nominally comparable rather than exactly token-matched. The evaluation uses the production identity/expansion helpers but omits production grain bonuses, embedding reranking and agent navigation.
 
 ## Decision after evaluation
 
@@ -70,4 +73,4 @@ Final review also found that an explicitly named missing protocol could resolve 
 
 No production corpus was ingested, and no changes were pushed or deployed.
 
-The title-precedence correction made two fresh and three development calls (five new calls total, 353 unchanged checkpoints reused across the follow-up reports). Aggregate answer scores did not change. On the development set, target-title inclusion improved again from 26/35 to **27/35**, with 27 identities now resolved. The corrected reports are [four-task follow-up](bioprobench-opus-title-fix-evaluation.json) and [source-covered follow-up](bioprobench-opus-development-title-fix-evaluation.json). Total benchmark model calls for this work: **363** (288 + 70 + 5), plus 21 calls for the five synthetic router checks and one model-availability probe. These totals exclude the earlier Haiku work.
+The title-precedence correction made two fresh and three development calls (five new calls total, 353 unchanged checkpoints reused across the follow-up reports). Aggregate answer scores did not change. On the development set, target-title inclusion improved again from 26/35 to **27/35**, with 27 identities now resolved. The corrected reports are four-task follow-up (`bioprobench-opus-title-fix-evaluation.json`, local artifact) and source-covered follow-up (`bioprobench-opus-development-title-fix-evaluation.json`, local artifact). Total benchmark model calls for this work: **363** (288 + 70 + 5), plus 21 calls for the five synthetic router checks and one model-availability probe. These totals exclude the earlier Haiku work.

@@ -1,5 +1,8 @@
 # BioProBench hybrid retrieval with Nebius
 
+> Generated JSON reports and downloaded datasets are local artifacts excluded from Git.
+> References and commands below use local report paths; Markdown summaries remain in the repository.
+
 This evaluation adds real `Qwen/Qwen3-Embedding-8B` embeddings from Nebius Token
 Factory to the existing paper-context corpus. It uses the same frozen 96
 questions and `claude-opus-5-5` generator as the preceding experiment. Production
@@ -181,7 +184,7 @@ source coverage exactly.
 
 All 96 new predictions completed, with no reused predictions. Every response's
 model usage confirms `claude-opus-5-5`. The
-[machine-readable report](bioprobench-nebius-hybrid-evaluation.json) verifies the
+machine-readable report (`bioprobench-nebius-hybrid-evaluation.json`, local artifact) verifies the
 same corpus, task checksums, model and selected question identities before
 comparing with the stored paper-context baseline. There were 14 provider biology
 refusals (PQA 0, ORD 4, ERR 5, GEN 5) and no other call failures, versus 17 refusals

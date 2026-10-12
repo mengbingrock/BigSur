@@ -1,5 +1,8 @@
 # Siri context router: implementation and validation
 
+> Generated JSON reports and downloaded datasets are local artifacts excluded from Git.
+> References and commands below use local report paths; Markdown summaries remain in the repository.
+
 Branch: `feat/siri-context-retrieval` (isolated `.claude/worktrees/siri-context`).
 
 The default `/api/siri/say` path now runs an application-owned retrieval loop. `LABEE_SIRI_CONTEXT=0` selects the legacy planner and pauses the new worker without deleting its persisted tasks. No production deployment is part of this change.

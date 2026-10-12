@@ -67,7 +67,7 @@ serialization, checkpoint reuse, and comparison logic, not scientific quality.
   https://github.com/YuyangSunshine/bioproagent/blob/e18586ab4a2a851433bedc0e6940b77470355fd6/Licenses.md
 
 The displayed table is transcribed from Labee's frozen
-`docs/bioprobench-no-rag-comparison.json` commonCases results. Full development
+`docs/bioprobench-no-rag-comparison.json` commonCases results (a local generated artifact, excluded from Git). Full development
 reports are retained in the repository under docs/bioprobench-no-rag.md and
 docs/bioprobench-proagent-fixes.md. This summary contains no protocol text or
 reference answers.

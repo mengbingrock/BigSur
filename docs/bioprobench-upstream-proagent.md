@@ -1,5 +1,8 @@
 # Upstream BioProAgent versus single-call RAG
 
+> Generated JSON reports and downloaded datasets are local artifacts excluded from Git.
+> References and commands below use local report paths; Markdown summaries remain in the repository.
+
 This experiment runs the actual cloned
 [BioProAgent source](https://github.com/YuyangSunshine/bioproagent/tree/e18586ab4a2a851433bedc0e6940b77470355fd6),
 calling `main_evaluate.ProAgent.process_query`. The upstream planner, finite-state
@@ -141,7 +144,7 @@ matched-compute experiment.
 All **200 cases completed**, with **902 model calls** across the upstream agent's
 roles (versus 200 calls for the stored baseline). There were **32 provider biology
 refusals**, no other provider-call failures, and no selective retries or replacement
-questions. The [machine-readable evaluation](bioprobench-upstream-proagent-evaluation.json)
+questions. The machine-readable evaluation (`bioprobench-upstream-proagent-evaluation.json`, local artifact)
 contains all case scores, paired comparisons, source references, usage, and
 sanitized execution metadata.
 

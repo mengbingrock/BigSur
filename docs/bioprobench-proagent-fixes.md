@@ -1,5 +1,8 @@
 # BioProAgent runtime fixes and bounded benchmark profile
 
+> Generated JSON reports and downloaded datasets are local artifacts excluded from Git.
+> References and commands below use local report paths; Markdown summaries remain in the repository.
+
 This follow-up patches the actual [public BioProAgent source](https://github.com/YuyangSunshine/bioproagent/tree/e18586ab4a2a851433bedc0e6940b77470355fd6).
 It still executes `main_evaluate.ProAgent.process_query`, `AdaptivePlanner`, and
 the upstream retrieval, drafting, reflection, and revision tools. The original
@@ -166,9 +169,9 @@ quality measure. Keep plain RAG as the lower-cost baseline.
 
 ### Artifacts and checks
 
-- [Per-case evaluation](bioprobench-proagent-fixes-evaluation.json): scores,
+- Per-case evaluation (`bioprobench-proagent-fixes-evaluation.json`, local artifact): scores,
   exclusions, source references/hashes, model usage, and agent audit fields.
-- [Comparisons and execution summary](bioprobench-proagent-fixes-comparison.json):
+- Comparisons and execution summary (`bioprobench-proagent-fixes-comparison.json`, local artifact):
   both paired baselines, common-three-arm scores, confidence intervals, and
   first-draft-to-final effects.
 - Full local checkpoints: `/private/tmp/labee-proagent-fixed-paper-50`.

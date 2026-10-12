@@ -1,5 +1,8 @@
 # BioProBench hierarchy implementation and evaluation
 
+> Generated JSON reports and downloaded datasets are local artifacts excluded from Git.
+> References and commands below use local report paths; Markdown summaries remain in the repository.
+
 Implemented on `feat/siri-context-retrieval`. This is the BioProBench structure-first stage: original protocol hierarchy plus navigation. Automatic parent-context expansion and inferred process-dependency graphs are not part of this experiment.
 
 ## Index and navigation

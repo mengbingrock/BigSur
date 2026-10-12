@@ -1,5 +1,8 @@
 # BioProBench: paper retrieval configuration, 50 questions per task
 
+> Generated JSON reports and downloaded datasets are local artifacts excluded from Git.
+> References and commands below use local report paths; Markdown summaries remain in the repository.
+
 This run keeps the preceding Nebius retrieval implementation and increases the
 evaluation to 50 previously unevaluated questions per task, 200 total. Following
 the user's updated instruction, the candidate set remains the paper's 60 dense
@@ -103,7 +106,7 @@ questions and must not be treated as paired baseline predictions.
 All 200 predictions completed and were scored with the upstream
 [`evaluate-protocol-outputs` skill](https://github.com/YuyangSunshine/bioprobench/blob/cf00fecd62583b98350cc48e26a29c92d3f21e5d/skills/evaluate-protocol-outputs/SKILL.md),
 BioProBench profile. All 200 usage records confirm `claude-opus-5-5`; no predictions
-were reused. The [machine-readable report](bioprobench-nebius-paper-50-evaluation.json)
+were reused. The machine-readable report (`bioprobench-nebius-paper-50-evaluation.json`, local artifact)
 contains selection provenance, per-question scores, source references, dense
 ranks, component scores, prompt/response hashes and failure counts.
 

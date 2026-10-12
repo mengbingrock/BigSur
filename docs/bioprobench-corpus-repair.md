@@ -1,5 +1,8 @@
 # BioProBench source corpus repair
 
+> Generated JSON reports and downloaded datasets are local artifacts excluded from Git.
+> References and commands below use local report paths; Markdown summaries remain in the repository.
+
 The two-file evaluation loader omitted Bio-protocol. The official Hugging Face
 release currently contains Protocol Exchange and protocols.io raw files; the
 [public mirror](https://huggingface.co/datasets/bowenxian/BioProBench/tree/c9ae37cac1b789eda6f3ffa62047fce92c286fbb)
@@ -137,7 +140,7 @@ zero overlap, so those call failures appear separately in the report.
 | GEN | 24 / 0 | 24 / 0 | 24 / 0 |
 
 Detailed metrics, common-scorable comparisons, per-case hashes and source
-references: [replay report](bioprobench-corpus-followup-evaluation.json).
+references: replay report (`bioprobench-corpus-followup-evaluation.json`, local artifact).
 
 Validation: 343 server tests passed across 48 files; the Python coverage unit
 test passed; server typecheck passed. A three-collection integration smoke test

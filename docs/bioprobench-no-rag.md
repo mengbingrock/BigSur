@@ -1,5 +1,8 @@
 # Plain LLM without retrieval: BioProBench baseline
 
+> Generated JSON reports and downloaded datasets are local artifacts excluded from Git.
+> References and commands below use local report paths; Markdown summaries remain in the repository.
+
 This run uses one fresh `claude-opus-5-5` call for each of the same 200 frozen
 BioProBench cases: 50 each of PQA, ORD, ERR, and GEN. It supplies the official
 question prompt alone. There is no retrieval, embedding, agent planner,
@@ -86,9 +89,9 @@ claiming that higher token overlap means better scientific quality.
 
 ## Artifacts and validation
 
-- [Per-case evaluation](bioprobench-no-rag-evaluation.json), including own-arm
+- Per-case evaluation (`bioprobench-no-rag-evaluation.json`, local artifact), including own-arm
   scores, exclusions, all-selected scores, and paired RAG comparison.
-- [Three-arm comparison](bioprobench-no-rag-comparison.json), including paired
+- Three-arm comparison (`bioprobench-no-rag-comparison.json`, local artifact), including paired
   confidence intervals and common-case IDs.
 - Seven targeted tests passed: no-RAG input isolation and preparation, unchanged
   RAG serialization, checkpoint reuse, and paired/common-case reporting.

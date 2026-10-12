@@ -1,1 +1,19 @@
 __pycache__/
+
+# Downloaded corpora and generated evaluation/index artifacts.
+/data/
+/datasets/
+/corpus/
+/indexes/
+/results/
+/runs/
+*.jsonl
+*.parquet
+*.faiss
+*.npy
+*.npz
+*.pkl
+*.pickle
+/Protocol-exchange.json
+/Protocol-io.json
+/Bio-protocol.json

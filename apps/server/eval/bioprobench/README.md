@@ -1,5 +1,8 @@
 # BioProBench hierarchy experiment
 
+> Generated JSON reports and downloaded datasets are local artifacts excluded from Git.
+> References and commands below use local report paths; Markdown summaries remain in the repository.
+
 This is an isolated, controlled index ablation using the upstream BioProBench PQA and ORD test tasks and official evaluation skill. It is not a complete BioProBench leaderboard run, a semantic-embedding comparison, or an end-to-end router evaluation.
 
 ## Reproduce

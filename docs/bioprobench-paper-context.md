@@ -1,5 +1,8 @@
 # BioProBench paper-context evaluation
 
+> Generated JSON reports and downloaded datasets are local artifacts excluded from Git.
+> References and commands below use local report paths; Markdown summaries remain in the repository.
+
 This separate evaluation mode reconstructs the task-specific context settings in
 [BioProBench Appendix C.3, page 15](https://raw.githubusercontent.com/mlresearch/v306/main/assets/liu26cu/liu26cu.pdf#page=15).
 It leaves production retrieval behavior unchanged.
@@ -82,7 +85,7 @@ counts for all questions. All 96 receive their intended passage count; 95 exceed
 Ran 96 new predictions, 24 per task, with `claude-opus-5-5`. All 96 returned
 usage records confirm that model ID. No predictions were reused for this mode;
 the three comparison columns come from the stored repaired-corpus run.
-The [machine-readable report](bioprobench-paper-context-evaluation.json) checks
+The machine-readable report (`bioprobench-paper-context-evaluation.json`, local artifact) checks
 identical corpus audits, task checksums, model, frozen selections and complete
 case identities before comparing scores. It includes per-case hashes, source
 references, offsets and paired wins/losses.
